@@ -1,9 +1,15 @@
 """
-Entrepreneurial Opportunity Validation System
-=============================================
+Entrepreneurial Opportunity Validation System — CrewAI Memory Variant
+=====================================================================
 
-A two-agent AI system that validates entrepreneurial opportunities
-before the founder commits to building a solution.
+  memory=True is passed to every Crew instance in run_agent().
+
+This enables CrewAI's built-in memory stack:
+  - Short-term memory  : RAG over recent interactions (ChromaDB)
+  - Long-term memory   : cross-run persistence (SQLite)
+  - Entity memory      : tracks key nouns/concepts across turns
+
+Requires: pip install sentence-transformers
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 AGENT 1 — Opportunity Evaluation Agent
@@ -299,19 +305,26 @@ def run_agent(task: Task, agent: Agent) -> str:
     """
     Run a single-agent crew and return a clean plain-text string.
 
-    When agents use tools (e.g. SerperDevTool), CrewAI includes the full
-    reasoning trace in the string output — raw JSON dumps from Serper, chain-
-    of-thought lines starting with 'Thought:', and tool result blobs all appear
-    before the agent's actual formatted answer.
+    memory=True enables CrewAI's built-in memory stack:
+      - Short-term: RAG over interactions within this session (ChromaDB)
+      - Long-term:  SQLite persistence across runs
+      - Entity:     tracks key concepts/nouns mentioned
 
-    clean_agent_output() strips that noise by finding the first known section
-    header in our structured format and returning only what follows it.
+    sentence-transformers is used as the embedder so no OpenAI key is required.
+    Install with: pip install sentence-transformers
     """
     crew = Crew(
         agents=[agent],
         tasks=[task],
         process=Process.sequential,
-        verbose=False
+        verbose=False,
+        memory=True,
+        embedder={
+            "provider": "sentence-transformer",
+            "config": {
+                "model": "all-MiniLM-L6-v2",
+            }
+        },
     )
     raw = str(crew.kickoff())
     return clean_agent_output(raw)
