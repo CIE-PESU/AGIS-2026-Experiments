@@ -1,0 +1,86 @@
+# ─────────────────────────────────────────────────────────────────
+# UI Strings — all user-facing text outside of agent prompts
+# ─────────────────────────────────────────────────────────────────
+
+startup:
+  intro: |
+    This system determines whether your problem is worth solving
+    and whether your proposed solution is a valid response.
+
+    PHASE 1 — Opportunity Evaluation
+      TIPSC  (Timely · Important · Profitable · Solvable · Contextual)
+      Need Validation
+      COP    (Capability · Opportunity · Passion)
+
+    PHASE 2 — Idea Evaluation
+      PSEA   (Problem-Solution Fit · Simplicity · Ethics · Assumptions)
+      Initial Feasibility
+
+  search_enabled:  "  ✓  Web search enabled — results will be injected as live context"
+  search_disabled: "  ⚠  SERPER_API_KEY not set — agents will evaluate without web data"
+
+phases:
+  opportunity_header: "PHASE 1 — OPPORTUNITY EVALUATION"
+  opportunity_running: "  Running TIPSC triage...\n"
+  idea_header:         "PHASE 2 — IDEA EVALUATION"
+  idea_running:        "  Running PSEA evaluation...\n"
+
+transitions:
+  opportunity_approved: |
+    Your opportunity has been validated. Well done.
+    Now describe the solution you propose to build.
+  final_status: |
+    Both opportunity and solution have passed validation.
+    Proceed to Desirability, Feasibility, and Viability (DFV) analysis.
+
+prompts:
+  problem_input:  "Describe the problem you want to solve:"
+  solution_input: "Describe your proposed solution:"
+  response_input: "Your response:"
+
+agent_display:
+  asking_label:   "AGENT IS ASKING:"
+  fallback_question: "Please share more information to continue the evaluation."
+
+section_titles:
+  main:       "ENTREPRENEURIAL OPPORTUNITY VALIDATION SYSTEM"
+  opp_valid:  "OPPORTUNITY VALIDATED"
+  final:      "VALIDATION COMPLETE — FINAL REPORT"
+  dfv_ready:  "STATUS: READY FOR DFV EVALUATION"
+
+report_labels:
+  problem:     "PROBLEM STATEMENT"
+  opportunity: "OPPORTUNITY EVALUATION"
+  solution:    "PROPOSED SOLUTION"
+  idea:        "IDEA EVALUATION"
+
+force_close_template: |
+  ⚠  MANDATORY OVERRIDE — CRITERION MUST CLOSE NOW
+  You have spent {turns} turns investigating {name} ({criterion}).
+  The founder has provided reasonable estimates and examples.
+  At this stage of validation, reasonable evidence is sufficient.
+  You are NOT expected to have perfect data.
+
+  YOU MUST:
+    1. Accept what the founder has provided as sufficient for this stage.
+    2. Assign a verdict of Strong, Weak, or Accepted Risk to {name}.
+    3. Close {name} and move to the NEXT unresolved criterion.
+    4. Do NOT ask another question about {name}.
+
+  Continuing to probe {name} is a validation error. Move on.
+
+repetition_warning: |
+  ⚠ WARNING: Your previous question was nearly identical to the one before it.
+  The founder's answer was not sufficient — but you must ask a DIFFERENT,
+  more targeted question. Do not repeat yourself. Identify the SPECIFIC GAP
+  in the answer and probe that gap directly.
+
+web_context:
+  header:    "WEB SEARCH CONTEXT  [{label}]  (fetched {date})"
+  separator: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  footer: |
+    Use the search data above to ground your evaluation in current
+    real-world evidence. Reference specific findings in your response.
+  no_results:  "  (no results found)"
+  search_off:  "  (web search not configured)"
+  error:       "  (search error: {error})"

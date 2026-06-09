@@ -1,0 +1,28 @@
+# ─────────────────────────────────────────────
+# Opportunity Validation System — Settings
+# ─────────────────────────────────────────────
+
+llm:
+  model: "openai/bonsai-8b"
+  base_url: "http://localhost:1234/v1"
+  api_key: "lm-studio"
+
+search:
+  # Free key (2,500 searches/month): https://serper.dev
+  # Preferred: set via env var SERPER_API_KEY
+  # Fallback: hardcode here (not recommended for shared repos)
+  serper_api_key: ""       # leave blank to use SERPER_API_KEY env var
+  results_per_query: 4
+  timeout_seconds: 8
+
+conversation:
+  # Keep history window small to avoid context overflow on smaller LLMs.
+  # Increase if your model supports a larger context window.
+  max_history_turns: 8
+
+validation:
+  # Maximum turns on a single TIPSC criterion before forcing a verdict.
+  max_turns_per_criterion: 3
+
+display:
+  console_width: 62
