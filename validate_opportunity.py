@@ -48,6 +48,8 @@ from crewai_tools import SerperDevTool
 # ══════════════════════════════════════════════════════════════
 # LOAD CONFIGURATION & PROMPTS
 # ══════════════════════════════════════════════════════════════
+os.environ["OPENAI_API_KEY"] = "lm-studio"
+os.environ["OPENAI_BASE_URL"] = "http://localhost:1234/v1"
 
 BASE_DIR = Path(__file__).parent
 
