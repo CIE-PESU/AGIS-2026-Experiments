@@ -141,3 +141,4 @@ Set the following environment variables before running the application:
 - `GOOGLE_API_KEY`: Google Gemini API key (if using Gemini)
 - `AZURE_OPENAI_API_KEY`: Azure OpenAI API key (if using Azure)
 - `AZURE_OPENAI_ENDPOINT`: Azure OpenAI endpoint URL (if using Azure)
+- `TAVILY_API_KEY` : Your tavily search api key (line 20 , main.py)

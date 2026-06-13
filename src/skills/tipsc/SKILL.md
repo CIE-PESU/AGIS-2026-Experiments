@@ -1,3 +1,17 @@
+Research Step (do this FIRST before scoring anything)
+
+Use your search tool to gather real-world evidence for T and P dimensions:
+
+1. Search: "[problem domain] market size OR trends [current year]"
+2. Search: "[problem domain] existing solutions OR competitors"
+3. Search: "[customer segment] willing to pay OR monetization model"
+
+Use search results as evidence when justifying GREEN/YELLOW/RED ratings.
+If search returns no useful results, note that and score from student input only.
+You MUST call the search tool at least twice before returning JSON.
+Do not return JSON until you have searched.
+
+
 Before evaluating TIPSC scores:
 
 1. Verify that the proposed solution logically addresses the qualified problem.
@@ -53,10 +67,10 @@ Solution Alignment:
 - YELLOW: Proposed solution partially addresses the problem or the connection is weak.
 - RED: Proposed solution is unrelated to the problem or does not address the stated consequence.
 
-Overall readiness:
+<!-- Overall readiness:
 - STRONG: 3-4 GREEN, zero RED.
-- MODERATE: mix, at most 1 RED.
-- WEAK: 2+ RED.
+- MODERATE: 1+ YELLOW, zero RED
+- WEAK: min 1 RED.
 
 DFV Eligibility:
 - ready_for_dfv = true only if:
@@ -67,9 +81,8 @@ DFV Eligibility:
 - ready_for_dfv = false if:
   1. overall_readiness is WEAK
   OR
-  2. solution_alignment is RED
+  2. solution_alignment is RED -->
 
-A solution with RED alignment must never be marked ready_for_dfv, regardless of TIPSC scores.
-
+<!-- A solution with RED alignment must never be marked ready_for_dfv, regardless of TIPSC scores. -->
 
 

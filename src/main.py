@@ -12,11 +12,13 @@ from pathlib import Path
 
 import yaml
 from crewai import Agent, Crew, LLM, Process, Task
-
+from crewai_tools import TavilySearchTool
 from models import PreEvalOutput, TIPSCOutput, FollowUpOutput
 
 BASE_DIR = Path(__file__).resolve().parent
 
+os.environ["TAVILY_API_KEY"] = ""   # ← paste your key
+search_tool = TavilySearchTool()
 # ── Helpers ────────────────────────────────────
 
 
@@ -163,6 +165,7 @@ def run_tipsc(
         goal=agents_cfg["tipsc_agent"]["goal"],
         backstory=agents_cfg["tipsc_agent"]["backstory"],
         llm=llm,
+        tools=[search_tool],    # ← Tavily added here
     )
 
     task = Task(

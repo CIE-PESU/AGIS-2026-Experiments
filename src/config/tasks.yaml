@@ -1,7 +1,10 @@
 tipsc_task:
   description: >
     {tipsc_rubric}
-
+    ---
+    Before scoring, use your search tools to find real market evidence
+    for the Timely and Profitable dimensions. Search at least twice.
+    You MUST call the search tool before returning JSON.
     ---
     Evaluate this idea:
 
@@ -14,8 +17,8 @@ tipsc_task:
     # <!-- additional to fix followup questions -->
 
     If additional information is provided, use it when scoring TIPSC dimensions.
+    
     IMPORTANT RE-EVALUATION RULES
-
     When founder follow-up information is provided:
 
     1. Treat the founder answer as new evidence.
@@ -26,6 +29,30 @@ tipsc_task:
     6. If the founder answer strengthens evidence, upgrade scores.
     7. The final score may be different from the previous score.
     8. Recompute overall_readiness and ready_for_dfv after updating scores.
+
+    # added for proper readiness evaluation
+
+    CRITICAL AGGREGATION RULES
+
+    IF any TIPSC score is RED:
+        overall_readiness = WEAK
+
+    ELSE IF 3 or more TIPSC scores are GREEN:
+        overall_readiness = STRONG
+
+    ELSE:
+        overall_readiness = MODERATE
+
+    CRITICAL DFV RULES
+
+    IF solution_alignment == RED:
+        ready_for_dfv = false
+
+    ELSE IF overall_readiness == WEAK:
+        ready_for_dfv = false
+
+    ELSE:
+        ready_for_dfv = true
 
     Return ONLY valid JSON in exactly this format:
 
@@ -120,7 +147,7 @@ followup_task:
 
     The question must help distinguish between the current score and a higher or lower score.
 
-    Ask at most ONE question.
+    Ask at most ONE question belonging to a missing criterion.
 
     Choose the question most likely to change a TIPSC score.
 
