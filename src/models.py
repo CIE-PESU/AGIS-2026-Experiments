@@ -21,6 +21,11 @@ class TIPSRAGScores(BaseModel):
     P: Literal["GREEN", "YELLOW", "RED"]
     S: Literal["GREEN", "YELLOW", "RED"]
 
+    @field_validator("T", "I", "P", "S", mode="before")
+    @classmethod
+    def uppercase_scores(cls, v):
+        return v.strip().upper() if isinstance(v, str) else v
+
 
 class PreEvalOutput(BaseModel):
     problem_statement: str
@@ -46,7 +51,6 @@ class PreEvalOutput(BaseModel):
     @classmethod
     def fix_strings(cls, v):
         if isinstance(v, list):
-            # return "; ".join(map(str, v))
             return " ".join(map(str, v))
         return v
 
@@ -64,7 +68,6 @@ class TIPSCOutput(BaseModel):
 
     tips_rag_scores: TIPSRAGScores
 
-    tips_coaching: dict[str, str] ={}
     overall_readiness: Literal[
         "STRONG",
         "MODERATE",
@@ -73,8 +76,34 @@ class TIPSCOutput(BaseModel):
 
     ready_for_dfv: bool
 
+    @field_validator("solution_alignment", "overall_readiness", mode="before")
+    @classmethod
+    def uppercase_literals(cls, v):
+        return v.strip().upper() if isinstance(v, str) else v
+
 class FollowUpOutput(BaseModel):
     needs_followup: bool
-    questions: list[str]
+    questions: list[str] = []
+
+    @field_validator("questions", mode="before")
+    @classmethod
+    def normalize_questions(cls, v):
+        if not isinstance(v, list):
+            return []
+        normalized = []
+        for item in v:
+            if isinstance(item, str):
+                normalized.append(item)
+            elif isinstance(item, dict):
+                # Handle {"question": "..."} or {"text": "..."} or {"q": "..."}
+                for key in ("question", "text", "q", "content"):
+                    if key in item:
+                        normalized.append(str(item[key]))
+                        break
+                else:
+                    # Fallback: join all values
+                    normalized.append(" ".join(str(v) for v in item.values()))
+        return normalized
+
 
 

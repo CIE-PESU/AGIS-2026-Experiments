@@ -2,3 +2,10 @@ outputs/
 src/evaluator_agent.egg-info/
 __pycache__/
 *.pyc
+check_outputs.py
+test_context.py
+test_crew_basic.py
+test_crew_overflow.py
+test_jsonmode.py
+test_pipeline.py
+test_unethical.py

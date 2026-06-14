@@ -1,56 +1,33 @@
 tipsc_task:
   description: >
     {tipsc_rubric}
+
     ---
+    
     Evaluate this idea:
 
     {preeval_json}
-
+    
+    ---
+    
     Additional Founder Information:
 
     {followup_context}
-
-    # <!-- additional to fix followup questions -->
-
+    
+    ---
+    
     If additional information is provided, use it when scoring TIPSC dimensions.
     
     IMPORTANT RE-EVALUATION RULES
-    When founder follow-up information is provided:
 
-    1. Treat the founder answer as new evidence.
-    2. Re-evaluate all affected TIPSC dimensions from scratch.
-    3. Do NOT preserve previous scores by default.
-    4. Founder answers override assumptions.
-    5. If the founder answer weakens evidence, downgrade scores.
-    6. If the founder answer strengthens evidence, upgrade scores.
-    7. The final score may be different from the previous score.
-    8. Recompute overall_readiness and ready_for_dfv after updating scores.
+    If followup_context is provided, treat founder answers as new evidence.
+    Re-score all affected dimensions from scratch. Do not preserve prior scores.
+    Upgrade if evidence strengthens. Downgrade if evidence weakens.
+    Recompute overall_readiness and ready_for_dfv after any score change.
 
-    # added for proper readiness evaluation
-
-    CRITICAL AGGREGATION RULES
-
-    IF any TIPSC score is RED:
-        overall_readiness = WEAK
-
-    ELSE IF 3 or more TIPSC scores are GREEN:
-        overall_readiness = STRONG
-
-    ELSE:
-        overall_readiness = MODERATE
-
-    CRITICAL DFV RULES
-
-    IF solution_alignment == RED:
-        ready_for_dfv = false
-
-    ELSE IF overall_readiness == WEAK:
-        ready_for_dfv = false
-
-    ELSE:
-        ready_for_dfv = true
-
-    Return ONLY valid JSON in exactly this format:
+    Return ONLY valid JSON in exactly this format. No markdown. No explanations.
+    Every field must be present. Use only GREEN, YELLOW, or RED for scores.
+    Use only STRONG, MODERATE, or WEAK for overall_readiness.
 
     {{
       "refined_idea": {{
@@ -61,10 +38,10 @@ tipsc_task:
       }},
       "solution_alignment" : "GREEN|YELLOW|RED",
       "tips_validated_metrics": {{
-        "timely_factor": "",
-        "importance_metric": "",
-        "profitability_pivot": "",
-        "solvability_constraint": ""
+        "timely_factor": "1-sentence justification for T score",
+        "importance_metric": "1-sentence justification for I score",
+        "profitability_pivot": "1-sentence justification for P score",
+        "solvability_constraint": "1-sentence justification for S score"
       }},
       "tips_rag_scores": {{
         "T": "GREEN|YELLOW|RED",
@@ -72,100 +49,59 @@ tipsc_task:
         "P": "GREEN|YELLOW|RED",
         "S": "GREEN|YELLOW|RED"
       }},
-      "tips_coaching": {{
-        "T": "",
-        "I": "",
-        "P": "",
-        "S": ""
-      }},
       "overall_readiness": "STRONG|MODERATE|WEAK",
       "ready_for_dfv": true or false
     }}
 
-    Rules:
-    - Return only JSON.
-    - No markdown.
-    - No explanations.
-    - Every field must be present.
+  expected_output: "Valid JSON matching the schema exactly. No markdown, no extra keys."
 
-  expected_output: |
-    {
-      "refined_idea": {
-        "customer_segment": "Small manufacturing companies",
-        "qualified_problem": "Maintenance data is fragmented across systems",
-        "consequence": "Delayed repairs and increased downtime",
-        "proposed_solution": "Unified maintenance management platform"
-      },
-
-      "solution_alignment": "GREEN",
-
-      "tips_validated_metrics": {
-        "timely_factor": "Active daily operational problem",
-        "importance_metric": "Downtime directly impacts revenue",
-        "profitability_pivot": "B2B SaaS subscription model",
-        "solvability_constraint": "Requires ERP integrations"
-      },
-
-      "tips_rag_scores": {
-        "T": "GREEN",
-        "I": "GREEN",
-        "P": "YELLOW",
-        "S": "YELLOW"
-      },
-
-      "overall_readiness": "MODERATE",
-
-      "ready_for_dfv": true
-    }
 
 followup_task:
   description: |
-    Review the TIPSC evaluation.
+    Review the TIPSC evaluation below.
 
     TIPSC Result:
     {tipsc_json}
 
-   
-    Determine whether additional founder information could materially change any RED or YELLOW score.
+    ---
 
-    For every YELLOW or RED score:
+    Prior Follow-Up Q&A (questions already asked and answered — do NOT re-ask these):
+    {followup_context}
 
+    ---
+
+    Your task:
+    Determine whether additional founder information could materially change 
+    any RED or YELLOW score that has not already been addressed in prior Q&A.
+
+    For every YELLOW or RED score not yet covered by prior answers:
+ 
     1. Identify the exact missing evidence preventing a stronger score.
     2. Ask a question that directly tests the rubric requirement.
     3. Prefer questions about:
-      - ability to execute,
-      - access to resources,
-      - customer willingness to pay,
-      - acquisition plans,
-      - validation evidence.
+       - ability to execute
+       - access to resources
+       - customer willingness to pay
+       - acquisition plans
+       - validation evidence
 
-    Do NOT ask about background or experience alone if the rubric can also be satisfied through partnerships, hiring, advisors, consultants, or other acquisition plans.
+    Do NOT ask about background or experience alone if the rubric can also be
+    satisfied through partnerships, hiring, advisors, consultants, or other
+    acquisition plans.
 
     The question must help distinguish between the current score and a higher or lower score.
 
-    Ask at most ONE question belonging to a missing criterion.
+    Ask at most ONE question total — choose the one most likely to change a score.
 
-    Choose the question most likely to change a TIPSC score.
-
-    Rules:
-    - If no question is needed:
-      needs_followup = false
-      questions = []
-
-
-    IMPORTANT
-
-    Return ONLY a valid JSON object matching the required schema.
-
-    Do not return thoughts, tool calls, observations, explanations, or any text outside the JSON.
-
-
-    Return ONLY valid JSON:
-
+    If all YELLOW/RED scores have already been addressed in prior Q&A, or if
+    all scores are GREEN, set needs_followup = false and questions = [].
+ 
+    Return ONLY valid JSON. No markdown. No explanations. No text outside the JSON.
+ 
     {{
       "needs_followup": true,
-      "questions": ["..."]
+      "questions": ["Your single most important question here"]
     }}
 
   expected_output: >
-    JSON matching FollowUpOutput schema.
+    JSON matching FollowUpOutput schema with needs_followup bool and questions list.
