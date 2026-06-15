@@ -111,6 +111,8 @@ class TIPSCOutput(BaseModel):
     def uppercase_literals(cls, v):
         return v.strip().upper() if isinstance(v, str) else v
     
+
+    # comment this to check without python level for overall readiness 
     @model_validator(mode="after")                          # ← ADD THIS
     def enforce_aggregation_rules(self) -> "TIPSCOutput":
         scores = [
