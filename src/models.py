@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 from typing import Literal
 
 class RefinedIdea(BaseModel):
@@ -110,6 +110,43 @@ class TIPSCOutput(BaseModel):
     @classmethod
     def uppercase_literals(cls, v):
         return v.strip().upper() if isinstance(v, str) else v
+    
+    @model_validator(mode="after")                          # ← ADD THIS
+    def enforce_aggregation_rules(self) -> "TIPSCOutput":
+        scores = [
+            self.tips_rag_scores.T,
+            self.tips_rag_scores.I,
+            self.tips_rag_scores.P,
+            self.tips_rag_scores.S,
+        ]
+
+        # Recompute overall_readiness
+        if "RED" in scores:
+            correct_readiness = "WEAK"
+        elif scores.count("GREEN") >= 3:
+            correct_readiness = "STRONG"
+        else:
+            correct_readiness = "MODERATE"
+
+        if self.overall_readiness != correct_readiness:
+            print(f"  [Auto-correct] overall_readiness: {self.overall_readiness} → {correct_readiness}")
+            self.overall_readiness = correct_readiness
+
+        # Recompute ready_for_dfv using the corrected readiness
+        if self.solution_alignment == "RED":
+            correct_dfv = False
+        elif correct_readiness == "WEAK":
+            correct_dfv = False
+        else:
+            correct_dfv = True
+
+        if self.ready_for_dfv != correct_dfv:
+            print(f"  [Auto-correct] ready_for_dfv: {self.ready_for_dfv} → {correct_dfv}")
+            self.ready_for_dfv = correct_dfv
+
+        return self
+
+
 
 class FollowUpOutput(BaseModel):
     needs_followup: bool
