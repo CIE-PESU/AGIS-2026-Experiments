@@ -75,19 +75,7 @@ Ethics Pre-Screen
 
 ---
 
-## 2. Route Topology & Access Control Matrix
 
-The platform runs as a Role-Based Access Control (RBAC) single-page workspace to maintain execution state integrity.
-
-| Route Path | Access Clearance | Allowed Actions & UI View-State Manifest |
-| :--- | :--- | :--- |
-| `/login` | Public Guest | Renders PES SSO Authentication interface; stores JWT inside secure HTTP-only cookies or context headers. |
-| `/dashboard` | Student Profile | Core ideation terminal. Houses Stage 1 (TIPSC Entry, Follow-ups, and Compliance warnings). |
-| `/dashboard#dfv` | Student Profile | Guarded View. Unlocks only when Stage 1 updates to `done` in the session database. |
-| `/dashboard#discovery` | Student Profile | Guarded View. Unlocks only when Stage 2 updates to `done`. |
-| `/mentor` | Mentor Profile | Read-only matrix view tracking all student active sessions, audit trails, and feedback logs. |
-
----
 
 ## 3. Global Component Layout Architecture
 
