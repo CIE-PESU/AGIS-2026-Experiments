@@ -121,17 +121,22 @@ class SessionRepository(BaseRepository[Session]):
         flow: str,
         output: dict[str, Any],
         new_status: SessionStatus,
-        expected_version: int,
+        expected_version: Optional[int] = None,
     ) -> bool:
         """
         Write the AI output for a flow and advance session status atomically.
         `flow` is one of: "tipsc", "dfv", "discovery".
-        Uses version field for optimistic concurrency.
+        Uses version field for optimistic concurrency if expected_version is provided.
         """
-        result = await Session.find_one(
-            Session.id == session_id,  # type: ignore[arg-type]
-            Session.version == expected_version,
-        ).update(
+        if expected_version is not None:
+            query = Session.find_one(
+                Session.id == session_id,  # type: ignore[arg-type]
+                Session.version == expected_version,
+            )
+        else:
+            query = Session.find_one(Session.id == session_id)  # type: ignore[arg-type]
+
+        result = await query.update(
             {
                 "$set": {
                     flow: output,

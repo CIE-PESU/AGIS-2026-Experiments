@@ -6,7 +6,7 @@ No update or delete methods. Immutable by design.
 from typing import Optional, Any
 from datetime import datetime
 
-from app.models.audit import AuditLog
+from app.models.audit import AuditLog, AuditEvent
 from app.repositories.base import BaseRepository
 
 
@@ -16,7 +16,7 @@ class AuditRepository(BaseRepository[AuditLog]):
 
     async def create_event(
         self,
-        event: str,
+        event: AuditEvent | str,
         actor: str,
         actor_role: str,
         metadata: Optional[dict[str, Any]] = None,
@@ -28,7 +28,7 @@ class AuditRepository(BaseRepository[AuditLog]):
         """
         log = AuditLog(
             session_id=session_id,
-            event=event,
+            event=event,  # type: ignore[arg-type]
             actor=actor,
             actor_role=actor_role,
             metadata=metadata or {},
