@@ -30,6 +30,7 @@ async def connect_db() -> None:
     from app.models.session import Session
     from app.models.audit import AuditLog
     from app.models.comment import MentorComment
+    from app.models.refresh_token import RefreshToken
 
     _client = AsyncIOMotorClient(
         settings.MONGODB_URI,
@@ -42,7 +43,7 @@ async def connect_db() -> None:
 
     await init_beanie(
         database=db,
-        document_models=[User, Team, Session, AuditLog, MentorComment],
+        document_models=[User, Team, Session, AuditLog, MentorComment, RefreshToken],
     )
     logger.info("MongoDB connected and Beanie initialized.")
 
