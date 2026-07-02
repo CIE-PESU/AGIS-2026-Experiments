@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: evaluator-agent
+Version: 0.1.0
+Requires-Python: >=3.10
+Requires-Dist: crewai>=1.14.6
+Requires-Dist: langchain-openai>=0.3.0
+Requires-Dist: pydantic>=2.0
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: tavily-python>=0.7.26
