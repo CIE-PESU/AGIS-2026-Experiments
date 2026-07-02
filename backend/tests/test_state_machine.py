@@ -5,7 +5,7 @@ Covers every acceptance criterion from Day 1:
 - All allowed transitions pass without exception
 - All forbidden transitions raise InvalidStateTransitionError
 - Archiving a RUNNING session raises an error
-- Pure logic, no DB/model/kafka imports (checked by inspection, not a test)
+- Pure logic, no DB/model/kafka imports (enforced by test_no_forbidden_module_imports)
 """
 
 import itertools
