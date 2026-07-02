@@ -1,9 +1,3 @@
-<<<<<<< Updated upstream
-
-# Backend Architecture
-
-======
-
 # AGIS Entrepreneurship Coach Platform
 
 # Backend Architecture Document
@@ -1367,11 +1361,3 @@ Replace the current state mutation model with event sourcing:
 | ------- | --------- | ------------------- | ----------------------------------------------- |
 | 1.0     | June 2026 | Backend Team        | Initial draft                                   |
 | 2.0     | June 2026 | Principal Architect | Full architectural review, edge cases, patterns |
-
->>>>>>> Stashed changes
->>>>>>>
->>>>>>
->>>>>
->>>>
->>>
->>
