@@ -77,7 +77,7 @@ Ethics Pre-Screen
 
 
 
-## 3. Global Component Layout Architecture
+## 2. Global Component Layout Architecture
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
@@ -96,9 +96,9 @@ Ethics Pre-Screen
 
 ---
 
-## 4. UI Section Functional Specifications
+## 3. UI Section Functional Specifications
 
-### 4.1 Stage 1: Preeval, Ethics, and TIPSC Interface
+### 3.1 Stage 1: Preeval, Ethics, and TIPSC Interface
 
 Implements the granular pipeline defined in §1.1 (Pre-Evaluation → Market Validation → Regulatory Mapping → Ethics Pre-Screen → TIPSC Evaluation → Follow-ups → Final TIPSC Score → Ready for DFV).
 
@@ -107,25 +107,25 @@ Implements the granular pipeline defined in §1.1 (Pre-Evaluation → Market Val
 * **Follow-up Chat Console:** A micro-terminal component designed to appear dynamically if the TIPSC task returns a requirement for further clarification. It limits interactions strictly to **3 follow-up cycles**, recalculating TIPSC parameters incrementally after each student response.
 * **DFV Readiness Indicator:** Reflects `tipscOutput.isReadyForDfv`; only when `true` does the UI enable navigation to `/dashboard#dfv`.
 
-### 4.2 Stage 2: Deep Parallel DFV Interface
+### 3.2 Stage 2: Deep Parallel DFV Interface
 
 * **Worker Execution Status Container:** Tracks parallel sub-agent workflows. Visually indicates independent progression states for the Desirability, Feasibility, and Viability agents.
 * **Decision Gate Board:** Displays the ultimate aggregated project verdict.
   * `GO`: Renders an optimistic emerald layout providing strategic incubation validation.
   * `NO-GO`: Renders a deep crimson alert layout highlighting the primary structural fatal flaw across the three pillars.
 
-### 4.3 Stage 3: Customer Discovery & JTBD Planner
+### 3.3 Stage 3: Customer Discovery & JTBD Planner
 
 * **Jobs-To-Be-Done Matrix Display:** Renders clear cards tracking student core customer functional, social, and emotional motivations.
 * **Dynamic Interview Guide:** Provides an actionable, copyable list of targeted field questions sorted by user personas, generated directly from the successful backend execution context.
 
 ---
 
-## 5. State Management & Asynchronous Polling Engine
+## 4. State Management & Asynchronous Polling Engine
 
 The client uses an automated polling controller to handle tracking lifecycle updates from Kafka topics and MongoDB Atlas tables without requiring page reloads.
 
-### 5.1 Main Unified JavaScript Object Blueprint (JSDoc Documentation)
+### 4.1 Main Unified JavaScript Object Blueprint (JSDoc Documentation)
 
 ```javascript
 /**
@@ -184,7 +184,7 @@ const initialVentureSessionState = {
 };
 ```
 
-### 5.2 Polling Lifecycle Synchronization Hook
+### 4.2 Polling Lifecycle Synchronization Hook
 
 * **Triggers:** Automatically initializes on user form submissions (`POST /userSession`).
 * **Cadence Engine:** Issues non-blocking asynchronous `fetch` or `axios` operations targeting the `/api/v1/session/{id}` endpoint exactly every 5000ms (5 seconds).
@@ -193,7 +193,7 @@ const initialVentureSessionState = {
 
 ---
 
-## 6. Defensive Bounds Handling & Fault Mitigation
+## 5. Defensive Bounds Handling & Fault Mitigation
 
 * **Dynamic Text Wrapping Layouts:** Because student ideas represent unpredictable domains, all layout components must reject hardcoded pixel heights (`h-auto` and `w-full` exclusively). Use Tailwind properties `break-words` and `whitespace-normal` to protect layouts against long string inputs.
 * **Malformed JSON Sanitizer Blocks:** Local LLM instances can sometimes return erratic markdown syntax around response text blocks. The frontend client data-handler must execute programmatic string extractions (e.g., using `indexOf('{')` and `lastIndexOf('}')`) to isolate pure JSON fields before parsing.
