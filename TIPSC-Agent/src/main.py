@@ -4,7 +4,7 @@
 import os,re
 
 os.environ["OPENAI_API_KEY"] = "lm-studio"
-os.environ["OPENAI_MODEL_NAME"] = "openai/mistralai/mistral-7b-instruct-v0.3"
+os.environ["OPENAI_MODEL_NAME"] = "openai/qwen/qwen3.5-9b"
 
 import json
 import sys
@@ -113,10 +113,10 @@ def save_json(data, filename: str) -> Path:
 
 
 def load_llm() -> LLM:
-    base_url = os.environ.get("LM_STUDIO_URL", "http://127.0.0.1:1234/v1")
+    base_url = os.environ.get("LM_STUDIO_URL", "http://10.14.140.79:1234/v1")
     return LLM(
-        model="openai/mistralai/mistral-7b-instruct-v0.3",
-        base_url="http://127.0.0.1:1234/v1",
+        model="openai/qwen/qwen3.5-9b",
+        base_url="http://10.14.140.79:1234/v1",
         api_key="lm-studio",
         temperature=0.2,
     )
@@ -140,53 +140,60 @@ def call_llm_for_json(llm: LLM, messages: list) -> str:
 # ── Phase 1: Pre-Eval conversation loop ────────
 
 
-def run_preeval(llm: LLM, skill_text: str) -> PreEvalOutput:
-    print("\n--- Pre-Evaluation (max 6 exchanges) ---")
+def run_preeval(llm: LLM, skill_text: str, preeval_input: dict,) -> PreEvalOutput:
 
-    MAX_TURNS = int(os.environ.get("PREEVAL_MAX_TURNS", 6))
+    founder_context = f"""
+    Problem Statement:
+    {preeval_input["problem_statement"]}
 
+    Customer Segment:
+    {preeval_input["customer_segment"]}
+
+    Consequence:
+    {preeval_input["consequence"]}
+
+    Assumptions:
+    {preeval_input["assumptions"]}
+
+    Proposed Solution:
+    {preeval_input["proposed_solution"]}
+
+    Target Geography:
+    {preeval_input["target_geography"]}
+
+    Industry Sector:
+    {preeval_input["industry_sector"]}
+    """.strip()
     messages = [
         {"role": "system", "content": skill_text},
         {
             "role": "user",
-            "content": ("Begin the interview. Ask the first question "
-                        "to understand the problem."),
-        },
+            "content": f"""
+                The founder has completed the pre-evaluation questionnaire.
+
+                {founder_context}
+
+                Convert the founder's responses into the following JSON schema.
+                
+                {{
+                "problem_statement": "one sentence describing the core problem",
+                "customer_segment": "who experiences the problem",
+                "consequence": "what happens if unsolved",
+                "assumptions": ["assumption 1", "assumption 2"],
+                "proposed_solution": "what the team plans to build",
+                "target_geography": "primary country or region being targeted",
+                "industry_sector": "the industry or sector the solution operates in"
+                }}
+
+                Normalize grammar and wording where appropriate without changing the founder's intended meaning.
+
+                Do not invent, infer, or assume any information that is not explicitly provided.                
+                Output ONLY valid JSON.
+            """
+        }
     ]
 
-    turn = 0
-    while turn < MAX_TURNS:
-        ai_text = llm.call(messages).strip()
-        print(f"\n[AI turn {turn + 1}] {ai_text}")
-
-        user_input = input("> ").strip()
-        if not user_input:
-            user_input = "(skipped)"
-
-        messages.append({"role": "assistant", "content": ai_text})
-        messages.append({"role": "user", "content": user_input})
-        turn += 1
-
-    # Summarise the conversation into structured JSON
-    summary_prompt = (
-        "The interview is complete. "
-        "Summarise the conversation into this exact JSON object. "
-        "Fill every field from the answers given. "
-        "assumptions must be a JSON array of strings. "
-        "Output the JSON object only — no other text.\n\n"
-        "{\n"
-        '  "problem_statement": "one sentence describing the core problem",\n'
-        '  "customer_segment": "who experiences the problem",\n'
-        '  "consequence": "what happens if unsolved",\n'
-        '  "assumptions": ["assumption 1", "assumption 2"],\n'
-        '  "proposed_solution": "what the team plans to build",\n'
-        '  "target_geography": "primary country or region being targeted",\n'
-        '  "industry_sector": "the industry or sector the solution operates in"\n'
-        "}"
-    )
-
-    summary_messages = messages + [{"role": "user","content": summary_prompt}]
-    raw = clean_json(call_llm_for_json(llm,summary_messages))
+    raw = clean_json(call_llm_for_json(llm,messages))
 
     try:
         return PreEvalOutput.model_validate_json(raw)
@@ -205,7 +212,7 @@ def run_preeval(llm: LLM, skill_text: str) -> PreEvalOutput:
             '  "industry_sector": "..."\n'
             "}"
         )
-        retry_messages = summary_messages + [
+        retry_messages = messages + [
             {"role": "assistant", "content": raw},
             {"role": "user", "content": retry_prompt},
         ]
@@ -820,7 +827,18 @@ def main():
     print("=" * 60)
     print("PHASE 1: Pre-Evaluation")
     print("=" * 60)
-    preeval_out = run_preeval(llm, preeval_skill)
+    preeval_input = {
+        "problem_statement": input("Problem Statement: "),
+        "customer_segment": input("Customer Segment: "),
+        "consequence": input("Consequence: "),
+        "assumptions": input("Assumptions: "),
+        "proposed_solution": input("Proposed Solution: "),
+        "target_geography": input("Target Geography: "),
+        "industry_sector": input("Industry Sector: "),
+    } 
+
+
+    preeval_out = run_preeval(llm, preeval_skill, preeval_input)
     save_json(preeval_out.model_dump(), "preeval_output.json")
 
     print("\n" + "=" * 60)
