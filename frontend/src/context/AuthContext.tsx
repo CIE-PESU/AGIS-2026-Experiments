@@ -4,6 +4,7 @@ import { login as apiLogin, logout as apiLogout } from "@/services/authSessions"
 import { deriveStageAccess } from "@/hooks/useSessionPolling";
 import type { DFVResult, JTBDResult, StageStatus, TIPSResult } from "@/data/mockData";
 import type { Role, SessionDocument, SessionStatus } from "@/types/api";
+import { registerStudentTeam, getStudents, initializeStorage } from "@/utils/adminData";
 
 export type AppUser = { userId: string; srn: string; name: string; role: Role; teamId: string | null };
 export type SessionState = { tipsc: StageStatus; dfv: StageStatus; discovery: StageStatus };
@@ -19,7 +20,7 @@ type AuthContextValue = {
   results: SessionResults;
   formData: FormDataMap;
   timeline: TimelineEvent[];
-  login: (srn: string, password: string) => Promise<Role>;
+  login: (srn: string, password: string, teamName?: string) => Promise<Role>;
   logout: () => Promise<void>;
   setSessionFromServer: (doc: SessionDocument) => void;
   unlockNext: (completed: keyof SessionState) => void;
@@ -66,15 +67,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setTimeline([]);
   }, []);
 
-  const login = useCallback(async (srn: string, password: string): Promise<Role> => {
+  const login = useCallback(async (srn: string, password: string, teamName?: string): Promise<Role> => {
     try {
       const data = await apiLogin(srn, password);
+      let resolvedTeamId = data.user.team_id ?? null;
+      if (data.role === "student") {
+        if (teamName) {
+          resolvedTeamId = registerStudentTeam(data.user.srn, teamName);
+        } else {
+          initializeStorage();
+          const existingStudent = getStudents().find(s => s.srn === data.user.srn);
+          if (existingStudent) {
+            resolvedTeamId = existingStudent.teamId;
+          }
+        }
+      }
       setUser({
         userId: data.user.user_id,
         srn: data.user.srn,
         name: data.user.name,
         role: data.role,
-        teamId: data.user.team_id ?? null
+        teamId: resolvedTeamId
       });
       resetWorkspace();
       if (data.role === "student") {
@@ -86,12 +99,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await new Promise((resolve) => setTimeout(resolve, 400));
       const role = inferMockRole(srn);
       const cleanId = srn.trim() || "PES2UG22CS001";
+      let resolvedTeamId: string | null = null;
+      if (role === "student") {
+        if (teamName) {
+          resolvedTeamId = registerStudentTeam(cleanId, teamName);
+        } else {
+          initializeStorage();
+          const existingStudent = getStudents().find(s => s.srn === cleanId);
+          resolvedTeamId = existingStudent ? existingStudent.teamId : `team_${cleanId.slice(-3)}`;
+        }
+      }
       setUser({
         userId: `usr_mock_${cleanId}`,
         srn: cleanId,
         name: role === "student" ? `Student (${cleanId})` : role === "mentor" ? `Mentor (${cleanId})` : `Admin (${cleanId})`,
         role,
-        teamId: role === "student" ? `team_${cleanId.slice(-3)}` : null
+        teamId: resolvedTeamId
       });
       resetWorkspace();
       if (role === "student") {

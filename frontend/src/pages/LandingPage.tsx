@@ -38,7 +38,6 @@ function Navbar() {
           {links.map(([label, href]) => <a key={href} href={href} className="hover:text-primary">{label}</a>)}
         </nav>
         <div className="hidden items-center gap-3 md:flex">
-          <Button asChild variant="outline" className="rounded-full"><Link to="/login">Login</Link></Button>
           <Button asChild variant="accent" className="rounded-full"><Link to="/login">Get Started <ArrowRight className="h-4 w-4" /></Link></Button>
         </div>
         <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setOpen((v) => !v)}><Menu /></Button>
@@ -46,7 +45,6 @@ function Navbar() {
       {open && (
         <div className="space-y-3 border-t bg-white p-4 md:hidden">
           {links.map(([label, href]) => <a key={href} href={href} className="block font-semibold" onClick={() => setOpen(false)}>{label}</a>)}
-          <Button asChild variant="outline" className="w-full rounded-full"><Link to="/login">Login</Link></Button>
           <Button asChild variant="accent" className="w-full rounded-full"><Link to="/login">Get Started <ArrowRight className="h-4 w-4" /></Link></Button>
         </div>
       )}
