@@ -1,0 +1,122 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Poppins:wght@400;500;600;700;800&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 99%;
+    --foreground: 248 27% 20%;
+    --muted: 220 20% 96%;
+    --muted-foreground: 248 15% 45%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 248 27% 20%;
+    --border: 220 20% 90%;
+    --input: 220 20% 90%;
+    --card: 0 0% 100%;
+    --card-foreground: 248 27% 20%;
+    --primary: 248 27% 31%;
+    --primary-foreground: 0 0% 99%;
+    --secondary: 204 63% 40%;
+    --secondary-foreground: 0 0% 100%;
+    --accent: 14 80% 55%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 100% 50%;
+    --destructive-foreground: 210 40% 98%;
+    --ring: 200 52% 51%;
+    --radius: 0.625rem;
+    --chart-1: 200 52% 51%;
+    --chart-2: 248 27% 31%;
+    --chart-3: 14 80% 55%;
+    --chart-4: 200 52% 70%;
+    --chart-5: 14 80% 70%;
+    --font-sans: 'Poppins', 'Inter', 'Helvetica Neue', sans-serif;
+    --font-mono: 'Courier New', monospace;
+    --shadow-color: #3e3965;
+    --shadow-opacity: 0.1;
+    --shadow-2xs: 0 1px 2px color-mix(in srgb, var(--shadow-color) calc(var(--shadow-opacity) * 70%), transparent);
+    --shadow-xs: 0 1px 3px color-mix(in srgb, var(--shadow-color) calc(var(--shadow-opacity) * 80%), transparent);
+    --shadow-sm: 0 2px 6px color-mix(in srgb, var(--shadow-color) calc(var(--shadow-opacity) * 90%), transparent);
+    --shadow: 0 4px 12px color-mix(in srgb, var(--shadow-color) var(--shadow-opacity), transparent);
+    --shadow-md: 0 8px 18px color-mix(in srgb, var(--shadow-color) calc(var(--shadow-opacity) * 1.1), transparent);
+    --shadow-lg: 0 12px 26px color-mix(in srgb, var(--shadow-color) calc(var(--shadow-opacity) * 1.15), transparent);
+    --shadow-xl: 0 18px 38px color-mix(in srgb, var(--shadow-color) calc(var(--shadow-opacity) * 1.2), transparent);
+    --shadow-2xl: 0 24px 60px color-mix(in srgb, var(--shadow-color) calc(var(--shadow-opacity) * 1.35), transparent);
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 248 27% 20%;
+    --sidebar-primary: 248 27% 31%;
+    --sidebar-primary-foreground: 0 0% 99%;
+    --sidebar-accent: 220 20% 96%;
+    --sidebar-accent-foreground: 248 27% 20%;
+    --sidebar-border: 220 20% 90%;
+    --sidebar-ring: 200 52% 51%;
+  }
+
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+  }
+}
+
+@layer utilities {
+  .gradient-primary {
+    background: linear-gradient(135deg, #3e3965 0%, #2176a8 100%);
+  }
+
+  .gradient-hero {
+    background: linear-gradient(135deg, #eef4fa 0%, #dbeafe 40%, #c7d8f0 100%);
+  }
+
+  .gradient-cta {
+    background: linear-gradient(135deg, #3e3965 0%, #2d2a4a 50%, #419dc4 100%);
+  }
+
+  .text-gradient {
+    background: linear-gradient(135deg, #e96033, #f59e0b);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .dot-pattern {
+    background-image: radial-gradient(rgba(62, 57, 101, 0.16) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+
+  .btn-glossy {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.25s ease;
+  }
+
+  .btn-glossy::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 -100%;
+    width: 70%;
+    background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.35) 50%, transparent 100%);
+    transition: left 0.4s ease;
+    pointer-events: none;
+  }
+
+  .btn-glossy:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(62,57,101,0.2);
+  }
+
+  .btn-glossy:hover::before {
+    left: 100%;
+  }
+
+  .btn-glossy:active {
+    transform: translateY(0) scale(0.98);
+    box-shadow: 0 2px 6px rgba(62,57,101,0.15);
+  }
+}
