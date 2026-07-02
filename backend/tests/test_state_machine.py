@@ -112,11 +112,21 @@ def test_no_forbidden_module_imports():
     state_machine_dir = pathlib.Path(__file__).parent.parent / "app" / "state_machine"
     banned_prefixes = ("app.models", "app.repositories", "app.kafka")
 
-    for py_file in state_machine_dir.glob("*.py"):
-        tree = ast.parse(py_file.read_text())
+    for py_file in state_machine_dir.rglob("*.py"):
+        tree = ast.parse(py_file.read_text(encoding="utf-8"), filename=str(py_file))
         for node in ast.walk(tree):
-            if isinstance(node, ast.ImportFrom) and node.module:
-                assert not node.module.startswith(banned_prefixes), (
+            if isinstance(node, ast.ImportFrom):
+                assert not (node.module and node.module.startswith(banned_prefixes)), (
                     f"{py_file.name} imports from {node.module} — "
                     "state_machine must stay pure logic"
                 )
+                assert not (node.level and node.module in {"models", "repositories", "kafka"}), (
+                    f"{py_file.name} imports from {node.module} — "
+                    "state_machine must stay pure logic"
+                )
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    assert not alias.name.startswith(banned_prefixes), (
+                        f"{py_file.name} imports {alias.name} — "
+                        "state_machine must stay pure logic"
+                    )
