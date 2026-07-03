@@ -41,7 +41,7 @@ export function MentorDashboard() {
     return [
       ["Teams Assigned", loadedTeams.length],
       ["Total Students", members.length],
-      ["TIPS Complete", members.filter((m) => Object.values(m.tips).every((s) => s.status === "green")).length],
+      ["TIPSC Complete", members.filter((m) => Object.values(m.tips).every((s) => s.status === "green")).length],
       ["DFV Complete", members.filter((m) => m.dfv !== "Pending").length]
     ];
   }, [loadedTeams]);
@@ -97,7 +97,7 @@ export function MentorDashboard() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[860px] text-left text-sm">
               <thead className="bg-muted text-xs uppercase text-muted-foreground">
-                <tr><th className="p-4">Student</th><th className="p-4">TIPS</th><th className="p-4">DFV</th><th className="p-4">JTBD</th><th className="p-4">Last Active</th><th className="p-4">Actions</th></tr>
+                <tr><th className="p-4">Student</th><th className="p-4">TIPSC</th><th className="p-4">DFV</th><th className="p-4">JTBD</th><th className="p-4">Last Active</th><th className="p-4">Actions</th></tr>
               </thead>
               <tbody>
                 {selected.members.map((student) => (

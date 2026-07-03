@@ -1,5 +1,6 @@
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { Archive, Download, Target, TrendingUp, Users } from "lucide-react";
+import { Archive, Download, Target, TrendingUp, Users, Clock, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -14,13 +15,16 @@ import {
   AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
 import { MentorChat } from "@/components/shared/MentorChat";
-import { StatusBadge } from "@/components/shared/StatusBadge";
+import { StatusBadge, TrafficDot } from "@/components/shared/StatusBadge";
 import { Timeline } from "@/components/shared/Timeline";
 import { deriveStageAccess, isFlowRunning, useSessionPolling } from "@/hooks/useSessionPolling";
 import { archiveSession as archiveSessionApi } from "@/services/authSessions";
 import { useAuth } from "@/context/AuthContext";
 import { downloadMarkdown, generateMarkdown } from "@/utils/exportMarkdown";
 import { toast } from "sonner";
+import { getStudents, Student } from "@/utils/adminData";
+import { DetailedProgressView } from "@/components/shared/DetailedProgressView";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export function StudentWorkspace() {
   const { user, sessionId, serverStatus, session, results, formData, timeline, archiveSession, setSessionFromServer } = useAuth();
@@ -29,8 +33,13 @@ export function StudentWorkspace() {
 
   useSessionPolling(sessionId, setSessionFromServer, Boolean(sessionId));
 
+  const teammates = useMemo<Student[]>(() => {
+    if (!user || !user.teamId) return [];
+    return getStudents().filter((s) => s.teamId === user.teamId);
+  }, [user]);
+
   const modules = [
-    { key: "tipsc" as const, title: "TIPS Evaluation", icon: Target, color: "text-secondary", path: "/workspace/tipsc", description: "Assess timing, idea, problem, solution, and competition readiness." },
+    { key: "tipsc" as const, title: "TIPSC Evaluation", icon: Target, color: "text-secondary", path: "/workspace/tipsc", description: "Assess timing, idea, problem, solution, and competition readiness." },
     { key: "dfv" as const, title: "DFV Analysis", icon: TrendingUp, color: "text-primary", path: "/workspace/dfv", description: "Validate desirability, feasibility, and viability before moving ahead." },
     { key: "discovery" as const, title: "Customer Discovery", icon: Users, color: "text-accent", path: "/workspace/discovery", description: "Generate customer jobs, interview plans, and discovery recommendations." }
   ];
@@ -50,7 +59,7 @@ export function StudentWorkspace() {
       }
     }
     archiveSession();
-    toast.success("Session archived. You can start a new session from TIPS.");
+    toast.success("Session archived. You can start a new session from TIPSC.");
   }
 
   return (
@@ -58,7 +67,7 @@ export function StudentWorkspace() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-primary">Welcome, {firstName}</h1>
-          <p className="mt-1 text-muted-foreground">Move through TIPS, DFV, and Customer Discovery in sequence.</p>
+          <p className="mt-1 text-muted-foreground">Move through TIPSC, DFV, and Customer Discovery in sequence.</p>
           {serverStatus && <p className="mt-1 text-xs text-muted-foreground">Session status: {serverStatus.replace(/_/g, " ")}</p>}
         </div>
         <div className="flex gap-2">
@@ -109,8 +118,89 @@ export function StudentWorkspace() {
         })}
       </div>
       <div className="mt-8 rounded-lg border border-secondary/20 bg-secondary/10 p-4 text-sm font-semibold text-secondary">
-        Sequential Evaluation: TIPS unlocks DFV, and DFV unlocks Customer Discovery.
+        Sequential Evaluation: TIPSC unlocks DFV, and DFV unlocks Customer Discovery.
       </div>
+
+      {/* Team Progress Monitor (Matches Mentor Progress Monitor Layout Exactly, without comments) */}
+      {user?.teamId && teammates.length > 0 && (
+        <Card className="mt-8 overflow-hidden">
+          <CardHeader>
+            <CardTitle>Team Progress Monitor</CardTitle>
+            <p className="text-xs text-muted-foreground">Monitor progress for members of your team.</p>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[860px] text-left text-sm">
+                <thead className="bg-muted text-xs uppercase text-muted-foreground">
+                  <tr>
+                    <th className="p-4">Student</th>
+                    <th className="p-4">TIPSC</th>
+                    <th className="p-4">DFV</th>
+                    <th className="p-4">JTBD</th>
+                    <th className="p-4">Last Active</th>
+                    <th className="p-4">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {teammates.map((student) => (
+                    <tr key={student.srn} className="border-t bg-white">
+                      <td className="p-4">
+                        <p className="font-semibold">{student.name}</p>
+                        <p className="text-muted-foreground text-xs">
+                          {student.srn} {student.srn === user.srn && <span className="ml-1 text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">You</span>}
+                        </p>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex gap-2">
+                          {Object.values(student.tips).map((score, i) => (
+                            <TrafficDot key={i} status={score.status} />
+                          ))}
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        {student.dfv === "Pending" ? (
+                          <StatusBadge type="available" label="Pending" />
+                        ) : (
+                          <span className={student.dfv === "GO" ? "font-bold text-emerald-700" : "font-bold text-red-700"}>
+                            {student.dfv}
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-4">
+                        {student.jtbd ? <StatusBadge type="completed" /> : <StatusBadge type="locked" label="Pending" />}
+                      </td>
+                      <td className="p-4 text-muted-foreground">
+                        <span className="flex items-center gap-1 text-xs">
+                          <Clock className="h-4 w-4" />
+                          {student.lastActive}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex gap-2">
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="outline" size="sm">
+                                <Eye className="h-4 w-4 mr-1" /> View
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+                              <DialogHeader>
+                                <DialogTitle>{student.name}</DialogTitle>
+                              </DialogHeader>
+                              <DetailedProgressView student={student} />
+                            </DialogContent>
+                          </Dialog>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
         <Card><CardHeader><CardTitle>Activity Timeline</CardTitle></CardHeader><CardContent><Timeline events={timeline} /></CardContent></Card>
         <Card><CardHeader><CardTitle>Mentor Comments</CardTitle></CardHeader><CardContent><MentorChat sessionId={sessionId} /></CardContent></Card>

@@ -7,8 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge, TrafficDot } from "@/components/shared/StatusBadge";
 import { SESSION_FIELD_MIN } from "@/constants";
-import { preEvaluationQuestions, type TIPSResult } from "@/data/mockData";
-import { checkCompliance, getInitialTIPSScores, submitFollowUp } from "@/services/api";
+import { preEvaluationQuestions, type TIPSCResult } from "@/data/mockData";
+import { checkCompliance, getInitialTIPSCScores, submitFollowUp } from "@/services/api";
 import { createSession } from "@/services/authSessions";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
@@ -19,8 +19,8 @@ export function TIPSCFlow() {
   const { results, formData, setFormData, saveResults, unlockNext, addEvent, setSessionId } = useAuth();
   const [phase, setPhase] = useState<Phase>(results.tips?.readyForDFV ? "final" : "form");
   const [local, setLocal] = useState<Record<string, string>>(formData);
-  const [compliance, setCompliance] = useState<{ label: string; passed: boolean }[]>([]);
-  const [tips, setTips] = useState<TIPSResult | null>(results.tips);
+  const [compliance, setCompliance] = useState<{ label: string; passed: boolean; explanation?: string }[]>([]);
+  const [tips, setTips] = useState<TIPSCResult | null>(results.tips);
   const [question, setQuestion] = useState<{ dimension: string; question: string } | null>(null);
   const [round, setRound] = useState(0);
   const [answer, setAnswer] = useState("");
@@ -54,11 +54,11 @@ export function TIPSCFlow() {
 
   async function score() {
     setPhase("scoring_loading");
-    const data = await getInitialTIPSScores();
+    const data = await getInitialTIPSCScores();
     setTips(data.result);
     setQuestion(data.followUp);
     saveResults("tips", data.result);
-    addEvent("Initial TIPS Scores Generated");
+    addEvent("Initial TIPSC Scores Generated");
     setPhase(data.followUp ? "scores" : "final");
   }
 
@@ -67,13 +67,13 @@ export function TIPSCFlow() {
     const data = await submitFollowUp(round, answer);
     setTips(data.result);
     saveResults("tips", data.result);
-    addEvent(`TIPS Follow-up Round ${round + 1} Submitted`);
+    addEvent(`TIPSC Follow-up Round ${round + 1} Submitted`);
     setRound((r) => r + 1);
     setAnswer("");
     setQuestion(data.followUp);
     if (data.result.readyForDFV) {
       unlockNext("tipsc");
-      addEvent("TIPS Completed");
+      addEvent("TIPSC Completed");
       setPhase("final");
     } else {
       setPhase(data.followUp ? "scores" : "final");
@@ -83,11 +83,11 @@ export function TIPSCFlow() {
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
       <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
-        <div><h1 className="text-3xl font-bold text-primary">TIPS Evaluation</h1><p className="text-muted-foreground">Pre-Evaluation → Compliance → TIPS Scoring → Follow-ups → Results</p></div>
+        <div><h1 className="text-3xl font-bold text-primary">TIPSC Evaluation</h1><p className="text-muted-foreground">Pre-Evaluation → Compliance → TIPSC Scoring → Follow-ups → Results</p></div>
         <Button asChild variant="outline"><Link to="/workspace">Back to Workspace</Link></Button>
       </div>
       <div className="mb-8 grid grid-cols-5 gap-2">
-        {["Pre-Evaluation", "Compliance", "TIPS Scoring", "Follow-ups", "Results"].map((step, index) => (
+        {["Pre-Evaluation", "Compliance", "TIPSC Scoring", "Follow-ups", "Results"].map((step, index) => (
           <div key={step} className={`rounded-full px-2 py-2 text-center text-xs font-semibold ${index <= ["form","compliance_loading","compliance_result","scoring_loading","scores","followup","followup_loading","final"].indexOf(phase) % 5 ? "bg-secondary text-white" : "bg-white text-muted-foreground"}`}>{step}</div>
         ))}
       </div>
@@ -115,13 +115,25 @@ export function TIPSCFlow() {
       {phase === "compliance_loading" && <Loading icon={<Shield />} text="Compliance agent is reviewing your submission..." />}
       {phase === "compliance_result" && (
         <Card><CardHeader><CardTitle>Compliance Result</CardTitle></CardHeader><CardContent className="space-y-4">
-          {compliance.map((item) => <div key={item.label} className="flex items-center justify-between rounded-lg border p-4"><span>{item.label}</span><StatusBadge type={item.passed ? "passed" : "failed"} /></div>)}
-          <Button onClick={score} variant="secondary">Continue to TIPS Scoring</Button>
+          {compliance.map((item) => (
+            <div key={item.label} className="rounded-lg border p-4 bg-slate-50/30">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-sm">{item.label}</span>
+                <StatusBadge type={item.passed ? "passed" : "failed"} />
+              </div>
+              {item.explanation && (
+                <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+                  {item.explanation}
+                </p>
+              )}
+            </div>
+          ))}
+          <Button onClick={score} variant="secondary">Continue to TIPSC Scoring</Button>
         </CardContent></Card>
       )}
-      {phase === "scoring_loading" && <Loading icon={<Brain />} text="TIPS agent is scoring your idea..." />}
+      {phase === "scoring_loading" && <Loading icon={<Brain />} text="TIPSC agent is scoring your idea..." />}
       {(phase === "scores" || phase === "final") && tips && (
-        <Card><CardHeader><CardTitle>TIPS Scores</CardTitle></CardHeader><CardContent>
+        <Card><CardHeader><CardTitle>TIPSC Scores</CardTitle></CardHeader><CardContent>
           <ScoreGrid tips={tips} />
           {phase === "scores" && question && (
             <div className="mt-6 rounded-lg bg-amber-50 p-4 text-amber-800">
@@ -154,7 +166,7 @@ function Loading({ icon, text }: { icon: React.ReactNode; text: string }) {
   return <Card><CardContent className="flex min-h-64 flex-col items-center justify-center gap-4 p-10 text-center text-secondary"><div className="animate-pulse [&_svg]:h-14 [&_svg]:w-14">{icon}</div><Loader2 className="h-6 w-6 animate-spin" /><p className="font-semibold">{text}</p></CardContent></Card>;
 }
 
-function ScoreGrid({ tips }: { tips: TIPSResult }) {
+function ScoreGrid({ tips }: { tips: TIPSCResult }) {
   return (
     <div className="grid gap-4 md:grid-cols-2">
       {Object.entries(tips.scores).map(([key, score]) => (

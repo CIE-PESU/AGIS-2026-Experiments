@@ -2,13 +2,13 @@ import { createContext, useCallback, useContext, useMemo, useState } from "react
 import { clearTokens, getRefreshToken } from "@/services/apiClient";
 import { login as apiLogin, logout as apiLogout } from "@/services/authSessions";
 import { deriveStageAccess } from "@/hooks/useSessionPolling";
-import type { DFVResult, JTBDResult, StageStatus, TIPSResult } from "@/data/mockData";
+import type { DFVResult, JTBDResult, StageStatus, TIPSCResult } from "@/data/mockData";
 import type { Role, SessionDocument, SessionStatus } from "@/types/api";
 import { registerStudentTeam, getStudents, initializeStorage } from "@/utils/adminData";
 
 export type AppUser = { userId: string; srn: string; name: string; role: Role; teamId: string | null };
 export type SessionState = { tipsc: StageStatus; dfv: StageStatus; discovery: StageStatus };
-export type SessionResults = { tips: TIPSResult | null; dfv: DFVResult | null; discovery: JTBDResult | null };
+export type SessionResults = { tips: TIPSCResult | null; dfv: DFVResult | null; discovery: JTBDResult | null };
 export type TimelineEvent = { label: string; timestamp: string };
 export type FormDataMap = Record<string, string>;
 

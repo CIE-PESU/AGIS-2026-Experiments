@@ -54,7 +54,7 @@ function Navbar() {
 
 const stepData = [
   [Lightbulb, "01", "Submit Your Idea", "Capture problem, customer, assumptions, and first solution shape."],
-  [Brain, "02", "Agent Evaluation", "Move through compliance, TIPS, DFV, and JTBD in sequence."],
+  [Brain, "02", "Agent Evaluation", "Move through compliance, TIPSC, DFV, and JTBD in sequence."],
   [TrendingUp, "03", "Get Insights", "Receive traffic-light decisions, recommendations, and follow-up prompts."],
   [Rocket, "04", "Build & Launch", "Turn validated evidence into a mentor-ready startup path."]
 ] as const;
@@ -158,7 +158,14 @@ export function LandingPage() {
               {["Idea Submission", "Compliance Check", "TIPSC Evaluation", "DFV Analysis", "JTBD Discovery", "Final Report"].map((label, index) => (
                 <div key={label} className="flex items-center">
                   <div className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-dashed border-secondary bg-muted text-center text-xs font-bold">{label}</div>
-                  {index < 5 && <div className="h-px w-16 border-t-2 border-dashed border-border" />}
+                  {index < 5 && (
+                    <div className="w-16 flex items-center justify-center">
+                      <div className="relative flex items-center w-12">
+                        <div className="h-0 w-full border-t-2 border-dashed border-secondary/40" />
+                        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-0 h-0 border-t-[4px] border-b-[4px] border-l-[6px] border-t-transparent border-b-transparent border-l-secondary/60" />
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

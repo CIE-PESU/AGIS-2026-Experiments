@@ -1,12 +1,12 @@
 import { ChevronDown } from "lucide-react";
-import { memberConversations, mockTIPSFinal, type StageStatus, type Traffic } from "@/data/mockData";
+import { memberConversations, mockTIPSCFinal, type StageStatus, type Traffic } from "@/data/mockData";
 import { StatusBadge, TrafficDot } from "@/components/shared/StatusBadge";
 
 type StudentDetail = {
   srn: string;
   name?: string;
   lastActive?: string;
-  tips?: typeof mockTIPSFinal.scores | Traffic;
+  tips?: typeof mockTIPSCFinal.scores | Traffic;
   dfv?: string;
   jtbd?: boolean;
 };
@@ -28,11 +28,11 @@ function Section({ title, children, open = true }: { title: string; children: Re
 export function DetailedProgressView({ student }: { student: StudentDetail }) {
   const conversation = memberConversations[student.srn as keyof typeof memberConversations] || fallback;
   const statuses: { label: string; value: StageStatus }[] = [
-    { label: "TIPS", value: "completed" },
+    { label: "TIPSC", value: "completed" },
     { label: "DFV", value: student.dfv === "Pending" ? "available" : "completed" },
     { label: "JTBD", value: student.jtbd ? "completed" : "locked" }
   ];
-  const tips = typeof student.tips === "string" ? mockTIPSFinal.scores : student.tips || mockTIPSFinal.scores;
+  const tips = typeof student.tips === "string" ? mockTIPSCFinal.scores : student.tips || mockTIPSCFinal.scores;
   return (
     <div className="space-y-4">
       <div className="rounded-lg bg-muted p-4">
@@ -59,7 +59,7 @@ export function DetailedProgressView({ student }: { student: StudentDetail }) {
           ))}
         </div>
       </Section>
-      <Section title="TIPS Evaluation Scores" open={false}>
+      <Section title="TIPSC Evaluation Scores" open={false}>
         <div className="grid gap-3 sm:grid-cols-2">
           {Object.entries(tips).map(([key, score]) => (
             <div key={key} className="rounded-md border p-3">
@@ -72,7 +72,7 @@ export function DetailedProgressView({ student }: { student: StudentDetail }) {
           ))}
         </div>
       </Section>
-      <Section title="TIPS Follow-up Q&A" open={false}>
+      <Section title="TIPSC Follow-up Q&A" open={false}>
         <div className="space-y-3">
           {conversation.followUps.map((item, index) => (
             <div key={item.question} className="grid gap-3 md:grid-cols-2">

@@ -1,13 +1,13 @@
 export type Traffic = "green" | "yellow" | "red";
 export type StageStatus = "locked" | "available" | "in_progress" | "completed";
 
-export type TIPSScore = {
+export type TIPSCScore = {
   status: Traffic;
   explanation: string;
 };
 
-export type TIPSResult = {
-  scores: Record<"technical" | "innovative" | "profitable" | "scalable", TIPSScore>;
+export type TIPSCResult = {
+  scores: Record<"technical" | "innovative" | "profitable" | "scalable", TIPSCScore>;
   readyForDFV: boolean;
   explanation: string;
 };
@@ -36,15 +36,15 @@ export const preEvaluationQuestions = [
 ] as const;
 
 export const mockComplianceResult = [
-  { label: "Legal Compliance", passed: true },
-  { label: "Ethical Review", passed: true },
-  { label: "Institutional Policy", passed: true },
-  { label: "Regulatory Mapping", passed: true }
+  { label: "Legal Compliance", passed: true, explanation: "No copyright or regulatory violations found in the proposed solution structure." },
+  { label: "Ethical Review", passed: true, explanation: "Proposed pilot does not pose any data privacy or discriminatory risks." },
+  { label: "Institutional Policy", passed: true, explanation: "Aligned with PES campus operator guidelines and student initiative policies." },
+  { label: "Regulatory Mapping", passed: true, explanation: "Fits under local municipal food waste guidelines and safety standards." }
 ];
 
 const campusBite = "CampusBite uses IoT weighing bins and ML demand signals to help campus food courts reduce food waste.";
 
-export const mockTIPSInitial: TIPSResult = {
+export const mockTIPSCInitial: TIPSCResult = {
   readyForDFV: false,
   explanation: `${campusBite} The concept is promising but the revenue logic needs sharper evidence.`,
   scores: {
@@ -55,19 +55,19 @@ export const mockTIPSInitial: TIPSResult = {
   }
 };
 
-export const mockTIPSAfterRound1: TIPSResult = {
-  ...mockTIPSInitial,
+export const mockTIPSCAfterRound1: TIPSCResult = {
+  ...mockTIPSCInitial,
   explanation: "The buyer and savings story improved, but pilot pricing needs one final validation point."
 };
 
-export const mockTIPSFinal: TIPSResult = {
+export const mockTIPSCFinal: TIPSCResult = {
   readyForDFV: true,
   explanation: "CampusBite is ready for DFV because the solution, buyer, pilot economics, and campus expansion path are now coherent.",
   scores: {
-    technical: mockTIPSInitial.scores.technical,
-    innovative: mockTIPSInitial.scores.innovative,
+    technical: mockTIPSCInitial.scores.technical,
+    innovative: mockTIPSCInitial.scores.innovative,
     profitable: { status: "green", explanation: "The pilot can charge a monthly analytics fee tied to measurable waste reduction." },
-    scalable: mockTIPSInitial.scores.scalable
+    scalable: mockTIPSCInitial.scores.scalable
   }
 };
 
@@ -202,18 +202,18 @@ export const mockMentorTeams = [
   {
     name: "Team Alpha",
     members: [
-      { srn: "PES1UG21CS001", name: "Aarav Sharma", tips: mockTIPSFinal.scores, dfv: "GO", jtbd: true, lastActive: "12 min ago" },
-      { srn: "PES1UG21CS002", name: "Meera Iyer", tips: mockTIPSInitial.scores, dfv: "GO", jtbd: false, lastActive: "1 hr ago" },
-      { srn: "PES1UG21CS003", name: "Kabir Rao", tips: mockTIPSInitial.scores, dfv: "Pending", jtbd: false, lastActive: "3 hrs ago" },
-      { srn: "PES1UG21CS010", name: "Nisha Verma", tips: mockTIPSFinal.scores, dfv: "NO-GO", jtbd: false, lastActive: "Yesterday" }
+      { srn: "PES1UG21CS001", name: "Aarav Sharma", tips: mockTIPSCFinal.scores, dfv: "GO", jtbd: true, lastActive: "12 min ago" },
+      { srn: "PES1UG21CS002", name: "Meera Iyer", tips: mockTIPSCInitial.scores, dfv: "GO", jtbd: false, lastActive: "1 hr ago" },
+      { srn: "PES1UG21CS003", name: "Kabir Rao", tips: mockTIPSCInitial.scores, dfv: "Pending", jtbd: false, lastActive: "3 hrs ago" },
+      { srn: "PES1UG21CS010", name: "Nisha Verma", tips: mockTIPSCFinal.scores, dfv: "NO-GO", jtbd: false, lastActive: "Yesterday" }
     ]
   },
   {
     name: "Team Beta",
     members: [
-      { srn: "PES1UG21CS011", name: "Rohan Das", tips: mockTIPSFinal.scores, dfv: "GO", jtbd: true, lastActive: "2 days ago" },
-      { srn: "PES1UG21CS012", name: "Ishaan Gupta", tips: mockTIPSInitial.scores, dfv: "Pending", jtbd: false, lastActive: "4 hrs ago" },
-      { srn: "PES1UG21CS013", name: "Tara Singh", tips: mockTIPSAfterRound1.scores, dfv: "GO", jtbd: false, lastActive: "Today" }
+      { srn: "PES1UG21CS011", name: "Rohan Das", tips: mockTIPSCFinal.scores, dfv: "GO", jtbd: true, lastActive: "2 days ago" },
+      { srn: "PES1UG21CS012", name: "Ishaan Gupta", tips: mockTIPSCInitial.scores, dfv: "Pending", jtbd: false, lastActive: "4 hrs ago" },
+      { srn: "PES1UG21CS013", name: "Tara Singh", tips: mockTIPSCAfterRound1.scores, dfv: "GO", jtbd: false, lastActive: "Today" }
     ]
   }
 ];

@@ -3,9 +3,9 @@ import {
   mockDFVResult,
   mockFollowUps,
   mockJTBDResult,
-  mockTIPSAfterRound1,
-  mockTIPSFinal,
-  mockTIPSInitial
+  mockTIPSCAfterRound1,
+  mockTIPSCFinal,
+  mockTIPSCInitial
 } from "@/data/mockData";
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -15,15 +15,15 @@ export async function checkCompliance() {
   return mockComplianceResult;
 }
 
-export async function getInitialTIPSScores() {
+export async function getInitialTIPSCScores() {
   await wait(3000);
-  return { result: mockTIPSInitial, followUp: mockFollowUps[0] };
+  return { result: mockTIPSCInitial, followUp: mockFollowUps[0] };
 }
 
 export async function submitFollowUp(round: number, _answer: string) {
   await wait(2500);
-  if (round === 0) return { result: mockTIPSAfterRound1, followUp: mockFollowUps[1] };
-  return { result: mockTIPSFinal, followUp: null };
+  if (round === 0) return { result: mockTIPSCAfterRound1, followUp: mockFollowUps[1] };
+  return { result: mockTIPSCFinal, followUp: null };
 }
 
 export async function runDFVAnalysis() {

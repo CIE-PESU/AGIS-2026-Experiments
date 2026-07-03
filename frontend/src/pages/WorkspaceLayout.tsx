@@ -11,7 +11,7 @@ import { getComments, addComment, Comment } from "@/utils/adminData";
 
 const names: Record<string, string> = {
   "/workspace": "Workspace",
-  "/workspace/tipsc": "TIPS Evaluation",
+  "/workspace/tipsc": "TIPSC Evaluation",
   "/workspace/dfv": "DFV Analysis",
   "/workspace/discovery": "Customer Discovery"
 };

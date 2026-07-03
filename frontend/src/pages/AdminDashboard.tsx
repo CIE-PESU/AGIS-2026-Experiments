@@ -302,7 +302,7 @@ export function AdminDashboard() {
             <Card>
               <CardContent className="p-5 flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">TIPS Complete</p>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">TIPSC Complete</p>
                   <p className="mt-2 text-3xl font-bold text-primary">{stats.tipsComplete}</p>
                 </div>
                 <div className="p-2 bg-amber-50 rounded-lg text-amber-600">
@@ -395,7 +395,7 @@ export function AdminDashboard() {
                               </td>
                               <td className="p-4 text-center">
                                 <span className="inline-flex gap-3 text-xs">
-                                  <span>TIPS: <strong className="text-emerald-700">{tipsCount}/{t.members.length}</strong></span>
+                                  <span>TIPSC: <strong className="text-emerald-700">{tipsCount}/{t.members.length}</strong></span>
                                   <span>DFV: <strong className="text-indigo-700">{dfvCount}/{t.members.length}</strong></span>
                                 </span>
                               </td>
