@@ -78,7 +78,7 @@ class DFVInputs(BaseModel):
 
 class Session(Document):
     team_id: str
-    student_id: str
+    student_id: str  
     problem_statement: str
     idea: str
     status: SessionStatus = SessionStatus.CREATED

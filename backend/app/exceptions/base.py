@@ -1,43 +1,43 @@
-exceptions/base.py — Full typed exception hierarchy for the AGIS backend.
+# exceptions/base.py — Full typed exception hierarchy for the AGIS backend.
 
-Every exception class maps directly to an HTTP status code and an error catalog
-code (defined in api-spec.md Section 11). Global handlers in exceptions/handlers.py
-convert these into the standard error envelope.
+# Every exception class maps directly to an HTTP status code and an error catalog
+# code (defined in api-spec.md Section 11). Global handlers in exceptions/handlers.py
+# convert these into the standard error envelope.
 
-Hierarchy:
-    AppException
-    ├── AuthException
-    │   ├── InvalidCredentialsError       (401  INVALID_CREDENTIALS)
-    │   ├── TokenExpiredError             (401  TOKEN_EXPIRED)
-    │   ├── TokenInvalidError             (401  TOKEN_INVALID)
-    │   ├── RefreshTokenInvalidError      (401  REFRESH_TOKEN_INVALID)
-    │   ├── RefreshTokenExpiredError      (401  REFRESH_TOKEN_EXPIRED)
-    │   └── InsufficientPermissionsError  (403  INSUFFICIENT_PERMISSIONS)
-    ├── SessionException
-    │   ├── SessionNotFoundError          (404  SESSION_NOT_FOUND)
-    │   ├── SessionAlreadyExistsError     (409  SESSION_ALREADY_EXISTS)
-    │   ├── ActiveSessionExistsError      (409  ACTIVE_SESSION_EXISTS)
-    │   ├── InvalidStateTransitionError   (409  INVALID_STATE_TRANSITION)
-    │   ├── FlowAlreadyRunningError       (409  FLOW_ALREADY_RUNNING)
-    │   ├── DFVNotUnlockedError           (409  DFV_NOT_UNLOCKED)
-    │   └── CannotArchiveActiveSessionError (409 CANNOT_ARCHIVE_ACTIVE_SESSION)
-    ├── CommentException
-    │   └── CommentNotFoundError          (404  COMMENT_NOT_FOUND)
-    ├── WorkerException
-    │   ├── InvalidWorkerSecretError      (403  INVALID_WORKER_SECRET)
-    │   ├── InvalidOutputSchemaError      (400  INVALID_OUTPUT_SCHEMA)
-    │   └── CorrelationIDMismatchError    (409  CORRELATION_ID_MISMATCH)
-    ├── KafkaException
-    │   ├── KafkaPublishError             (503  KAFKA_UNAVAILABLE)
-    │   └── KafkaUnavailableError         (503  KAFKA_UNAVAILABLE)
-    ├── DatabaseException
-    │   ├── DatabaseUnavailableError      (503  DATABASE_UNAVAILABLE)
-    │   └── DocumentNotFoundError         (404  SESSION_NOT_FOUND)
-    ├── PESAuthException
-    │   ├── PESAuthUnavailableError       (503  PES_AUTH_UNAVAILABLE)
-    │   └── InvalidCredentialsError       → re-exported above
-    └── ValidationException               (422  VALIDATION_ERROR)
-"""
+# Hierarchy:
+#     AppException
+#     ├── AuthException
+#     │   ├── InvalidCredentialsError       (401  INVALID_CREDENTIALS)
+#     │   ├── TokenExpiredError             (401  TOKEN_EXPIRED)
+#     │   ├── TokenInvalidError             (401  TOKEN_INVALID)
+#     │   ├── RefreshTokenInvalidError      (401  REFRESH_TOKEN_INVALID)
+#     │   ├── RefreshTokenExpiredError      (401  REFRESH_TOKEN_EXPIRED)
+#     │   └── InsufficientPermissionsError  (403  INSUFFICIENT_PERMISSIONS)
+#     ├── SessionException
+#     │   ├── SessionNotFoundError          (404  SESSION_NOT_FOUND)
+#     │   ├── SessionAlreadyExistsError     (409  SESSION_ALREADY_EXISTS)
+#     │   ├── ActiveSessionExistsError      (409  ACTIVE_SESSION_EXISTS)
+#     │   ├── InvalidStateTransitionError   (409  INVALID_STATE_TRANSITION)
+#     │   ├── FlowAlreadyRunningError       (409  FLOW_ALREADY_RUNNING)
+#     │   ├── DFVNotUnlockedError           (409  DFV_NOT_UNLOCKED)
+#     │   └── CannotArchiveActiveSessionError (409 CANNOT_ARCHIVE_ACTIVE_SESSION)
+#     ├── CommentException
+#     │   └── CommentNotFoundError          (404  COMMENT_NOT_FOUND)
+#     ├── WorkerException
+#     │   ├── InvalidWorkerSecretError      (403  INVALID_WORKER_SECRET)
+#     │   ├── InvalidOutputSchemaError      (400  INVALID_OUTPUT_SCHEMA)
+#     │   └── CorrelationIDMismatchError    (409  CORRELATION_ID_MISMATCH)
+#     ├── KafkaException
+#     │   ├── KafkaPublishError             (503  KAFKA_UNAVAILABLE)
+#     │   └── KafkaUnavailableError         (503  KAFKA_UNAVAILABLE)
+#     ├── DatabaseException
+#     │   ├── DatabaseUnavailableError      (503  DATABASE_UNAVAILABLE)
+#     │   └── DocumentNotFoundError         (404  SESSION_NOT_FOUND)
+#     ├── PESAuthException
+#     │   ├── PESAuthUnavailableError       (503  PES_AUTH_UNAVAILABLE)
+#     │   └── InvalidCredentialsError       → re-exported above
+#     └── ValidationException               (422  VALIDATION_ERROR)
+
 
 from __future__ import annotations
 
@@ -49,13 +49,13 @@ from typing import Any
 # ─────────────────────────────────────────────────────────────────────────────
 
 class AppException(Exception):
-    """
-    Root exception for the AGIS backend.
+    
+    # Root exception for the AGIS backend.
 
-    Every subclass MUST declare:
-      - http_status  : int  — The HTTP response status code.
-      - error_code   : str  — Catalog code from api-spec.md Section 11.
-    """
+    # Every subclass MUST declare:
+    #   - http_status  : int  — The HTTP response status code.
+    #   - error_code   : str  — Catalog code from api-spec.md Section 11.
+    
 
     http_status: int = 500
     error_code: str = "INTERNAL_ERROR"
