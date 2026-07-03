@@ -1,0 +1,23 @@
+{
+  "refined_idea": {
+    "customer_segment": "Small business owners in India with 5-50 employees and annual revenue of 2-50 Cr INR",
+    "qualified_problem": "Small business owners in India cannot obtain working capital loans quickly from traditional banks due to collateral requirements and lengthy processes.",
+    "consequence": "They miss growth opportunities, struggle with cash flow gaps, and resort to informal lenders at high rates.",
+    "proposed_solution": "An AI-powered lending platform that uses GST and bank transaction data to provide working capital loans within 48 hours."
+  },
+  "solution_alignment": "GREEN",
+  "tips_validated_metrics": {
+    "timely_factor": "The problem is active daily with immediate cash flow consequences, fitting the <6 months urgency horizon.",
+    "importance_metric": "Missing working capital directly causes business failure or forced reliance on predatory informal lenders, making it a must-have need.",
+    "profitability_pivot": "B2B lending model where customers pay interest fees; market size and competitor success confirm willingness to pay.",
+    "solvability_constraint": "The team has confirmed access to data sources (GST/Bank) but lacks the regulatory license, which is being actively acquired via a credible LSP partnership plan."
+  },
+  "tips_rag_scores": {
+    "T": "GREEN",
+    "I": "GREEN",
+    "P": "GREEN",
+    "S": "YELLOW"
+  },
+  "overall_readiness": "STRONG",
+  "ready_for_dfv": true
+}
