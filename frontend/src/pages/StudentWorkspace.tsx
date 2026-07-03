@@ -39,7 +39,7 @@ export function StudentWorkspace() {
   }, [user]);
 
   const modules = [
-    { key: "tipsc" as const, title: "TIPSC Evaluation", icon: Target, color: "text-secondary", path: "/workspace/tipsc", description: "Assess timing, idea, problem, solution, and competition readiness." },
+    { key: "tipsc" as const, title: "TIPSC Evaluation", icon: Target, color: "text-secondary", path: "/workspace/tipsc", description: "Assess timely, importance, profitable, and solvable strength." },
     { key: "dfv" as const, title: "DFV Analysis", icon: TrendingUp, color: "text-primary", path: "/workspace/dfv", description: "Validate desirability, feasibility, and viability before moving ahead." },
     { key: "discovery" as const, title: "Customer Discovery", icon: Users, color: "text-accent", path: "/workspace/discovery", description: "Generate customer jobs, interview plans, and discovery recommendations." }
   ];

@@ -7,7 +7,7 @@ export type TIPSCScore = {
 };
 
 export type TIPSCResult = {
-  scores: Record<"technical" | "innovative" | "profitable" | "scalable", TIPSCScore>;
+  scores: Record<"timely" | "importance" | "profitable" | "solvable", TIPSCScore>;
   readyForDFV: boolean;
   explanation: string;
 };
@@ -48,10 +48,10 @@ export const mockTIPSCInitial: TIPSCResult = {
   readyForDFV: false,
   explanation: `${campusBite} The concept is promising but the revenue logic needs sharper evidence.`,
   scores: {
-    technical: { status: "green", explanation: "IoT sensors and prediction models are feasible with available campus infrastructure." },
-    innovative: { status: "green", explanation: "Combining live waste telemetry with demand prediction is distinct in the campus context." },
+    timely: { status: "green", explanation: "IoT sensors and prediction models are critical to deploy now due to rising campus sustainability mandates." },
+    importance: { status: "green", explanation: "Reducing campus food waste is highly important for operators to defend their margins and lower reputation pressure." },
     profitable: { status: "yellow", explanation: "Savings are plausible, but pricing and buyer willingness are not yet quantified." },
-    scalable: { status: "green", explanation: "The model can expand from PES food courts to other universities and cafeterias." }
+    solvable: { status: "green", explanation: "The problem is solvable using available IoT weighing bins and predictive demand telemetry." }
   }
 };
 
@@ -64,10 +64,10 @@ export const mockTIPSCFinal: TIPSCResult = {
   readyForDFV: true,
   explanation: "CampusBite is ready for DFV because the solution, buyer, pilot economics, and campus expansion path are now coherent.",
   scores: {
-    technical: mockTIPSCInitial.scores.technical,
-    innovative: mockTIPSCInitial.scores.innovative,
+    timely: mockTIPSCInitial.scores.timely,
+    importance: mockTIPSCInitial.scores.importance,
     profitable: { status: "green", explanation: "The pilot can charge a monthly analytics fee tied to measurable waste reduction." },
-    scalable: mockTIPSCInitial.scores.scalable
+    solvable: mockTIPSCInitial.scores.solvable
   }
 };
 

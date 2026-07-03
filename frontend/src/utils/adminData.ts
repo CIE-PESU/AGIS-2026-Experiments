@@ -41,10 +41,10 @@ export function initializeStorage() {
         srn: "PES1UG21CS001",
         name: "Aarav Sharma",
         tips: {
-          technical: { status: "green", explanation: "IoT sensors and prediction models are feasible with available campus infrastructure." },
-          innovative: { status: "green", explanation: "Combining live waste telemetry with demand prediction is distinct in the campus context." },
+          timely: { status: "green", explanation: "IoT sensors and prediction models are critical to deploy now due to rising campus sustainability mandates." },
+          importance: { status: "green", explanation: "Reducing campus food waste is highly important for operators to defend their margins and lower reputation pressure." },
           profitable: { status: "green", explanation: "The pilot can charge a monthly analytics fee tied to measurable waste reduction." },
-          scalable: { status: "green", explanation: "The model can expand from PES food courts to other universities and cafeterias." }
+          solvable: { status: "green", explanation: "The problem is solvable using available IoT weighing bins and predictive demand telemetry." }
         },
         dfv: "GO",
         jtbd: true,
@@ -55,10 +55,10 @@ export function initializeStorage() {
         srn: "PES1UG21CS002",
         name: "Meera Iyer",
         tips: {
-          technical: { status: "green", explanation: "Feasible and compliant." },
-          innovative: { status: "green", explanation: "Hyperlocal market is unique." },
+          timely: { status: "green", explanation: "Feasible and compliant." },
+          importance: { status: "green", explanation: "Hyperlocal market is unique." },
           profitable: { status: "yellow", explanation: "Pilot margins need validation." },
-          scalable: { status: "green", explanation: "Scales to local clusters." }
+          solvable: { status: "green", explanation: "Scales to local clusters." }
         },
         dfv: "GO",
         jtbd: false,
@@ -69,10 +69,10 @@ export function initializeStorage() {
         srn: "PES1UG21CS003",
         name: "Kabir Rao",
         tips: {
-          technical: { status: "green", explanation: "Good integration." },
-          innovative: { status: "green", explanation: "Distinct interface." },
+          timely: { status: "green", explanation: "Good integration." },
+          importance: { status: "green", explanation: "Distinct interface." },
           profitable: { status: "yellow", explanation: "Workflow cost needs detail." },
-          scalable: { status: "green", explanation: "Applies to institutional placement teams." }
+          solvable: { status: "green", explanation: "Applies to institutional placement teams." }
         },
         dfv: "Pending",
         jtbd: false,
@@ -83,10 +83,10 @@ export function initializeStorage() {
         srn: "PES1UG21CS010",
         name: "Nisha Verma",
         tips: {
-          technical: { status: "green", explanation: "Simple WhatsApp integration." },
-          innovative: { status: "green", explanation: "Low friction." },
+          timely: { status: "green", explanation: "Simple WhatsApp integration." },
+          importance: { status: "green", explanation: "Low friction." },
           profitable: { status: "green", explanation: "Clear SaaS value." },
-          scalable: { status: "green", explanation: "Scales to any micro-retailer." }
+          solvable: { status: "green", explanation: "Scales to any micro-retailer." }
         },
         dfv: "NO-GO",
         jtbd: false,
@@ -98,10 +98,10 @@ export function initializeStorage() {
         srn: "PES1UG21CS011",
         name: "Rohan Das",
         tips: {
-          technical: { status: "green", explanation: "Feasible with standard tech stack." },
-          innovative: { status: "green", explanation: "Reputation score distinct." },
+          timely: { status: "green", explanation: "Feasible with standard tech stack." },
+          importance: { status: "green", explanation: "Reputation score distinct." },
           profitable: { status: "green", explanation: "Freemium SaaS clear." },
-          scalable: { status: "green", explanation: "Partnerships scale well." }
+          solvable: { status: "green", explanation: "Partnerships scale well." }
         },
         dfv: "GO",
         jtbd: true,
@@ -112,10 +112,10 @@ export function initializeStorage() {
         srn: "PES1UG21CS012",
         name: "Ishaan Gupta",
         tips: {
-          technical: { status: "green", explanation: "Standard UI." },
-          innovative: { status: "yellow", explanation: "Similar to existing." },
+          timely: { status: "green", explanation: "Standard UI." },
+          importance: { status: "yellow", explanation: "Similar to existing." },
           profitable: { status: "yellow", explanation: "Unclear monetize." },
-          scalable: { status: "yellow", explanation: "Low lock-in." }
+          solvable: { status: "yellow", explanation: "Low lock-in." }
         },
         dfv: "Pending",
         jtbd: false,
@@ -126,10 +126,10 @@ export function initializeStorage() {
         srn: "PES1UG21CS013",
         name: "Tara Singh",
         tips: {
-          technical: { status: "green", explanation: "Workable." },
-          innovative: { status: "green", explanation: "Distinct features." },
+          timely: { status: "green", explanation: "Workable." },
+          importance: { status: "green", explanation: "Distinct features." },
           profitable: { status: "yellow", explanation: "Unproven pricing." },
-          scalable: { status: "green", explanation: "Good market fit." }
+          solvable: { status: "green", explanation: "Good market fit." }
         },
         dfv: "GO",
         jtbd: false,
@@ -141,10 +141,10 @@ export function initializeStorage() {
         srn: "PES1UG21CS004",
         name: "Sneha Patel",
         tips: {
-          technical: { status: "green", explanation: "Feasible." },
-          innovative: { status: "green", explanation: "Innovative." },
+          timely: { status: "green", explanation: "Feasible." },
+          importance: { status: "green", explanation: "Innovative." },
           profitable: { status: "yellow", explanation: "Pricing model draft." },
-          scalable: { status: "green", explanation: "Scales globally." }
+          solvable: { status: "green", explanation: "Scales globally." }
         },
         dfv: "Pending",
         jtbd: false,
@@ -155,10 +155,10 @@ export function initializeStorage() {
         srn: "PES1UG21CS005",
         name: "Rahul Kumar",
         tips: {
-          technical: { status: "yellow", explanation: "Needs review." },
-          innovative: { status: "yellow", explanation: "A bit common." },
+          timely: { status: "yellow", explanation: "Needs review." },
+          importance: { status: "yellow", explanation: "A bit common." },
           profitable: { status: "yellow", explanation: "High upfront cost." },
-          scalable: { status: "yellow", explanation: "Slow adoption." }
+          solvable: { status: "yellow", explanation: "Slow adoption." }
         },
         dfv: "Pending",
         jtbd: false,
@@ -169,10 +169,10 @@ export function initializeStorage() {
         srn: "PES1UG21CS006",
         name: "Ananya Reddy",
         tips: {
-          technical: { status: "green", explanation: "Proven tech stack." },
-          innovative: { status: "green", explanation: "Good solution." },
+          timely: { status: "green", explanation: "Proven tech stack." },
+          importance: { status: "green", explanation: "Good solution." },
           profitable: { status: "green", explanation: "Clear margins." },
-          scalable: { status: "green", explanation: "High growth potential." }
+          solvable: { status: "green", explanation: "High growth potential." }
         },
         dfv: "Pending",
         jtbd: false,
@@ -273,10 +273,10 @@ export function registerStudentTeam(srn: string, teamName: string): string {
       srn,
       name: `Student (${srn})`,
       tips: {
-        technical: { status: "yellow", explanation: "Draft status" },
-        innovative: { status: "yellow", explanation: "Draft status" },
+        timely: { status: "yellow", explanation: "Draft status" },
+        importance: { status: "yellow", explanation: "Draft status" },
         profitable: { status: "yellow", explanation: "Draft status" },
-        scalable: { status: "yellow", explanation: "Draft status" }
+        solvable: { status: "yellow", explanation: "Draft status" }
       },
       dfv: "Pending",
       jtbd: false,
