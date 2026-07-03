@@ -12,12 +12,16 @@ from fastapi import APIRouter
 
 from app.api.v1.auth import router as auth_router
 from app.api.v1.health import router as health_router
+from app.api.v1.sessions import router as sessions_router
 
 # Root v1 router — prefix applied by main.py's include_router call
 v1_router = APIRouter()
 
 # ── Auth ───────────────────────────────────────────────────────────────────────
 v1_router.include_router(auth_router)
+
+# ── Sessions ───────────────────────────────────────────────────────────────────
+v1_router.include_router(sessions_router)
 
 # ── Health (no prefix — mounted at root level) ─────────────────────────────────
 # Health endpoints are also registered separately at root level in main.py

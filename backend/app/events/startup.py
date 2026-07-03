@@ -44,12 +44,11 @@ async def on_startup() -> None:
         logger.error("[startup] Index creation failed (non-fatal): %s", exc)
 
     # ── 3. Kafka Producer ──────────────────────────────────────────────────────
-    # Vijay's producer — will be wired in when B-06 merges.
-    # try:
-    #     from app.kafka.producer import kafka_producer
-    #     await kafka_producer.start()
-    #     logger.info("[startup] Kafka Producer ✓")
-    # except Exception as exc:
-    #     logger.warning("[startup] Kafka Producer unavailable (non-fatal): %s", exc)
+    try:
+        from app.kafka.producer import kafka_producer
+        await kafka_producer.start()
+        logger.info("[startup] Kafka Producer ✓")
+    except Exception as exc:
+        logger.warning("[startup] Kafka Producer unavailable (non-fatal): %s", exc)
 
     logger.info("=== AGIS Backend Ready ===")

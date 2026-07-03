@@ -25,13 +25,12 @@ async def on_shutdown() -> None:
     logger.info("=== AGIS Backend Shutting Down ===")
 
     # ── 1. Kafka Producer ──────────────────────────────────────────────────────
-    # Vijay's producer — will be wired in when B-06 merges.
-    # try:
-    #     from app.kafka.producer import kafka_producer
-    #     await kafka_producer.stop()
-    #     logger.info("[shutdown] Kafka Producer closed ✓")
-    # except Exception as exc:
-    #     logger.error("[shutdown] Kafka Producer close error: %s", exc)
+    try:
+        from app.kafka.producer import kafka_producer
+        await kafka_producer.stop()
+        logger.info("[shutdown] Kafka Producer closed ✓")
+    except Exception as exc:
+        logger.error("[shutdown] Kafka Producer close error: %s", exc)
 
     # ── 2. MongoDB ─────────────────────────────────────────────────────────────
     try:
