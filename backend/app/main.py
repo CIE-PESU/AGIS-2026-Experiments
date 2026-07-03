@@ -176,8 +176,8 @@ def create_app() -> FastAPI:
 
     # Internal worker routes — only reachable from internal network (different prefix)
     # Vijay wires these in on Day 2 (B-13)
-    # from app.api.internal.worker_updates import router as internal_router
-    # app.include_router(internal_router, prefix="/internal")
+    from app.api.internal.worker_updates import router as internal_router
+    app.include_router(internal_router, prefix="/internal")
 
     logger.info(
         "App created | env=%s | debug=%s | cors_origins=%s",
