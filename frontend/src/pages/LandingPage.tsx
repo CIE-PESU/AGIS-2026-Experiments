@@ -54,14 +54,14 @@ function Navbar() {
 
 const stepData = [
   [Lightbulb, "01", "Submit Your Idea", "Capture problem, customer, assumptions, and first solution shape."],
-  [Brain, "02", "AI Evaluation", "Move through compliance, TIPS, DFV, and JTBD in sequence."],
+  [Brain, "02", "Agent Evaluation", "Move through compliance, TIPS, DFV, and JTBD in sequence."],
   [TrendingUp, "03", "Get Insights", "Receive traffic-light decisions, recommendations, and follow-up prompts."],
   [Rocket, "04", "Build & Launch", "Turn validated evidence into a mentor-ready startup path."]
 ] as const;
 
 const agents = [
   [ShieldCheck, "Compliance Agent", "Checks legal, ethical, institutional, and regulatory readiness."],
-  [Target, "TIPSC Agent", "Scores technical, innovative, profitable, and scalable strength."],
+  [Target, "TIPSC Agent", "Scores timely, importance, profitable, and solvable strength."],
   [TrendingUp, "DFV Agent", "Evaluates desirability, feasibility, and viability for go/no-go clarity."],
   [Users, "JTBD Agent", "Turns ideas into customer jobs, interviews, and discovery priorities."]
 ] as const;
@@ -75,27 +75,16 @@ export function LandingPage() {
         <div className="relative mx-auto grid min-h-[calc(100vh-4rem)] max-w-7xl items-center gap-10 px-4 py-16 lg:grid-cols-2">
           <div>
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border bg-white/75 px-4 py-2 text-sm font-semibold text-primary shadow-sm">
-              <Sparkles className="h-4 w-4 text-accent" /> Empowering Innovation Since 2018
+              <Sparkles className="h-4 w-4 text-accent" /> CIE - Entrepreneurship coach
             </div>
-            <h1 className="text-5xl font-extrabold leading-tight tracking-normal md:text-7xl">
-              <span className="text-primary">Ideate.</span><br />
-              <span className="text-secondary">Innovate.</span><br />
-              <span className="text-gradient">Inspire.</span>
-            </h1>
+
             <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">
               PES CIE's agentic evaluation platform helps student founders validate ideas through guided AI frameworks and mentor oversight.
             </p>
             <Button asChild variant="secondary" size="lg" className="mt-8 rounded-full">
               <Link to="/login">Explore Platform <ArrowRight className="h-5 w-5" /></Link>
             </Button>
-            <div className="mt-10 grid max-w-2xl grid-cols-3 gap-4">
-              {["1000+ Ideas Validated", "500+ Student Innovators", "50+ Startups Launched"].map((stat) => (
-                <div key={stat} className="rounded-lg bg-white/65 p-4 text-center shadow-sm">
-                  <p className="text-lg font-bold text-primary">{stat.split(" ")[0]}</p>
-                  <p className="text-xs text-muted-foreground">{stat.replace(stat.split(" ")[0], "").trim()}</p>
-                </div>
-              ))}
-            </div>
+            
           </div>
           <div className="relative mx-auto aspect-square w-full max-w-[520px]">
             <div className="absolute inset-10 rounded-full border-2 border-dashed border-primary/30" />
@@ -159,7 +148,7 @@ export function LandingPage() {
                   <Icon className="h-9 w-9 text-accent" />
                   <h3 className="mt-5 font-bold">{title}</h3>
                   <p className="mt-3 text-sm text-muted-foreground">{description}</p>
-                  <a href="#how-it-works" className="mt-5 inline-flex items-center gap-1 text-sm font-semibold text-secondary">Learn More <ArrowRight className="h-4 w-4" /></a>
+                  
                 </CardContent>
               </Card>
             ))}
@@ -191,10 +180,46 @@ export function LandingPage() {
         <div className="mx-auto grid max-w-7xl gap-8 px-4 md:grid-cols-3">
           <div><h3 className="text-xl font-bold">PES CIE</h3><p className="mt-3 text-sm text-white/75">Building the next generation of student entrepreneurs.</p></div>
           <div><h3 className="font-bold">Quick Links</h3><a href="#how-it-works" className="mt-3 block text-sm text-white/75">How It Works</a><a href="#agents" className="mt-2 block text-sm text-white/75">Agents</a></div>
-          <div><h3 className="font-bold">Connect With Us</h3><div className="mt-3 flex gap-3"><Linkedin /><Instagram /><Youtube /><Mail /></div><p className="mt-3 text-sm text-white/75">cie@pes.edu · +91 80 2672 1983</p></div>
+          <div>
+  <h3 className="font-bold">Connect With Us</h3>
+
+  <div className="mt-3 flex gap-3">
+    <a
+      href="linkedin.com/company/center-for-innovation-and-entrepreneurship-pes-university/"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="hover:text-white transition-colors"
+    >
+      <Linkedin />
+    </a>
+
+    <a
+      href="https://www.instagram.com/cie.pesu/"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="hover:text-white transition-colors"
+    >
+      <Instagram />
+    </a>
+
+    <a
+      href="https://www.youtube.com/@CIEPodcast-PESU"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="hover:text-white transition-colors"
+    >
+      <Youtube />
+    </a>
+  </div>
+
+  <p className="mt-3 text-sm text-white/75">
+    cie@pes.edu · +91 80 2672 1983
+  </p>
+</div>
         </div>
-        <p className="mt-10 text-center text-xs text-white/60">© 2024 PES University - CIE</p>
+        <p className="mt-10 text-center text-xs text-white/60">© 2026 PES University - CIE</p>
       </footer>
     </div>
   );
 }
+
