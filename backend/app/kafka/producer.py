@@ -1,172 +1,87 @@
-"""
-kafka/producer.py — Async Kafka producer wrapper.
-
-Wraps aiokafka's AIOKafkaProducer with:
-  - Lifecycle management (start/stop tied to FastAPI lifespan)
-  - A single `publish()` helper used by services
-  - Retry logic with exponential back-off
-  - Structured logging on every publish
-
-Usage:
-    from app.kafka.producer import kafka_producer
-    await kafka_producer.publish(topic=KafkaTopic.USER_SESSION_TIPSC, value=payload.model_dump_json())
-
-Startup (in events/startup.py):
-    await kafka_producer.start()
-
-Shutdown (in events/shutdown.py):
-    await kafka_producer.stop()
-"""
-
-from __future__ import annotations
-
+# backend/app/kafka/producer.py
 import asyncio
 import json
 import logging
-import uuid
-from typing import Any
-
+from aiokafka import AIOKafkaProducer
 from app.core.config import settings
-
-logger = logging.getLogger(__name__)
-
-# Maximum number of times to retry a failed publish before giving up.
-_MAX_RETRIES = 3
-_RETRY_BASE_DELAY = 0.5  # seconds
+from app.exceptions.base import KafkaPublishError  
+from pydantic import BaseModel
 
 
-class KafkaProducer:
-    """
-    Async Kafka producer with lifecycle management and retry logic.
+logger = logging.getLogger("app.kafka.producer")
 
-    The underlying aiokafka producer is lazily imported so that the module
-    can be imported in environments where aiokafka is not installed
-    (e.g. running unit tests without a real Kafka broker).
-    """
+class KafkaProducerClient:
+    """Singleton Kafka Producer client managing async lifecycle and strict retries."""
+    _instance = None
 
-    def __init__(self) -> None:
-        self._producer: Any = None
-        self._started: bool = False
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(KafkaProducerClient, cls).__new__(cls)
+            cls._instance._producer = None
+        return cls._instance
 
     async def start(self) -> None:
-        """
-        Initialise and start the aiokafka producer.
-        Called once during FastAPI lifespan startup.
-        """
-        try:
-            from aiokafka import AIOKafkaProducer  # type: ignore[import]
-
+        """Initializes the producer. Called during backend startup events."""
+        if self._producer is None:
+            logger.info("Initializing AIOKafkaProducer connecting to %s", settings.KAFKA_BOOTSTRAP_SERVERS)
             self._producer = AIOKafkaProducer(
                 bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS,
-                security_protocol=settings.KAFKA_SECURITY_PROTOCOL,
-                # JSON serialiser — all messages are UTF-8 JSON strings.
-                value_serializer=lambda v: v.encode("utf-8") if isinstance(v, str) else json.dumps(v).encode("utf-8"),
-                # Key serialiser (topic key = session_id for ordered delivery per session).
-                key_serializer=lambda k: k.encode("utf-8") if k else None,
-                # Producer acks: wait for leader + 1 replica before confirming.
-                acks="all",
-                # Retry at the producer level before we raise.
-                retries=2,
-                max_batch_size=16384,
-                linger_ms=5,
+                key_serializer=lambda k: k.encode('utf-8') if k else None,
+                value_serializer=lambda v: json.dumps(v).encode('utf-8')
             )
             await self._producer.start()
-            self._started = True
-            logger.info(
-                "Kafka producer started | brokers=%s", settings.KAFKA_BOOTSTRAP_SERVERS
-            )
-        except Exception as exc:
-            # Kafka unavailability at startup is logged but does not crash the app.
-            # Individual publish() calls will raise KafkaPublishError.
-            logger.error("Kafka producer failed to start: %s", exc, exc_info=True)
+            logger.info("AIOKafkaProducer started successfully.")
 
     async def stop(self) -> None:
+        """Stops the producer cleanly. Called during backend shutdown events."""
+        if self._producer is not None:
+            logger.info("Stopping AIOKafkaProducer...")
+            await self._producer.stop()
+            self._producer = None
+            logger.info("AIOKafkaProducer stopped cleanly.")
+
+    async def publish(self, topic: str, payload: BaseModel) -> str:
         """
-        Gracefully flush and stop the aiokafka producer.
-        Called once during FastAPI lifespan shutdown.
+        Serializes and publishes a message to a specific topic with strict exponential backoff.
+        Guarantees event ordering inside Kafka by forcing the partition key to be the session_id.
         """
-        if self._producer and self._started:
+        if self._producer is None:
+            raise KafkaPublishError("Kafka producer is not initialized.")
+
+        # Force messages under the same session to lock to the same partition sequentially
+        partition_key = payload.session_id 
+        message_value = payload.model_dump(mode='json')
+
+        retries = 3
+        backoff_delays = [0.1, 0.3, 0.9]  # 100ms, 300ms, 900ms backoffs
+
+        for attempt in range(1, retries + 1):
             try:
-                await self._producer.stop()
-                self._started = False
-                logger.info("Kafka producer stopped.")
-            except Exception as exc:
-                logger.warning("Kafka producer stop error (ignored): %s", exc)
-
-    async def publish(
-        self,
-        topic: str,
-        value: str,
-        key: str | None = None,
-    ) -> str:
-        """
-        Publish a JSON-serialised message to a Kafka topic.
-
-        Retries up to _MAX_RETRIES times with exponential back-off.
-        Generates and returns a correlation_id (UUID4) that the caller should
-        store on the session for worker validation.
-
-        Args:
-            topic : Kafka topic name (use KafkaTopic constants).
-            value : JSON string payload. Use payload.model_dump_json().
-            key   : Optional partition key (e.g. session_id for ordered delivery).
-
-        Returns:
-            correlation_id : UUID4 string identifying this specific publish event.
-
-        Raises:
-            KafkaPublishError : After all retries are exhausted.
-            KafkaUnavailableError : If the producer was never successfully started.
-        """
-        from app.exceptions.base import KafkaPublishError, KafkaUnavailableError
-
-        if not self._started or self._producer is None:
-            raise KafkaUnavailableError(
-                "Kafka producer is not running. Check broker connectivity."
-            )
-
-        correlation_id = str(uuid.uuid4())
-        last_exc: Exception | None = None
-
-        for attempt in range(1, _MAX_RETRIES + 1):
-            try:
+                logger.debug(
+                    "Publishing to %s [Attempt %d/%d] for Session %s, Correlation ID: %s",
+                    topic, attempt, retries, partition_key, payload.correlation_id
+                )
+                
+                # Send message asynchronously to cluster partition
                 await self._producer.send_and_wait(
-                    topic,
-                    value=value,
-                    key=key,
+                    topic=topic,
+                    key=partition_key,
+                    value=message_value
                 )
-                logger.info(
-                    "Kafka message published | topic=%s | key=%s | correlation_id=%s | attempt=%d",
-                    topic,
-                    key,
-                    correlation_id,
-                    attempt,
-                )
-                return correlation_id
-            except Exception as exc:
-                last_exc = exc
-                delay = _RETRY_BASE_DELAY * (2 ** (attempt - 1))
+                
+                logger.info("Successfully published message to %s. Correlation ID: %s", topic, payload.correlation_id)
+                return payload.correlation_id
+
+            except Exception as e:
                 logger.warning(
-                    "Kafka publish attempt %d/%d failed | topic=%s | error=%s | retry_in=%.1fs",
-                    attempt,
-                    _MAX_RETRIES,
-                    topic,
-                    exc,
-                    delay,
+                    "Kafka send failed on attempt %d/%d for topic %s: %s",
+                    attempt, retries, topic, str(e)
                 )
-                if attempt < _MAX_RETRIES:
-                    await asyncio.sleep(delay)
+                if attempt < retries:
+                    await asyncio.sleep(backoff_delays[attempt - 1])
+                else:
+                    logger.error("All %d retries exhausted for publishing event to %s.", retries, topic)
+                    raise KafkaPublishError(f"Failed to publish event to Kafka topic '{topic}' after {retries} attempts.") from e
 
-        logger.error(
-            "Kafka publish failed after %d attempts | topic=%s | error=%s",
-            _MAX_RETRIES,
-            topic,
-            last_exc,
-        )
-        raise KafkaPublishError(
-            f"Failed to publish to topic '{topic}' after {_MAX_RETRIES} retries: {last_exc}"
-        )
-
-
-# Module-level singleton — started/stopped by lifespan hooks.
-kafka_producer = KafkaProducer()
+# Instantiate the global singleton client instance
+kafka_producer = KafkaProducerClient()

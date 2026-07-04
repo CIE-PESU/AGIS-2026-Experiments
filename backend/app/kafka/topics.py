@@ -6,8 +6,6 @@ Workers subscribe to these same topics.
 
 Naming convention: <domain>.<consumer>
 """
-
-
 class KafkaTopic:
     """All Kafka topic names used across AGIS workers."""
 
@@ -22,3 +20,6 @@ class KafkaTopic:
     # Published by the backend when DFV completes.
     # Consumed by the Discovery worker.
     USER_SESSION_DISCOVERY = "userSession.discovery"
+
+    # Published by the backend for async user notifications.
+    USER_SESSION_NOTIFICATIONS = "userSession.notifications"
