@@ -11,11 +11,11 @@ from __future__ import annotations
 
 import logging
 
-from app.exceptions.session import SessionNotFoundError
+from app.exceptions.base import SessionNotFoundError
 from app.models.audit import AuditLog
-from app.repositories.audit_repository import audit_repo
-from app.repositories.session_repository import session_repo
-from app.repositories.user_repository import user_repo
+from app.repositories.audit_repo import audit_repo
+from app.repositories.session_repo import session_repo
+from app.repositories.user_repo import user_repo
 from app.schemas.auth import CurrentUser
 
 logger = logging.getLogger(__name__)
@@ -36,8 +36,8 @@ class HistoryService:
 
         Access Rules:
         - Student -> only own session
-        - Mentor -> only sessions belonging to supervised teams
-        - Admin -> any session
+        - Mentor  -> only sessions belonging to supervised teams
+        - Admin   -> any session
 
         Raises:
             SessionNotFoundError:
@@ -49,15 +49,9 @@ class HistoryService:
         # Student
         # ------------------------------------------------------------------
         if current_user.is_student:
-
-            user = await user_repo.find_by_id(current_user.user_id)
-
-            if user is None:
-                raise SessionNotFoundError()
-
             session = await session_repo.find_by_id_and_student(
                 session_id=session_id,
-                student_id=user.srn,
+                student_id=current_user.user_id,
             )
 
             if session is None:
@@ -67,12 +61,11 @@ class HistoryService:
         # Mentor
         # ------------------------------------------------------------------
         elif current_user.is_mentor:
-
             session = await session_repo.find_by_id(session_id)
 
             if (
                 session is None
-                or session.team_id not in current_user.mentor_team_ids
+                or session.team_id not in (current_user.mentor_team_ids or [])
             ):
                 raise SessionNotFoundError()
 
@@ -80,7 +73,6 @@ class HistoryService:
         # Admin
         # ------------------------------------------------------------------
         elif current_user.is_admin:
-
             session = await session_repo.find_by_id(session_id)
 
             if session is None:

@@ -174,6 +174,23 @@ class SessionRepository(BaseRepository[Session]):
         """Deduplication — returns existing session if idempotency key was already used."""
         return await Session.find_one(Session.idempotency_key == key)
 
+    async def update_dfv_inputs(self, session_id: str, dfv_inputs: dict) -> bool:
+        """
+        Persist the student-supplied DFV context inputs on the session document.
+        Called by FlowService.trigger_dfv() before publishing the Kafka event.
+        `dfv_inputs` is expected to have keys:
+          desirability_context, feasibility_context, viability_context
+        """
+        result = await Session.find_one(Session.id == session_id).update(  # type: ignore[arg-type]
+            {
+                "$set": {
+                    "dfv_inputs": dfv_inputs,
+                    "updated_at": datetime.utcnow(),
+                }
+            }
+        )
+        return result is not None and result.modified_count == 1
+
     async def set_correlation_id(self, session_id: str, correlation_id: str) -> None:
         """Store the Kafka correlation_id on the session so workers can validate it."""
         await Session.find_one(Session.id == session_id).update(  # type: ignore[arg-type]

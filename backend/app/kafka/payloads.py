@@ -59,5 +59,8 @@ class DiscoveryEventPayload(BaseModel):
     team_id: str
     problem_statement: str
     idea: str
+    tipsc_summary: str = ""   # reasoning excerpt from TIPSC output
+    dfv_summary: str = ""     # summary excerpt from DFV output
     correlation_id: str
     triggered_at: datetime = Field(default_factory=datetime.utcnow)
+
