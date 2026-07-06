@@ -218,5 +218,38 @@ class SessionRepository(BaseRepository[Session]):
             {"$set": {"correlation_id": correlation_id, "updated_at": datetime.utcnow()}}
         )
 
+    async def count_by_teams(
+        self,
+        team_ids: list[str],
+        filters: Optional[dict[str, Any]] = None,
+    ) -> int:
+        """
+        Count non-archived sessions across a set of teams.
+        Used by mentor_service for pagination totals.
+        Returns 0 if team_ids is empty.
+        """
+        if not team_ids:
+            return 0
+
+        query = Session.find(
+            In(Session.team_id, team_ids),  # type: ignore[arg-type]
+            NotIn(Session.status, [SessionStatus.ARCHIVED]),  # type: ignore[arg-type]
+        )
+
+        if filters:
+            if filters.get("status"):
+                query = Session.find(
+                    In(Session.team_id, team_ids),  # type: ignore[arg-type]
+                    Session.status == filters["status"],
+                )
+            if filters.get("team_id"):
+                query = Session.find(
+                    Session.team_id == filters["team_id"],
+                    NotIn(Session.status, [SessionStatus.ARCHIVED]),  # type: ignore[arg-type]
+                )
+
+        return await query.count()
+
 
 session_repo = SessionRepository()
+
