@@ -1,6 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 import logging
-
+from engine.dispatcher import WorkerDispatcher
 from engine.state_machine import PipelineContext, PipelineState
 
 from engine.workers import (
@@ -17,11 +17,7 @@ class PipelineExecutor:
 
     def __init__(self, stages):
         self.stages = stages
-        self.preeval_worker = PreEvalWorker(stages)
-        self.validation_worker = ValidationWorker(stages)
-        self.regulatory_worker = RegulatoryWorker(stages)
-        self.ethics_worker = EthicsWorker(stages)
-        self.tipsc_worker = TIPSCWorker(stages)
+        self.dispatcher = WorkerDispatcher(stages)
 
     def run(self, preeval_input):
         
@@ -31,7 +27,7 @@ class PipelineExecutor:
 
         logger.info("Starting Pre-Evaluation")
 
-        context.preeval = self.preeval_worker.execute(preeval_input)
+        context.preeval = self.dispatcher.dispatch_preeval(preeval_input)
 
         logger.info("Pre-Evaluation completed")
 
@@ -43,12 +39,12 @@ class PipelineExecutor:
         with ThreadPoolExecutor(max_workers=2) as executor:
 
             validation_future = executor.submit(
-                self.validation_worker.execute,
+                self.dispatcher.dispatch_validation,
                 context.preeval,
             )
 
             regulatory_future = executor.submit(
-                self.regulatory_worker.execute,
+                self.dispatcher.dispatch_regulatory,
                 context.preeval,
             )
             
@@ -68,7 +64,7 @@ class PipelineExecutor:
 
         logger.info("Starting Ethics")
 
-        context.ethics = self.ethics_worker.execute(
+        context.ethics = self.dispatcher.dispatch_ethics(
             context.preeval,
             validation_context,
             regulatory_context,
@@ -85,7 +81,7 @@ class PipelineExecutor:
 
         logger.info("Starting TIPSC")
 
-        context.tipsc = self.tipsc_worker.execute(
+        context.tipsc = self.dispatcher.dispatch_tipsc(
             context.preeval,
             validation_context,
             context.compliance_context,

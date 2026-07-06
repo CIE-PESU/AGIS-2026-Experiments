@@ -1,21 +1,21 @@
 {
   "refined_idea": {
     "customer_segment": "Small business owners in India with 5-50 employees and annual revenue of 2-50 Cr INR",
-    "qualified_problem": "Small business owners in India cannot obtain working capital loans quickly from traditional banks.",
+    "qualified_problem": "Small business owners in India cannot obtain working capital loans quickly from traditional banks due to legacy processes requiring collateral and manual underwriting.",
     "consequence": "They miss growth opportunities, struggle with cash flow gaps, and resort to informal lenders at high rates",
     "proposed_solution": "An AI-powered lending platform that uses GST and bank transaction data to provide working capital loans within 48 hours"
   },
   "solution_alignment": "GREEN",
   "tips_validated_metrics": {
-    "timely_factor": "The problem involves immediate cash flow gaps requiring rapid resolution, fitting the active daily problem criteria.",
-    "importance_metric": "Missing working capital directly causes business failure or forced reliance on predatory informal lenders, making it a must-have need.",
-    "profitability_pivot": "B2B lending models with clear interest rate spreads and fee structures are standard in this sector, indicating customer willingness to pay.",
-    "solvability_constraint": "The team lacks the immediate regulatory capability (NBFC license or active partnership) required for high-burden RBI regulations, and no credible acquisition plan exists."
+    "timely_factor": "The problem involves immediate cash flow gaps and missed growth opportunities, creating an active daily need for rapid funding solutions.",
+    "importance_metric": "Access to quick working capital is a critical survival requirement for small businesses facing cash flow gaps, making it a must-have capability.",
+    "profitability_pivot": "The model relies on customer willingness to pay for speed and convenience, with potential revenue sharing from NBFC partners or direct lending fees.",
+    "solvability_constraint": "While the technical AI capabilities exist, the team lacks a definitive regulatory pathway and has no committed funding to cover high-burden compliance costs, creating a critical capability gap."
   },
   "tips_rag_scores": {
     "T": "GREEN",
     "I": "GREEN",
-    "P": "GREEN",
+    "P": "YELLOW",
     "S": "RED"
   },
   "overall_readiness": "WEAK",

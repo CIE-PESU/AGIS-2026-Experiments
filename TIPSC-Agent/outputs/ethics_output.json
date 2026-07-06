@@ -1,10 +1,10 @@
 {
   "harm_vector": "GREEN",
-  "harm_reason": "The product provides working capital to small businesses without structurally harming users; any harm is indirect or misuse-dependent.",
+  "harm_reason": "The product provides working capital to small businesses without structurally harming users; any harm is indirect and misuse-dependent.",
   "legal_risk": "YELLOW",
-  "legal_reason": "The core business model operates in a heavily regulated space (fintech/lending) requiring RBI registration or partnership with a Regulated Entity, but has a plausible compliance path.",
+  "legal_reason": "The core business model operates in a heavily regulated space (fintech/lending) requiring specialist review, but no facial illegality is present based on the provided evidence.",
   "problem_solution_integrity": "GREEN",
-  "integrity_reason": "The proposed solution genuinely addresses the stated problem of slow bank processing times by leveraging alternative data for faster disbursement.",
+  "integrity_reason": "The solution directly addresses the stated problem of slow, collateral-heavy lending by using alternative data to enable rapid funding without replicating predatory practices.",
   "ethics_pass": true,
   "compliance_flag": true,
   "rejection_reason": ""

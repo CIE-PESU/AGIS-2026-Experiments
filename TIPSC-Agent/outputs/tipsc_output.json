@@ -1,16 +1,16 @@
 {
   "refined_idea": {
     "customer_segment": "Small business owners in India with 5-50 employees and annual revenue of 2-50 Cr INR",
-    "qualified_problem": "Small business owners cannot obtain working capital loans quickly from traditional banks despite having digital data.",
+    "qualified_problem": "Small business owners in India cannot obtain working capital loans quickly from traditional banks.",
     "consequence": "They miss growth opportunities, struggle with cash flow gaps, and resort to informal lenders at high rates",
     "proposed_solution": "An AI-powered lending platform that uses GST and bank transaction data to provide working capital loans within 48 hours"
   },
   "solution_alignment": "GREEN",
   "tips_validated_metrics": {
-    "timely_factor": "The problem involves immediate cash flow gaps requiring a solution horizon of weeks to months, fitting the active daily problem criteria.",
-    "importance_metric": "Missing working capital directly causes business failure or forced reliance on predatory informal lenders, making it a critical need.",
-    "profitability_pivot": "B2B lending models with clear interest rate premiums over cost of funds are standard in this sector, indicating a viable path to profitability.",
-    "solvability_constraint": "The team lacks the required capability to operate legally in India without RBI registration or a licensed partner for high-burden regulations, and no acquisition plan is provided."
+    "timely_factor": "The problem involves immediate cash flow gaps where delays of weeks or months directly cause business failure, fitting the active daily problem criteria.",
+    "importance_metric": "Access to timely working capital is a critical survival need for SMEs, making it a must-have rather than a nice-to-have.",
+    "profitability_pivot": "The solution targets a high-volume market with clear willingness to pay for speed and convenience, evidenced by the existence of established competitors like iwoca and M2P.",
+    "solvability_constraint": "The team lacks a stated plan to acquire the necessary regulatory licenses or legal counsel required to operate in India's heavily regulated fintech sector."
   },
   "tips_rag_scores": {
     "T": "GREEN",
