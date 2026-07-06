@@ -74,6 +74,16 @@ class DFVInputs(BaseModel):
     viability_context: str
 
 
+# ── Worker Failure Metadata ───────────────────────────────────────────────────
+
+class WorkerFailureMetadata(BaseModel):
+    flow: str
+    error_code: str
+    error_message: str
+    retry_count: int = 0
+    failed_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 # ── Session document ──────────────────────────────────────────────────────────
 
 class Session(Document):
@@ -96,6 +106,9 @@ class Session(Document):
 
     # Correlation ID of the most recent Kafka event (used by workers to validate)
     correlation_id: Optional[str] = None
+
+    # Populated if a worker fails to process the flow
+    failure_metadata: Optional[WorkerFailureMetadata] = None
 
     # Idempotency key for session creation (stored so duplicate POSTs are caught)
     idempotency_key: Optional[str] = None
