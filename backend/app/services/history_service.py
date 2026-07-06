@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 
-from app.exceptions.base import SessionNotFoundError
+from app.exceptions.session import SessionNotFoundError
 from app.models.audit import AuditLog
 from app.repositories.audit_repo import audit_repo
 from app.repositories.session_repo import session_repo
@@ -36,8 +36,8 @@ class HistoryService:
 
         Access Rules:
         - Student -> only own session
-        - Mentor  -> only sessions belonging to supervised teams
-        - Admin   -> any session
+        - Mentor -> only sessions belonging to supervised teams
+        - Admin -> any session
 
         Raises:
             SessionNotFoundError:
@@ -45,21 +45,22 @@ class HistoryService:
                 - User is not authorized to access the session
         """
 
-        # ------------------------------------------------------------------
         # Student
-        # ------------------------------------------------------------------
         if current_user.is_student:
+            user = await user_repo.find_by_id(current_user.user_id)
+
+            if user is None:
+                raise SessionNotFoundError()
+
             session = await session_repo.find_by_id_and_student(
                 session_id=session_id,
-                student_id=current_user.user_id,
+                student_id=user.srn,
             )
 
             if session is None:
                 raise SessionNotFoundError()
 
-        # ------------------------------------------------------------------
         # Mentor
-        # ------------------------------------------------------------------
         elif current_user.is_mentor:
             session = await session_repo.find_by_id(session_id)
 
@@ -69,18 +70,14 @@ class HistoryService:
             ):
                 raise SessionNotFoundError()
 
-        # ------------------------------------------------------------------
         # Admin
-        # ------------------------------------------------------------------
         elif current_user.is_admin:
             session = await session_repo.find_by_id(session_id)
 
             if session is None:
                 raise SessionNotFoundError()
 
-        # ------------------------------------------------------------------
         # Unknown role
-        # ------------------------------------------------------------------
         else:
             raise SessionNotFoundError()
 
