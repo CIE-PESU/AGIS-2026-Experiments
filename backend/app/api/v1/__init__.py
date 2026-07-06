@@ -38,9 +38,9 @@ v1_router.include_router(history_router)
 
 # ── Day 3 routes — uncomment as teammates merge their branches ─────────────────
 from app.api.v1.comments import router as comments_router
-# from app.api.v1.mentor import router as mentor_router
+from app.api.v1.mentor import router as mentor_router
 # from app.api.v1.admin import router as admin_router
 
 v1_router.include_router(comments_router)
-# v1_router.include_router(mentor_router)
+v1_router.include_router(mentor_router)
 # v1_router.include_router(admin_router)
