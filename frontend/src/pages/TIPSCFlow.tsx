@@ -80,6 +80,20 @@ export function TIPSCFlow() {
     }
   }
 
+  const getStepIndex = (p: Phase): number => {
+    switch (p) {
+      case "form": return 0;
+      case "compliance_loading":
+      case "compliance_result": return 1;
+      case "scoring_loading":
+      case "scores": return 2;
+      case "followup":
+      case "followup_loading": return 3;
+      case "final": return 4;
+      default: return 0;
+    }
+  };
+
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
       <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
@@ -88,7 +102,7 @@ export function TIPSCFlow() {
       </div>
       <div className="mb-8 grid grid-cols-5 gap-2">
         {["Pre-Evaluation", "Compliance", "TIPSC Scoring", "Follow-ups", "Results"].map((step, index) => (
-          <div key={step} className={`rounded-full px-2 py-2 text-center text-xs font-semibold ${index <= ["form","compliance_loading","compliance_result","scoring_loading","scores","followup","followup_loading","final"].indexOf(phase) % 5 ? "bg-secondary text-white" : "bg-white text-muted-foreground"}`}>{step}</div>
+          <div key={step} className={`rounded-full px-2 py-2 text-center text-xs font-semibold ${index <= getStepIndex(phase) ? "bg-secondary text-white" : "bg-white text-muted-foreground"}`}>{step}</div>
         ))}
       </div>
       {phase === "form" && (
