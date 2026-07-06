@@ -1,12 +1,27 @@
-import logging
 from concurrent.futures import ThreadPoolExecutor
-from engine.state_machine import PipelineContext,PipelineState
+import logging
+
+from engine.state_machine import PipelineContext, PipelineState
+
+from engine.workers import (
+    PreEvalWorker,
+    ValidationWorker,
+    RegulatoryWorker,
+    EthicsWorker,
+    TIPSCWorker,
+)
+
 logger = logging.getLogger(__name__)
 
 class PipelineExecutor:
 
     def __init__(self, stages):
         self.stages = stages
+        self.preeval_worker = PreEvalWorker(stages)
+        self.validation_worker = ValidationWorker(stages)
+        self.regulatory_worker = RegulatoryWorker(stages)
+        self.ethics_worker = EthicsWorker(stages)
+        self.tipsc_worker = TIPSCWorker(stages)
 
     def run(self, preeval_input):
         
@@ -16,7 +31,7 @@ class PipelineExecutor:
 
         logger.info("Starting Pre-Evaluation")
 
-        context.preeval = self.stages.execute_preeval(preeval_input)
+        context.preeval = self.preeval_worker.execute(preeval_input)
 
         logger.info("Pre-Evaluation completed")
 
@@ -28,12 +43,12 @@ class PipelineExecutor:
         with ThreadPoolExecutor(max_workers=2) as executor:
 
             validation_future = executor.submit(
-                self.stages.execute_validation,
+                self.validation_worker.execute,
                 context.preeval,
             )
 
             regulatory_future = executor.submit(
-                self.stages.execute_regulatory,
+                self.regulatory_worker.execute,
                 context.preeval,
             )
             
@@ -53,7 +68,7 @@ class PipelineExecutor:
 
         logger.info("Starting Ethics")
 
-        context.ethics = self.stages.execute_ethics(
+        context.ethics = self.ethics_worker.execute(
             context.preeval,
             validation_context,
             regulatory_context,
@@ -70,7 +85,7 @@ class PipelineExecutor:
 
         logger.info("Starting TIPSC")
 
-        context.tipsc = self.stages.execute_tipsc(
+        context.tipsc = self.tipsc_worker.execute(
             context.preeval,
             validation_context,
             context.compliance_context,

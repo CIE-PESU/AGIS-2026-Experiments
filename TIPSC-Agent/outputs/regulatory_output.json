@@ -1,25 +1,32 @@
 {
   "target_geography": "India",
-  "industry_sector": "fintech / lending",
+  "industry_sector": "Fintech/lending",
   "applicable_regulations": [
     {
-      "name": "RBI Master Directions on Digital Lending (2025)",
+      "name": "Reserve Bank of India (Digital Lending) Directions, 2025",
       "jurisdiction": "India",
       "compliance_burden": "HIGH",
-      "brief_requirement": "The startup must either obtain NBFC registration with RBI or partner with a regulated entity as a Lending Service Provider (LSP) and adhere to strict conduct, eSign, and data governance rules."
+      "brief_requirement": "Must register as an NBFC or partner with a Regulated Entity (RE), adhere to strict KYC/AML norms, ensure direct loan disbursal between RE and borrower, and maintain robust data protection and grievance redressal mechanisms."
     },
     {
-      "name": "Digital Personal Data Protection Act 2023 (DPDP Act)",
+      "name": "India DPDP Act 2023",
       "jurisdiction": "India",
       "compliance_burden": "HIGH",
-      "brief_requirement": "The startup must comply with data fiduciary obligations, obtain granular consent for processing GST and bank data, implement breach notification protocols, and appoint a Data Protection Officer if classified as a Significant Data Fiduciary."
+      "brief_requirement": "Must obtain explicit consent for processing sensitive financial data (GST/bank statements), implement strict data security measures, and ensure purpose limitation in using data for credit scoring."
+    },
+    {
+      "name": "RBI Master Directions on Outsourcing of IT Functions",
+      "jurisdiction": "India",
+      "compliance_burden": "MEDIUM",
+      "brief_requirement": "If relying on third-party AI vendors or cloud providers, must ensure the RE retains control over data and operations and conducts regular audits."
     }
   ],
-  "regulatory_summary": "This fintech lending startup operates in a highly regulated space in India, primarily governed by the Reserve Bank of India (RBI) and the Digital Personal Data Protection Act (DPDP). The RBI's Digital Lending Directions (2025) mandate that any entity offering digital loans must either be a licensed NBFC or operate as an authorized Lending Service Provider (LSP) under a regulated entity, with strict requirements on eSignatures, fair lending practices, and data governance. Simultaneously, the DPDP Act imposes significant obligations on data processing, consent management, and breach notification due to the sensitive nature of financial and tax data being utilized for credit scoring and loan disbursement.",
+  "regulatory_summary": "The startup operates in a high-regulation environment governed primarily by the RBI's Digital Lending Directions (2025) and the India DPDP Act 2023. Compliance requires either obtaining an NBFC license or partnering with a licensed Regulated Entity to legally originate loans, while simultaneously implementing rigorous data privacy protocols for sensitive financial information used in AI-driven credit decisions.",
   "requires_specialist_review": true,
   "key_compliance_risks": [
-    "Operating without NBFC registration or valid LSP partnership violates RBI Master Directions on Digital Lending.",
-    "Failure to obtain granular consent or mishandling of personal data under the DPDP Act could lead to severe penalties and reputational damage.",
-    "Non-compliance with eSign mandates for loan documents may render lending agreements legally unenforceable."
+    "Operating without RBI registration or as an unlicensed Lending Service Provider",
+    "Non-compliance with data localization and consent requirements under the DPDP Act",
+    "Failure to meet KYC/AML standards leading to regulatory penalties",
+    "Consumer protection violations regarding transparency, fair pricing, and grievance redressal"
   ]
 }

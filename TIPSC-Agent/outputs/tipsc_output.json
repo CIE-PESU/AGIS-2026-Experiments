@@ -1,16 +1,16 @@
 {
   "refined_idea": {
     "customer_segment": "Small business owners in India with 5-50 employees and annual revenue of 2-50 Cr INR",
-    "qualified_problem": "Small business owners in India cannot obtain working capital loans quickly from traditional banks.",
-    "consequence": "They miss growth opportunities, struggle with cash flow gaps, and resort to informal lenders at high rates.",
-    "proposed_solution": "An AI-powered lending platform that uses GST and bank transaction data to provide working capital loans within 48 hours."
+    "qualified_problem": "Small business owners cannot obtain working capital loans quickly from traditional banks despite having digital data.",
+    "consequence": "They miss growth opportunities, struggle with cash flow gaps, and resort to informal lenders at high rates",
+    "proposed_solution": "An AI-powered lending platform that uses GST and bank transaction data to provide working capital loans within 48 hours"
   },
   "solution_alignment": "GREEN",
   "tips_validated_metrics": {
-    "timely_factor": "The problem is active daily with immediate cash flow consequences for businesses, fitting the urgent horizon.",
-    "importance_metric": "Missing liquidity directly causes business failure or forced reliance on predatory informal lenders, making it a critical need.",
-    "profitability_pivot": "B2B lending models are proven to be profitable as customers will pay interest rates significantly higher than traditional banks for speed and convenience.",
-    "solvability_constraint": "The team lacks the required capability to operate in a highly regulated space (NBFC registration or LSP partnership) with no stated acquisition plan, creating a critical gap."
+    "timely_factor": "The problem involves immediate cash flow gaps requiring a solution horizon of weeks to months, fitting the active daily problem criteria.",
+    "importance_metric": "Missing working capital directly causes business failure or forced reliance on predatory informal lenders, making it a critical need.",
+    "profitability_pivot": "B2B lending models with clear interest rate premiums over cost of funds are standard in this sector, indicating a viable path to profitability.",
+    "solvability_constraint": "The team lacks the required capability to operate legally in India without RBI registration or a licensed partner for high-burden regulations, and no acquisition plan is provided."
   },
   "tips_rag_scores": {
     "T": "GREEN",
