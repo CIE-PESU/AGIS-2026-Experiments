@@ -63,10 +63,18 @@ export function TIPSCFlow() {
   }
 
   async function sendFollowUp() {
+    if (!question) return;
+    const newFollowUp = { question: question.question, answer: answer };
+
     setPhase("followup_loading");
     const data = await submitFollowUp(round, answer);
-    setTips(data.result);
-    saveResults("tips", data.result);
+    const updatedTips = {
+      ...data.result,
+      followUps: [...(tips?.followUps || []), newFollowUp]
+    };
+
+    setTips(updatedTips);
+    saveResults("tips", updatedTips);
     addEvent(`TIPSC Follow-up Round ${round + 1} Submitted`);
     setRound((r) => r + 1);
     setAnswer("");

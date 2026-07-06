@@ -15,6 +15,17 @@ export function generateMarkdown(
       lines.push(`- ${light[score.status]} **${key.toUpperCase()}:** ${score.explanation}`);
     });
     lines.push(`- **Ready for DFV:** ${results.tips.readyForDFV ? "Yes" : "No"}`, results.tips.explanation);
+
+    if (results.tips.followUps && results.tips.followUps.length > 0) {
+      lines.push("", "### Follow-up Questions & Answers");
+      results.tips.followUps.forEach((item, index) => {
+        lines.push(
+          `**Q${index + 1}:** ${item.question}`,
+          `**A${index + 1}:** ${item.answer}`,
+          ""
+        );
+      });
+    }
   }
   if (results.dfv) {
     lines.push("", "## DFV Analysis", `**Decision:** ${results.dfv.decision}`, results.dfv.executiveSummary);

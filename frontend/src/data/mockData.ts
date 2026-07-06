@@ -10,6 +10,7 @@ export type TIPSCResult = {
   scores: Record<"timely" | "importance" | "profitable" | "solvable", TIPSCScore>;
   readyForDFV: boolean;
   explanation: string;
+  followUps?: { question: string; answer: string }[];
 };
 
 export type DFVResult = {
