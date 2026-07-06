@@ -79,7 +79,7 @@ export function LandingPage() {
             </div>
 
             <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">
-              PES CIE's agentic evaluation platform helps student founders validate ideas through guided AI frameworks and mentor oversight.
+              PESU CIE's agentic evaluation platform helps student founders validate ideas through guided AI frameworks and mentor oversight.
             </p>
             <Button asChild variant="secondary" size="lg" className="mt-8 rounded-full">
               <Link to="/login">Explore Platform <ArrowRight className="h-5 w-5" /></Link>
@@ -185,14 +185,14 @@ export function LandingPage() {
       </section>
       <footer id="connect" className="bg-primary py-12 text-primary-foreground">
         <div className="mx-auto grid max-w-7xl gap-8 px-4 md:grid-cols-3">
-          <div><h3 className="text-xl font-bold">PES CIE</h3><p className="mt-3 text-sm text-white/75">Building the next generation of student entrepreneurs.</p></div>
+          <div><h3 className="text-xl font-bold">PESU CIE</h3><p className="mt-3 text-sm text-white/75">Building the next generation of student entrepreneurs.</p></div>
           <div><h3 className="font-bold">Quick Links</h3><a href="#how-it-works" className="mt-3 block text-sm text-white/75">How It Works</a><a href="#agents" className="mt-2 block text-sm text-white/75">Agents</a></div>
           <div>
   <h3 className="font-bold">Connect With Us</h3>
 
   <div className="mt-3 flex gap-3">
     <a
-      href="linkedin.com/company/center-for-innovation-and-entrepreneurship-pes-university/"
+      href="https://www.linkedin.com/company/centre-for-innovation-and-entrepreneurship-pes-university/"
       target="_blank"
       rel="noopener noreferrer"
       className="hover:text-white transition-colors"
@@ -224,7 +224,7 @@ export function LandingPage() {
   </p>
 </div>
         </div>
-        <p className="mt-10 text-center text-xs text-white/60">© 2026 PES University - CIE</p>
+        <p className="mt-10 text-center text-xs text-white/60">© 2026 PESU University - CIE</p>
       </footer>
     </div>
   );
