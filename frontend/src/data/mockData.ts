@@ -20,9 +20,47 @@ export type DFVResult = {
 };
 
 export type JTBDResult = {
-  jobs: { title: string; context: string; outcome: string }[];
-  interviewPlan: { objective: string; targetSegments: string[]; questions: string[]; sampleSize: number };
-  recommendations: string[];
+  title: string;
+  objectives: {
+    id: number;
+    objective: string;
+    whyItMatters: string;
+    assumptionsValidated: string[];
+    evidenceRequired: string[];
+  }[];
+  assumptions: {
+    risk: "High Risk" | "Medium Risk" | "Low Risk";
+    assumption: string;
+    whyItMatters: string;
+    evidenceRequired: string[];
+    signals: { type: "validation" | "invalidation"; text: string }[];
+  }[];
+  interviewGuide: {
+    section: string;
+    subtitle: string;
+    questions: string[];
+  }[];
+  executionGuide: {
+    before: { title: string; items: string[] }[];
+    during: { title: string; items: string[] }[];
+    after: { title: string; items: string[] }[];
+  };
+  recordingTemplate: {
+    profileFields: string[];
+    contextFields: string[];
+    problemEvidenceFields: { label: string; value?: string }[];
+    behaviorFields: string[];
+    frustrationFields: string[];
+    motivationFields: string[];
+    memorableQuotes: string[];
+    unexpectedInsights: string;
+  };
+  evidenceChecklist: string[];
+  finalSummary: {
+    criticalAssumptions: string[];
+    biggestRisks: string[];
+    successfulInterviews: string[];
+  };
 };
 
 export const preEvaluationQuestions = [
@@ -106,30 +144,326 @@ export const mockDFVResult: DFVResult = {
 };
 
 export const mockJTBDResult: JTBDResult = {
-  jobs: [
-    { title: "Reduce avoidable food waste", context: "When daily demand fluctuates", outcome: "Managers want accurate prep guidance before peak hours." },
-    { title: "Defend operating margins", context: "When ingredients are discarded", outcome: "Vendors want waste translated into financial loss." },
-    { title: "Show sustainability progress", context: "When campus leadership asks for impact", outcome: "Administrators want clear reduction metrics." },
-    { title: "Coordinate surplus decisions", context: "When excess food remains", outcome: "Teams want timely prompts for discounts or donation workflows." }
+  title: "Pharmaceutical Traceability Platform",
+  objectives: [
+    {
+      id: 1,
+      objective: "Validate Problem Severity (Confirm that counterfeit detection is a high-priority operational challenge, not just a compliance checkbox.)",
+      whyItMatters: "If the problem isn't painful enough, customers won't pay or change behavior regardless of the solution quality.",
+      assumptionsValidated: [
+        "Counterfeit medicines are a sufficiently important problem.",
+        "Legal liability protection is a stronger motivator than detection itself."
+      ],
+      evidenceRequired: [
+        "Customer describes specific incidents where they felt vulnerable to counterfeit risks.",
+        "Customer admits current methods leave them exposed to legal/financial risk.",
+        "They express active anxiety about supply chain integrity."
+      ]
+    },
+    {
+      id: 2,
+      objective: "Map Current Workflow & Alternatives (Understand exactly how verification is done today and what tools are currently in use.)",
+      whyItMatters: "You cannot build a solution that fits if you don't know the existing process. Misunderstanding current alternatives leads to building something nobody uses.",
+      assumptionsValidated: [
+        "Distributors prefer solutions integrated into existing ERP systems.",
+        "Current QR-based approaches are perceived as inadequate."
+      ],
+      evidenceRequired: [
+        "Customer describes their step-by-step verification routine.",
+        "They name specific tools (e.g., Tally, Excel, manual logs) used for tracking.",
+        "They express clear dissatisfaction with current methods' limitations."
+      ]
+    },
+    {
+      id: 3,
+      objective: "Identify True Decision Drivers (Determine who holds the budget and what motivates their decision to adopt new compliance tech.)",
+      whyItMatters: "Building a solution that solves the wrong problem or targets the wrong stakeholder leads to zero adoption.",
+      assumptionsValidated: [
+        "Manufacturers are willing to invest in improved traceability.",
+        "Economic buyers (Manufacturers) vs. Users (Distributors) have aligned incentives."
+      ],
+      evidenceRequired: [
+        "Clear identification of who signs off on software purchases.",
+        "Evidence that manufacturers care about distributor verification capabilities.",
+        "Understanding if 'trust' is a purchasable metric for them."
+      ]
+    },
+    {
+      id: 4,
+      objective: "Assess Willingness to Change (Determine the threshold required for customers to adopt new verification processes.)",
+      whyItMatters: "High adoption friction kills startups even with good technology. You need to know how much disruption they will tolerate.",
+      assumptionsValidated: [
+        "Workflow disruption is a major reason existing systems are not adopted.",
+        "Would distributors change their existing processes?"
+      ],
+      evidenceRequired: [
+        "Customer admits current workflows are inefficient but 'safe'.",
+        "They express openness to new tools if the cost of inaction (liability) outweighs implementation friction.",
+        "They describe past instances where they switched vendors due to pain."
+      ]
+    },
+    {
+      id: 5,
+      objective: "Surface Hidden Anxieties (Uncover fears about data privacy, system reliability, and operational security that might block adoption.)",
+      whyItMatters: "Unaddressed anxieties cause customers to reject solutions even if the core problem is solved.",
+      assumptionsValidated: [
+        "Counterfeit products undermine confidence in pharmaceutical distribution.",
+        "Pharmacists/distributors may lose trust within the supply chain."
+      ],
+      evidenceRequired: [
+        "Customer shares stories about past data breaches or verification failures.",
+        "They express hesitation regarding sharing sensitive inventory data with third parties.",
+        "They mention specific fears about regulatory audits failing due to poor traceability."
+      ]
+    }
   ],
-  interviewPlan: {
-    objective: "Validate waste cost, buyer urgency, and dashboard adoption for a campus food waste pilot.",
-    targetSegments: ["Food court operators", "Hostel mess managers", "Student sustainability leads", "Campus administration"],
-    questions: [
-      "How do you currently estimate demand before service?",
-      "What food categories are wasted most often?",
-      "How do you measure the cost of discarded food?",
-      "What dashboard signal would change tomorrow's preparation plan?",
-      "What would make a paid pilot feel worthwhile?"
+  assumptions: [
+    {
+      risk: "High Risk",
+      assumption: "Counterfeit detection is a top operational priority for distributors. (Problem Importance)",
+      whyItMatters: "If this isn't true, the product has no market fit.",
+      evidenceRequired: [
+        "Customer describes active efforts to solve this problem today.",
+        "They allocate budget or time specifically to this issue."
+      ],
+      signals: [
+        { type: "validation", text: "We spend X hours/month worrying about this." },
+        { type: "invalidation", text: "It's a nice-to-have but not urgent." }
+      ]
+    },
+    {
+      risk: "High Risk",
+      assumption: "Distributors will adopt new verification methods if the cost of inaction is high enough. (Adoption Willingness)",
+      whyItMatters: "Determines pricing strategy and sales cycle length.",
+      evidenceRequired: [
+        "Customer admits they would switch tools to avoid specific risks.",
+        "They describe past behavior changes due to compliance needs."
+      ],
+      signals: [
+        { type: "validation", text: "If we could prove this, I'd sign off immediately." },
+        { type: "invalidation", text: "We can't change our process right now." }
+      ]
+    },
+    {
+      risk: "Medium Risk",
+      assumption: "Distributors prefer ERP integration over standalone apps. (Friction & Barriers)",
+      whyItMatters: "Impacts technical architecture and sales pitch.",
+      evidenceRequired: [
+        "Customer explains why they rejected standalone tools in the past.",
+        "They describe their current tech stack limitations."
+      ],
+      signals: [
+        { type: "validation", text: "We can't add another app; it needs to live inside Tally." },
+        { type: "invalidation", text: "Standalone is fine if it's easy." }
+      ]
+    },
+    {
+      risk: "Medium Risk",
+      assumption: "Legal liability protection is a stronger motivator than efficiency. (Customer Motivations)",
+      whyItMatters: "Determines value proposition messaging.",
+      evidenceRequired: [
+        "Customer cites legal/audit fears as primary reason for current actions.",
+        "They mention fines or lawsuits more often than time-saving."
+      ],
+      signals: [
+        { type: "validation", text: "We need this to pass the audit, not just save time." },
+        { type: "invalidation", text: "We want something that makes our life easier." }
+      ]
+    },
+    {
+      risk: "Medium Risk",
+      assumption: "Manufacturers are willing to invest in distributor traceability. (Business Assumptions)",
+      whyItMatters: "Determines who pays for the solution.",
+      evidenceRequired: [
+        "Manufacturer stakeholders discuss budget allocation for supply chain security.",
+        "They express concern about brand damage from distributors' failures."
+      ],
+      signals: [
+        { type: "validation", text: "We need our partners to verify correctly." },
+        { type: "invalidation", text: "Manufacturers don't care; they just want cheap goods." }
+      ]
+    },
+    {
+      risk: "Low Risk",
+      assumption: "Current QR codes are perceived as inadequate by stakeholders. (Alternatives)",
+      whyItMatters: "Validates the need for a new technology approach.",
+      evidenceRequired: [
+        "Customer admits current QR scanning is insufficient or easily faked.",
+        "They mention limitations of existing holograms/SMS systems."
+      ],
+      signals: [
+        { type: "validation", text: "The old QR codes don't tell us enough." },
+        { type: "invalidation", text: "We are happy with our current verification." }
+      ]
+    }
+  ],
+  interviewGuide: [
+    {
+      section: "A. Warm-Up",
+      subtitle: "Build Rapport",
+      questions: [
+        "Can you walk me through a typical day in the life of someone responsible for verifying medicine inventory at your facility?",
+        "What are the top three operational challenges your team faces right now regarding supply chain management?"
+      ]
+    },
+    {
+      section: "B. Problem Exploration & Current Behavior",
+      subtitle: "Understand the Core Struggles",
+      questions: [
+        "Tell me about the last time you received a batch of medicines that raised a red flag or required extra verification steps. What happened then?",
+        "When you receive a shipment, what specific steps do you take to ensure it is authentic before moving it into your warehouse?"
+      ]
+    },
+    {
+      section: "C. Struggling Moments and Triggers",
+      subtitle: "Identify Triggers for Change",
+      questions: [
+        "What was the most stressful situation you've experienced regarding counterfeit risks or supply chain compliance in the last year? What made it difficult at that moment?",
+        "Can you describe a time when an existing verification method failed to give you confidence? How did you handle it afterward?"
+      ]
+    },
+    {
+      section: "D. Current Alternatives & Workarounds",
+      subtitle: "Examine Workarounds and Friction",
+      questions: [
+        "What tools or systems are currently helping you manage this risk? Why do you think they work (or don't work) for your specific needs?",
+        "If you had to describe the biggest limitation of your current verification process, what would it be?"
+      ]
+    },
+    {
+      section: "E. Friction and Anxiety & Closing Reflection",
+      subtitle: "Uncover Deeper Obstacles",
+      questions: [
+        "What is the one thing that makes you hesitate before approving a new vendor or software tool for supply chain management?",
+        "Looking back at our conversation, if you could change one thing about how your team handles counterfeit risk today, what would it be?"
+      ]
+    }
+  ],
+  executionGuide: {
+    before: [
+      {
+        title: "Preparation",
+        items: [
+          "Review the 'Current Project Understanding' but remember these are hypotheses. Do not memorize answers to avoid leading questions.",
+          "Mindset: You are a researcher, not a salesperson. Your goal is to learn, not to convince."
+        ]
+      },
+      {
+        title: "Setup",
+        items: [
+          "Schedule 30-45 minutes.",
+          "Ask for a quiet environment (phone or in-person).",
+          "Ensure you have recording permission (audio only is usually fine if consented)."
+        ]
+      }
     ],
-    sampleSize: 15
+    during: [
+      {
+        title: "Listening Techniques",
+        items: [
+          "Practice 'Active Listening'. When they pause, wait 3 seconds before speaking. Let them finish their thought completely."
+        ]
+      },
+      {
+        title: "Follow-up Probing",
+        items: [
+          "Use the 'Tell me more' technique. If they say 'It's complicated,' ask 'Can you give me an example of that?' or 'What specifically makes it complicated?'"
+        ]
+      },
+      {
+        title: "Avoid Leading Language",
+        items: [
+          "Do not say, 'You hate standalone apps, right?' Instead say, 'How do you feel about using a separate app versus one inside your current system?'"
+        ]
+      },
+      {
+        title: "Common Mistakes to Avoid",
+        items: [
+          "Interrupting to explain how your solution works.",
+          "Asking 'Would you buy this?' (Hypotheticals are unreliable).",
+          "Nodding too much or smiling when they mention a problem (this signals agreement rather than curiosity)."
+        ]
+      }
+    ],
+    after: [
+      {
+        title: "Documentation",
+        items: [
+          "Fill out the Recording Template immediately while memories are fresh.",
+          "Tag specific quotes that contradict your assumptions."
+        ]
+      },
+      {
+        title: "Reflection",
+        items: [
+          "Write down one 'Aha!' moment and one 'Red Flag' from the interview.",
+          "Did they mention a problem you didn't expect?"
+        ]
+      }
+    ]
   },
-  recommendations: [
-    "Interview operators before refining hardware.",
-    "Test whether savings, sustainability, or compliance is the strongest buying trigger.",
-    "Prototype the dashboard with manual data first.",
-    "Ask each segment to rank the four jobs by urgency."
-  ]
+  recordingTemplate: {
+    profileFields: [
+      "Name/Role (Anonymized)",
+      "Company Type: [ ] Distributor [ ] Manufacturer [ ] Other"
+    ],
+    contextFields: [
+      "Date & Duration",
+      "Location: [ ] In-person [ ] Phone [ ] Video",
+      "Interviewer Notes on Vibe (e.g., Skeptical, Enthusiastic, Busy)"
+    ],
+    problemEvidenceFields: [
+      { label: "Specific Incidents Mentioned" },
+      { label: "Frequency of Problem (Rare / Occasional / Frequent)" },
+      { label: "Impact Description (Financial loss, Time lost, Reputation risk)" }
+    ],
+    behaviorFields: [
+      "Tools Currently Used",
+      "Workflow Steps Described",
+      "Workarounds Mentioned"
+    ],
+    frustrationFields: [
+      "Top Frustration",
+      "Key Anxiety/Fear",
+      "Decision Makers Involved"
+    ],
+    motivationFields: [
+      "Primary Driver for Change (Liability / Efficiency / Trust)",
+      "Budget/Investment Willingness"
+    ],
+    memorableQuotes: [
+      "Quote 1",
+      "Quote 2"
+    ],
+    unexpectedInsights: "What did you learn that contradicted your initial assumptions?"
+  },
+  evidenceChecklist: [
+    "Evidence of Problem Occurrence: Did the customer describe a specific instance where counterfeit risk or verification failure happened? (e.g., 'Last month we had to reject...')",
+    "Evidence of Current Alternatives: Did they name specific tools used today? (e.g., 'We use Tally,' 'We scan QR codes manually.')",
+    "Evidence of Consequences: Did they mention the cost or impact of current methods? (e.g., 'It takes 2 hours per batch,' 'We fear audits.')",
+    "Evidence of Frustration: Did they express dissatisfaction with existing solutions? (e.g., 'The QR codes are easy to fake.')",
+    "Evidence of Willingness to Change: Did they admit current methods are insufficient and would try something better if it solved the pain?",
+    "Evidence of Adoption Barriers: Did they mention specific reasons why new tools fail? (e.g., 'We can't install another app,' 'It's too slow.')",
+    "Evidence Contradicting Assumptions: Note any statements that directly conflict with your initial hypotheses (e.g., They said efficiency is more important than liability)."
+  ],
+  finalSummary: {
+    criticalAssumptions: [
+      "Problem Severity: Is counterfeit detection a top priority, or just a compliance checkbox?",
+      "Adoption Willingness: Are distributors willing to change their workflow despite friction?",
+      "Motivation Driver: Is legal liability the primary motivator, or is operational efficiency more important?"
+    ],
+    biggestRisks: [
+      "Low Urgency: If distributors view this as a low-priority issue, they will not adopt new tools even if they work well.",
+      "Integration Friction: If customers strictly require ERP integration and cannot tolerate standalone apps, technical complexity may block adoption.",
+      "Micro-incentives/Misaligned Incentives: If manufacturers (economic buyers) do not care about distributor verification capabilities, the business model of selling to distributors may fail."
+    ],
+    successfulInterviews: [
+      "Specific Pain Points: Concrete stories of where current methods fail or cause anxiety.",
+      "Current Workflows: Detailed maps of how they verify inventory today (to identify integration opportunities).",
+      "Decision Criteria: Clear understanding of who signs off on purchases and what metrics they use to judge success (e.g., 'We buy based on audit readiness, not just speed').",
+      "Validation or Pivot Data: Evidence that either supports the current direction or indicates a need to pivot away from certain features (like standalone apps) before building."
+    ]
+  }
 };
 
 export const mockMentorMessages = [

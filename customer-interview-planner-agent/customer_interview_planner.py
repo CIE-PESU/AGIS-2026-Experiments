@@ -13,11 +13,11 @@ os.environ["LITELLM_TELEMETRY"] = "False"
 os.environ["OPENAI_API_KEY"] = "lm-studio" 
 
 # Define the base URL for the Local LLM
-LM_URL = "http://127.0.0.1:1234/v1"
+LM_URL = "http://10.14.140.78:1234/v1"
 
 # We are using Bonsai8B as the Local LLM for this Agent
 reasoning_llm = LLM(
-    model="openai/bonsai-8b",
+    model="openai/qwen3.5-9b",
     base_url=LM_URL,
     temperature=0.2,
     max_tokens=10000,
