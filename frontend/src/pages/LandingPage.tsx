@@ -3,6 +3,7 @@ import {
   ArrowRight,
   Brain,
   CheckCircle2,
+  ChevronDown,
   Cpu,
   GraduationCap,
   Instagram,
@@ -78,6 +79,10 @@ export function LandingPage() {
               <Sparkles className="h-4 w-4 text-accent" /> CIE - Entrepreneurship coach
             </div>
 
+            <h1 className="text-4xl font-extrabold tracking-tight text-primary sm:text-5xl lg:text-6xl leading-tight">
+              Agentic AI <span className="text-gradient">Entrepreneurship</span> Platform
+            </h1>
+
             <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">
               PESU CIE's agentic evaluation platform helps student founders validate ideas through guided AI frameworks and mentor oversight.
             </p>
@@ -103,6 +108,16 @@ export function LandingPage() {
               </div>
             ))}
           </div>
+        </div>
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center">
+          <a
+            href="#how-it-works"
+            className="flex flex-col items-center gap-1 text-xs font-bold text-primary/70 hover:text-primary transition-all duration-200"
+            aria-label="Scroll Down"
+          >
+            <span>Scroll Down</span>
+            <ChevronDown className="h-5 w-5 text-accent" />
+          </a>
         </div>
       </section>
       <section id="how-it-works" className="bg-white py-20">
