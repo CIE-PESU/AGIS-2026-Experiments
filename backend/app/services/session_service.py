@@ -123,20 +123,22 @@ class SessionService:
         )
 
         # ── Step 5: Publish to Kafka ──────────────────────────────────────────
+        import uuid
+        correlation_id = str(uuid.uuid4())
+
         payload = TIPSCEventPayload(
             session_id=session_id_str,
             student_id=student_id,
             team_id=team_id,
             problem_statement=problem_statement,
             idea=idea,
-            correlation_id="",  # filled after publish returns the id
+            correlation_id=correlation_id,
         )
 
         try:
-            correlation_id = await kafka_producer.publish(
+            await kafka_producer.publish(
                 topic=KafkaTopic.USER_SESSION_TIPSC,
-                value=payload.model_dump_json(),
-                key=session_id_str,
+                payload=payload,
             )
         except Exception as exc:
             # Kafka failed — session stays CREATED (not advanced to QUEUED).

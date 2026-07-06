@@ -32,11 +32,13 @@ async def connect_db() -> None:
     from app.models.comment import MentorComment
     from app.models.refresh_token import RefreshToken
 
+    import certifi
     _client = AsyncIOMotorClient(
         settings.MONGODB_URI,
         maxPoolSize=settings.MONGODB_MAX_POOL_SIZE,
         minPoolSize=settings.MONGODB_MIN_POOL_SIZE,
         serverSelectionTimeoutMS=5000,
+        tlsCAFile=certifi.where()
     )
 
     db = _client[settings.MONGODB_DB_NAME]
@@ -55,3 +57,14 @@ async def disconnect_db() -> None:
         _client.close()
         _client = None
         logger.info("MongoDB disconnected.")
+
+async def ping_db() -> bool:
+    """Ping the database to verify the connection is active."""
+    if _client is None:
+        return False
+    try:
+        await _client.admin.command('ping')
+        return True
+    except Exception as e:
+        logger.warning(f"MongoDB ping failed: {e}")
+        return False

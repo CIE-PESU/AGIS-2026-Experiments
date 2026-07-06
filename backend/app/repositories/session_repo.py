@@ -148,6 +148,27 @@ class SessionRepository(BaseRepository[Session]):
         )
         return result is not None and result.modified_count == 1
 
+    async def update_flow_failure(
+        self,
+        session_id: str,
+        new_status: SessionStatus,
+        failure_metadata: dict[str, Any],
+    ) -> bool:
+        """
+        Write the flow failure metadata and advance session status atomically.
+        """
+        result = await Session.find_one(Session.id == session_id).update(  # type: ignore[arg-type]
+            {
+                "$set": {
+                    "failure_metadata": failure_metadata,
+                    "status": new_status,
+                    "updated_at": datetime.utcnow(),
+                },
+                "$inc": {"version": 1},
+            }
+        )
+        return result is not None and result.modified_count == 1
+
     async def archive(self, session_id: str) -> bool:
         """Soft-archive a session. Sets status=ARCHIVED and archived_at=now()."""
         session = await Session.get(session_id)
@@ -174,11 +195,61 @@ class SessionRepository(BaseRepository[Session]):
         """Deduplication — returns existing session if idempotency key was already used."""
         return await Session.find_one(Session.idempotency_key == key)
 
+    async def update_dfv_inputs(self, session_id: str, dfv_inputs: dict) -> bool:
+        """
+        Persist the student-supplied DFV context inputs on the session document.
+        Called by FlowService.trigger_dfv() before publishing the Kafka event.
+        `dfv_inputs` is expected to have keys:
+          desirability_context, feasibility_context, viability_context
+        """
+        result = await Session.find_one(Session.id == session_id).update(  # type: ignore[arg-type]
+            {
+                "$set": {
+                    "dfv_inputs": dfv_inputs,
+                    "updated_at": datetime.utcnow(),
+                }
+            }
+        )
+        return result is not None and result.modified_count == 1
+
     async def set_correlation_id(self, session_id: str, correlation_id: str) -> None:
         """Store the Kafka correlation_id on the session so workers can validate it."""
         await Session.find_one(Session.id == session_id).update(  # type: ignore[arg-type]
             {"$set": {"correlation_id": correlation_id, "updated_at": datetime.utcnow()}}
         )
 
+    async def count_by_teams(
+        self,
+        team_ids: list[str],
+        filters: Optional[dict[str, Any]] = None,
+    ) -> int:
+        """
+        Count non-archived sessions across a set of teams.
+        Used by mentor_service for pagination totals.
+        Returns 0 if team_ids is empty.
+        """
+        if not team_ids:
+            return 0
+
+        query = Session.find(
+            In(Session.team_id, team_ids),  # type: ignore[arg-type]
+            NotIn(Session.status, [SessionStatus.ARCHIVED]),  # type: ignore[arg-type]
+        )
+
+        if filters:
+            if filters.get("status"):
+                query = Session.find(
+                    In(Session.team_id, team_ids),  # type: ignore[arg-type]
+                    Session.status == filters["status"],
+                )
+            if filters.get("team_id"):
+                query = Session.find(
+                    Session.team_id == filters["team_id"],
+                    NotIn(Session.status, [SessionStatus.ARCHIVED]),  # type: ignore[arg-type]
+                )
+
+        return await query.count()
+
 
 session_repo = SessionRepository()
+
