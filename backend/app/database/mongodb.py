@@ -32,11 +32,13 @@ async def connect_db() -> None:
     from app.models.comment import MentorComment
     from app.models.refresh_token import RefreshToken
 
+    import certifi
     _client = AsyncIOMotorClient(
         settings.MONGODB_URI,
         maxPoolSize=settings.MONGODB_MAX_POOL_SIZE,
         minPoolSize=settings.MONGODB_MIN_POOL_SIZE,
         serverSelectionTimeoutMS=5000,
+        tlsCAFile=certifi.where()
     )
 
     db = _client[settings.MONGODB_DB_NAME]
