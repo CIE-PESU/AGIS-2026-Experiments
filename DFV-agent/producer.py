@@ -19,4 +19,4 @@ if __name__ == "__main__":
     publish_analysis_job("SNACCED", sncc)
     publish_analysis_job("Blinkit", blnkt)
     producer.flush()
-    print("\n[Producer] All jobs sent to Kafka.")
+    print("\n[Producer] All jobs sent to Kafka.")   

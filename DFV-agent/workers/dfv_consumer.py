@@ -52,6 +52,10 @@ class DFVConsumer:
         self.producer: AIOKafkaProducer | None = None
         self.mongo_client: AsyncIOMotorClient | None = None
         self.db = None
+        # main.py's agents/LLM are module-level singletons, not thread-safe
+        # for concurrent invocation. This lock ensures only one CrewAI run
+        # executes at a time, even if multiple jobs/retries are in flight.
+        self._crew_lock = asyncio.Lock()
 
     async def start(self):
         self.consumer = AIOKafkaConsumer(
@@ -150,10 +154,11 @@ class DFVConsumer:
         _log(job.correlation_id, f"Starting DFV analysis for '{job.idea_name}'")
 
         try:
-            result = await asyncio.wait_for(
-                asyncio.to_thread(run_analysis, job.payload.model_dump()),
-                timeout=CREWAI_TIMEOUT_SECONDS,
-            )
+            async with self._crew_lock:
+                result = await asyncio.wait_for(
+                    asyncio.to_thread(run_analysis, job.payload.model_dump()),
+                    timeout=CREWAI_TIMEOUT_SECONDS,
+                )
 
             try:
                 parsed = json.loads(result.raw)

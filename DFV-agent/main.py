@@ -1,16 +1,59 @@
 
 import os
-os.environ["OPENAI_API_KEY"] = "lm-studio"
-os.environ["OPENAI_API_BASE"] = "http://10.14.140.78:1234/v1"
-os.environ["OPENAI_MODEL_NAME"] = "openai/qwen3.5-9b"
+os.environ["OPENAI_API_KEY"] = "ollama"  # Ollama ignores the key's value, but litellm requires something non-empty
+os.environ["OPENAI_API_BASE"] = "http://10.14.140.78:11434/v1"  # Ollama's OpenAI-compatible endpoint, friend's machine
+os.environ["OPENAI_MODEL_NAME"] = "openai/qwen3.5:9b"  # e.g. "openai/qwen2.5:7b" -- run `ollama list` to see exact tag
 import json
 from dotenv import load_dotenv
 from crewai import Agent, Task, Crew, Process, LLM
 from crewai_tools import SerperDevTool, ScrapeWebsiteTool
 from pathlib import Path
 from pydantic import BaseModel, Field
+from typing import ClassVar
 from crewai.skills import discover_skills, activate_skill
 from datetime import datetime
+
+# LM Studio's OpenAI-compatible server doesn't support the object-style
+# tool_choice format CrewAI sends when forcing structured JSON output
+# (output_json=...). This tells LiteLLM to silently drop unsupported
+# params instead of raising a 400 error.
+import litellm
+litellm.drop_params = True
+
+# LM Studio's OpenAI-compatible server only accepts tool_choice as a plain
+# string ("none" | "auto" | "required"). Depending on the internal CrewAI
+# code path (native tool-calling, forced structured output, etc.), CrewAI/
+# LiteLLM sometimes builds the modern object-style tool_choice instead, e.g.
+# {"type": "function", "function": {"name": "..."}}. LM Studio rejects that
+# with a 400. Rather than chase every internal call site that might build
+# this object, we sanitize it at the litellm.completion/acompletion boundary
+# -- the last point before the request actually goes out over the network.
+_original_litellm_completion = litellm.completion
+_original_litellm_acompletion = litellm.acompletion
+
+
+def _sanitize_tool_choice(kwargs):
+    tool_choice = kwargs.get("tool_choice")
+    if isinstance(tool_choice, dict):
+        # Force -> "required" (still compels a tool call, just via the
+        # string form LM Studio understands). Anything else -> "auto".
+        tc_type = tool_choice.get("type")
+        kwargs["tool_choice"] = "required" if tc_type in ("function", "tool") else "auto"
+    return kwargs
+
+
+def _patched_litellm_completion(*args, **kwargs):
+    kwargs = _sanitize_tool_choice(kwargs)
+    return _original_litellm_completion(*args, **kwargs)
+
+
+async def _patched_litellm_acompletion(*args, **kwargs):
+    kwargs = _sanitize_tool_choice(kwargs)
+    return await _original_litellm_acompletion(*args, **kwargs)
+
+
+litellm.completion = _patched_litellm_completion
+litellm.acompletion = _patched_litellm_acompletion
 
 now = datetime.now()
 TodayDate = now.strftime("%d - %B - %Y")
@@ -27,6 +70,8 @@ def patched_supports_function_calling(self) -> bool:
     provider = getattr(self, "provider", None) or self._get_custom_llm_provider()
     if "groq" in model_name.lower() or provider == "groq":
         return False
+    if "qwen" in model_name.lower():
+        return False
     return original_supports_function_calling(self)
 
 LLM.supports_function_calling = patched_supports_function_calling
@@ -38,12 +83,30 @@ os.environ["SERPER_API_KEY"] = SERPER_API_KEY or ""
 
 # Initialize tools required for Phase 1 Desirability market analysis
 search_tool = SerperDevTool(api_key=SERPER_API_KEY)
-scrape_tool = ScrapeWebsiteTool()
+
+
+class TruncatedScrapeWebsiteTool(ScrapeWebsiteTool):
+    """ScrapeWebsiteTool returns a full page's raw text with no length cap.
+    A single scraped page can easily run 20k+ characters, which blows past
+    the local qwen model's context window in LM Studio (especially once
+    combined with the system prompt, task description, and prior tool
+    results in the ReAct-style conversation). This caps it to a safe size."""
+
+    MAX_CHARS: ClassVar[int] = 6000  # ~1500-2000 tokens; leaves headroom for the rest of the context
+
+    def _run(self, **kwargs):
+        result = super()._run(**kwargs)
+        if isinstance(result, str) and len(result) > self.MAX_CHARS:
+            return result[: self.MAX_CHARS] + "\n\n[...truncated: page content exceeded length limit...]"
+        return result
+
+
+scrape_tool = TruncatedScrapeWebsiteTool()
 
 llm = LLM(
-    model="openai/qwen3.5-9b",
-    base_url="http://10.14.140.78:1234/v1",
-    api_key="lm-studio",
+    model="openai/qwen3.5:9b",  # e.g. "openai/qwen2.5:7b" -- must match `ollama list` exactly, including tag
+    base_url="http://10.14.140.78:11434/v1",
+    api_key="ollama",
     temperature=0.1,
 )
 
@@ -214,10 +277,21 @@ dfv_decision_task = Task(
            - status: Critically weigh all three dimensions. If any phase reveals a fatal flaw, set this field to 'NO-GO'. If all three pillars balance sustainably, set this to 'GO'.
            - justification: Provide a clear, data-backed analytical reason for why the project received a GO or a NO-GO status."""
     ),
-    expected_output="A structured JSON object matching the DFAOutput schema including refined_idea, tips_validated_metrics, hypotheses, and final_decision properties.",
+    expected_output=(
+        "Return ONLY a single valid JSON object -- no markdown code fences, no explanation "
+        "text before or after it -- matching exactly this structure:\n"
+        "{\n"
+        '  "refined_idea": {"customer_segment": "...", "qualified_problem": "...", '
+        '"consequence": "...", "proposed_solution": "..."},\n'
+        '  "hypotheses": {"desirability_statement": "...", "feasibility_statement": "...", '
+        '"viability_statement": "..."},\n'
+        '  "tips_validated_metrics": {"timely_factor": "...", "importance_metric": "...", '
+        '"profitability_pivot": "...", "solvability_constraint": "..."},\n'
+        '  "final_decision": {"status": "GO or NO-GO", "justification": "..."}\n'
+        "}"
+    ),
     context=[desirability_task, feasibility_task, viability_task],
     agent=dfv_risk_decision_agent,
-    output_json=DFAOutput
 )
 
 # print(desirability_agent.skills)
@@ -328,6 +402,23 @@ blnkt={
         ,
 }
 
+def _extract_json_block(raw: str) -> str:
+    """Models sometimes wrap JSON in markdown code fences despite instructions
+    not to. Strip that off before parsing, and fall back to grabbing the first
+    {...} block if there's stray text around the JSON."""
+    cleaned = raw.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.strip("`").strip()
+        if cleaned.lower().startswith("json"):
+            cleaned = cleaned[4:].strip()
+    if not cleaned.startswith("{"):
+        start = cleaned.find("{")
+        end = cleaned.rfind("}")
+        if start != -1 and end != -1:
+            cleaned = cleaned[start : end + 1]
+    return cleaned
+
+
 def run_analysis(inputs: dict):
     crew = Crew(
         agents=[desirability_agent, feasibility_agent, viability_agent, dfv_risk_decision_agent],
@@ -335,7 +426,24 @@ def run_analysis(inputs: dict):
         process=Process.sequential,
         verbose=False
     )
-    return crew.kickoff(inputs=inputs)
+    result = crew.kickoff(inputs=inputs)
+
+    # We no longer use CrewAI's output_json=DFAOutput (its forced tool-call
+    # validation path is incompatible with this local reasoning model's
+    # tool-call format under LM Studio -- see the "multiple tool calls"
+    # errors this used to throw on perfectly valid output).
+    # Instead we validate the plain-JSON output ourselves against the exact
+    # same DFAOutput schema. Any failure here (bad JSON, missing/wrong
+    # fields) raises, and dfv_consumer.py's existing retry logic
+    # (MAX_RETRIES) will re-run the whole job automatically -- same
+    # end-to-end guarantee as before, just enforced on our side instead of
+    # CrewAI's.
+    cleaned = _extract_json_block(result.raw)
+    parsed = json.loads(cleaned)          # raises json.JSONDecodeError if malformed
+    DFAOutput.model_validate(parsed)      # raises pydantic.ValidationError if schema mismatched
+    result.raw = cleaned                  # store the cleaned version for downstream consumers
+
+    return result
 
 if __name__ == "__main__":
     result = run_analysis(blnkt)
