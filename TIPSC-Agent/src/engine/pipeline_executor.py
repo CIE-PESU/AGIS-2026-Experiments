@@ -1,6 +1,6 @@
 import logging
-# from concurrent.futures import ThreadPoolExecutor
-
+from concurrent.futures import ThreadPoolExecutor
+from engine.state_machine import PipelineContext,PipelineState
 logger = logging.getLogger(__name__)
 
 class PipelineExecutor:
@@ -10,74 +10,82 @@ class PipelineExecutor:
 
     def run(self, preeval_input):
         
+        context = PipelineContext(
+            state=PipelineState.PRE_EVAL
+        )
+
         logger.info("Starting Pre-Evaluation")
 
-        preeval = self.stages.execute_preeval(preeval_input)
+        context.preeval = self.stages.execute_preeval(preeval_input)
 
         logger.info("Pre-Evaluation completed")
 
         logger.info("Launching Validation and Regulatory in parallel")
 
+        context.state = PipelineState.VALIDATION_RUNNING
+
         #Parallel Start
-        # with ThreadPoolExecutor(max_workers=2) as executor:
+        with ThreadPoolExecutor(max_workers=2) as executor:
 
-        #     validation_future = executor.submit(
-        #         self.stages.execute_validation,
-        #         preeval,
-        #     )
+            validation_future = executor.submit(
+                self.stages.execute_validation,
+                context.preeval,
+            )
 
-        #     regulatory_future = executor.submit(
-        #         self.stages.execute_regulatory,
-        #         preeval,
-        #     )
+            regulatory_future = executor.submit(
+                self.stages.execute_regulatory,
+                context.preeval,
+            )
+            
+            context.state = PipelineState.REGULATORY_RUNNING
 
-        #     validation = validation_future.result()
-        #     logger.info("Validation completed")
-        #     regulatory = regulatory_future.result()
-        #     logger.info("Regulatory completed")
-        # #Parallel End
+            context.validation = validation_future.result()
+            logger.info("Validation completed")
+            context.regulatory = regulatory_future.result()
+            logger.info("Regulatory completed")
+        #Parallel End
 
-        # validation_context = validation.model_dump_json(indent=2)
+        validation_context = context.validation.model_dump_json(indent=2)
 
-        # regulatory_context = regulatory.model_dump_json(indent=2)
+        regulatory_context = context.regulatory.model_dump_json(indent=2)
 
-        validation = self.stages.execute_validation(preeval)
-        validation_context = validation.model_dump_json(indent=2)
-
-        regulatory = self.stages.execute_regulatory(preeval)
-        regulatory_context = regulatory.model_dump_json(indent=2)
-
+        context.state = PipelineState.ETHICS_RUNNING
 
         logger.info("Starting Ethics")
 
-        ethics = self.stages.execute_ethics(
-            preeval,
+        context.ethics = self.stages.execute_ethics(
+            context.preeval,
             validation_context,
             regulatory_context,
         )
 
         logger.info("Ethics completed")
 
-        compliance_context = self.stages.execute_compliance_context(
-            ethics,
-            regulatory,
+        context.compliance_context = self.stages.execute_compliance_context(
+            context.ethics,
+            context.regulatory,
         )
+
+        context.state = PipelineState.TIPSC_RUNNING
 
         logger.info("Starting TIPSC")
 
-        tipsc = self.stages.execute_tipsc(
-            preeval,
+        context.tipsc = self.stages.execute_tipsc(
+            context.preeval,
             validation_context,
-            compliance_context,
+            context.compliance_context,
         )
 
         logger.info("TIPSC completed")
 
+        context.state = PipelineState.TIPSC_COMPLETE
+
         return {
-            "preeval": preeval,
-            "validation": validation,
-            "regulatory": regulatory,
-            "ethics": ethics,
-            "tipsc": tipsc,
-            "compliance_context": compliance_context,
+            "preeval": context.preeval,
+            "validation": context.validation,
+            "regulatory": context.regulatory,
+            "ethics": context.ethics,
+            "tipsc": context.tipsc,
+            "compliance_context": context.compliance_context,
+            "state": context.state,
         }

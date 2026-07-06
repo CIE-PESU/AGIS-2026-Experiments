@@ -2,9 +2,8 @@
 """Pre-Eval -> TIPSC pipeline using crewAI with local LLM (LM Studio)."""
 
 import os,re
-
-os.environ["OPENAI_API_KEY"] = "lm-studio"
-os.environ["OPENAI_MODEL_NAME"] = "openai/qwen/qwen3.5-9b"
+from dotenv import load_dotenv
+load_dotenv()
 
 import json
 import sys
@@ -25,6 +24,10 @@ from pipeline import (
 
 import logging
 
+if os.getenv("DISABLE_LITELLM_LOGS", "true").lower() == "true":
+    logging.getLogger("LiteLLM").setLevel(logging.WARNING)
+    logging.getLogger("litellm").setLevel(logging.WARNING)
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
@@ -32,7 +35,6 @@ logging.basicConfig(
 
 BASE_DIR = Path(__file__).resolve().parent
 
-os.environ["TAVILY_API_KEY"] = "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"   # ← paste your key
 search_tool = TavilySearchTool()
 
 # ── Helpers ────────────────────────────────────
@@ -71,11 +73,10 @@ def save_json(data, filename: str) -> Path:
 
 
 def load_llm() -> LLM:
-    base_url = os.environ.get("LM_STUDIO_URL", "http://10.14.140.79:1234/v1")
     return LLM(
-        model="openai/qwen/qwen3.5-9b",
-        base_url="http://10.14.140.79:1234/v1",
-        api_key="lm-studio",
+        model=os.getenv("OPENAI_MODEL_NAME"),
+        base_url=os.getenv("LM_STUDIO_URL"),
+        api_key=os.getenv("OPENAI_API_KEY"),
         temperature=0.2,
     )
 
@@ -167,7 +168,7 @@ def main():
         llm.call([{"role": "user",
                     "content": "Respond with one word: ok."}])
     except Exception as e:
-        url = os.environ.get("LM_STUDIO_URL", "http://localhost:1234/v1")
+        url = os.getenv("LM_STUDIO_URL")
         print(f"ERROR: Cannot reach LM Studio at {url}. Is the server running?")
         print(f"  Details: {e}")
         sys.exit(1)
