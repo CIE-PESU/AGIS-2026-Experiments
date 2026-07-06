@@ -148,6 +148,27 @@ class SessionRepository(BaseRepository[Session]):
         )
         return result is not None and result.modified_count == 1
 
+    async def update_flow_failure(
+        self,
+        session_id: str,
+        new_status: SessionStatus,
+        failure_metadata: dict[str, Any],
+    ) -> bool:
+        """
+        Write the flow failure metadata and advance session status atomically.
+        """
+        result = await Session.find_one(Session.id == session_id).update(  # type: ignore[arg-type]
+            {
+                "$set": {
+                    "failure_metadata": failure_metadata,
+                    "status": new_status,
+                    "updated_at": datetime.utcnow(),
+                },
+                "$inc": {"version": 1},
+            }
+        )
+        return result is not None and result.modified_count == 1
+
     async def archive(self, session_id: str) -> bool:
         """Soft-archive a session. Sets status=ARCHIVED and archived_at=now()."""
         session = await Session.get(session_id)
