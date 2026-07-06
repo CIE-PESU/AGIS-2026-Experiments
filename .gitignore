@@ -1,2 +1,3 @@
 ./TIPSC-Agent/.env
 ./TIPSC-Agent/*/__pycache__
+./TIPSC-Agent/*/*/__pycache__
