@@ -250,6 +250,51 @@ class SessionRepository(BaseRepository[Session]):
 
         return await query.count()
 
+    async def find_all_admin(
+        self,
+        filters: Optional[dict[str, Any]] = None,
+        page: int = 1,
+        limit: int = 20,
+    ) -> list[Session]:
+        """Admin query — returns all sessions across the platform with optional filtering."""
+        query = Session.find_all()
+        
+        if filters:
+            if filters.get("status"):
+                query = Session.find(Session.status == filters["status"])
+            if filters.get("team_id"):
+                query = Session.find(Session.team_id == filters["team_id"])
+            if filters.get("student_id"):
+                query = Session.find(Session.student_id == filters["student_id"])
+                
+        skip = (page - 1) * limit
+        return await query.skip(skip).limit(limit).sort(-Session.created_at).to_list() # type: ignore[arg-type]
+
+    async def get_system_metrics(self) -> dict[str, Any]:
+        """Runs MongoDB aggregations to compute platform metrics."""
+        # Active sessions (not archived)
+        active_sessions = await Session.find(
+            NotIn(Session.status, [SessionStatus.ARCHIVED]) # type: ignore[arg-type]
+        ).count()
+        
+        # Sessions grouped by status
+        status_pipeline = [{"$group": {"_id": "$status", "count": {"$sum": 1}}}]
+        status_results = await Session.aggregate(status_pipeline).to_list()
+        sessions_by_status = {item["_id"]: item["count"] for item in status_results if item["_id"]}
+        
+        # Average TIPSC duration
+        duration_pipeline = [
+            {"$match": {"tipsc.duration_seconds": {"$exists": True}}},
+            {"$group": {"_id": None, "avg_duration": {"$avg": "$tipsc.duration_seconds"}}}
+        ]
+        duration_results = await Session.aggregate(duration_pipeline).to_list()
+        avg_tipsc = int(duration_results[0]["avg_duration"]) if duration_results else 0
+        
+        return {
+            "active_sessions": active_sessions,
+            "sessions_by_status": sessions_by_status,
+            "average_tipsc_duration_seconds": avg_tipsc
+        }
 
 session_repo = SessionRepository()
 
