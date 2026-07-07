@@ -1,0 +1,11 @@
+{
+  "problem_statement": "Small and medium-sized manufacturing companies struggle to detect machine failures before they occur, leading to unexpected production downtime, costly repairs, and missed delivery deadlines.",
+  "customer_segment": "Small and medium-sized manufacturing companies operating CNC machines, assembly lines, and industrial equipment.",
+  "consequence": "Unexpected machine failures interrupt production, increase maintenance costs, reduce productivity, delay customer deliveries, and negatively impact profitability.",
+  "assumptions": [
+    "Manufacturing companies are willing to adopt an affordable AI-based predictive maintenance solution if it reduces machine downtime and maintenance costs."
+  ],
+  "proposed_solution": "An AI-powered predictive maintenance platform that uses IoT vibration and temperature sensors to monitor industrial machines and predict failures before they occur.",
+  "target_geography": "India",
+  "industry_sector": "Industrial IoT"
+}

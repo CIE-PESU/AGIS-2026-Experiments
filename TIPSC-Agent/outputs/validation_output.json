@@ -1,0 +1,14 @@
+{
+  "target_geography": "India",
+  "industry_sector": "Manufacturing",
+  "checked_assumptions": [
+    {
+      "assumption": "Manufacturing companies are willing to adopt an affordable AI-based predictive maintenance solution if it reduces machine downtime and maintenance costs.",
+      "verdict": "CONFIRMED",
+      "evidence": "The problem of machine failure leading to downtime and high costs is explicitly confirmed in multiple sources. The market for predictive maintenance in India is growing rapidly. A specific search result explicitly validates the assumption, stating: 'Embracing affordable predictive maintenance not only cuts costs but also transforms how manufacturers operate.' Additionally, data shows a significant gap in adoption (only 40% of manufacturing companies have adopted predictive maintenance vs 88% using preventive maintenance), suggesting a strong market need for solutions that can penetrate this segment effectively."
+    }
+  ],
+  "competitor_landscape": "The Indian predictive maintenance market is characterized by a dynamic mix of regional and international players. Search results identify specific entrants like iFactory AI, which offers AI-powered vision cameras that connect to existing production environments to deliver real-time equipment health data. Other results mention major solution providers and a general presence of both domestic and global firms competing in the space. The market is described as having a fastest-growing trajectory in Asia Pacific, indicating a crowded but rapidly expanding field where new entrants must differentiate on cost and ease of integration.",
+  "market_notes": "The global predictive maintenance market is valued at over $10 billion and growing at a CAGR of 30-35%, with India projected to be one of the fastest-growing regions (CAGR 30-32%). The Indian market size is estimated between $614 million and $674 million in 2025. A critical barrier to entry is the affordability factor for SMEs, as traditional predictive maintenance solutions are often too expensive or complex for smaller operations. The market is shifting towards affordable and plug-and-play solutions (like edge monitoring or vision-based sensors) to capture the MSME segment. Adoption rates are currently low (40% adoption of predictive maintenance), indicating a significant opportunity for new entrants to capture market share by solving the specific pain points of cost and downtime for Indian SMEs.",
+  "validation_summary": "STRONG"
+}

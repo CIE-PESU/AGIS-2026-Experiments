@@ -1,0 +1,11 @@
+{
+  "harm_vector": "GREEN",
+  "harm_reason": "The product predicts machine failures to prevent downtime and cost overruns, providing a direct benefit to users without causing physical, financial, or psychological harm.",
+  "legal_risk": "YELLOW",
+  "legal_reason": "The core business model involves processing digital personal data under India's DPDP Act (HIGH burden) and complying with CERT-In Cyber Security Directions, which are heavily regulated but not facially illegal.",
+  "problem_solution_integrity": "GREEN",
+  "integrity_reason": "The proposed AI-powered predictive maintenance solution directly addresses the stated problem of unexpected machine failures and does not replicate or worsen the harm.",
+  "ethics_pass": true,
+  "compliance_flag": true,
+  "rejection_reason": ""
+}
