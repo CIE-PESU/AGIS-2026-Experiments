@@ -1,0 +1,1767 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "AGIS Entrepreneurship Coach Platform",
+    "description": "AGIS Entrepreneurship Coach Platform \u2014 Backend API. Handles session management, flow orchestration via Kafka, and role-based access control for students, mentors, and admins.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "System health check",
+        "description": "Returns health status of MongoDB and Kafka producer. Returns 503 if any dependency is down.",
+        "operationId": "health_check_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Readiness probe",
+        "description": "Returns 200 only when the backend is fully initialized and ready to serve traffic.",
+        "operationId": "readiness_probe_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/live": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Liveness probe",
+        "description": "Returns 200 as long as the process is running. Used by Kubernetes liveness probe.",
+        "operationId": "liveness_probe_live_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Login with SRN and password",
+        "description": "Authenticates the user via PES Auth API. Returns a short-lived JWT access token and a long-lived refresh token. Rate limited to 5 requests per minute per IP.",
+        "operationId": "login_api_v1_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Refresh access token",
+        "description": "Exchanges a valid refresh token for a new access token and a new refresh token. Old refresh token is invalidated immediately (token rotation).",
+        "operationId": "refresh_tokens_api_v1_auth_refresh_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Logout and revoke refresh token",
+        "description": "Revokes the provided refresh token server-side. The access token expires naturally at its exp. Client should discard both tokens immediately.",
+        "operationId": "logout_api_v1_auth_logout_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LogoutRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Get current user profile",
+        "description": "Returns the profile of the currently authenticated user based on the JWT.",
+        "operationId": "get_me_api_v1_auth_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sessions": {
+      "post": {
+        "tags": [
+          "Sessions"
+        ],
+        "summary": "Create a new coaching session",
+        "description": "Creates a new session for the authenticated student. Publishes a TIPSC evaluation event to Kafka. Requires an `Idempotency-Key` header (UUID4) to prevent duplicate submissions. Re-submitting the same Idempotency-Key returns the original session (no new session created).",
+        "operationId": "create_session_api_v1_sessions_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "UUID4 string. Required. Prevents duplicate session creation on retry.",
+              "title": "Idempotency-Key"
+            },
+            "description": "UUID4 string. Required. Prevents duplicate session creation on retry."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Sessions"
+        ],
+        "summary": "List sessions (paginated)",
+        "description": "Returns a paginated list of sessions accessible to the current user. Students see only their own sessions. Mentors see sessions from their teams. Supports optional filtering by status. Archived sessions are excluded by default.",
+        "operationId": "list_sessions_api_v1_sessions_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Page number (1-indexed).",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "Page number (1-indexed)."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Items per page (max 100).",
+              "default": 20,
+              "title": "Limit"
+            },
+            "description": "Items per page (max 100)."
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by session status (e.g. queued, tipsc_running, completed).",
+              "title": "Status"
+            },
+            "description": "Filter by session status (e.g. queued, tipsc_running, completed)."
+          },
+          {
+            "name": "team_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "(Mentor/Admin only) Filter by a specific team ID.",
+              "title": "Team Id"
+            },
+            "description": "(Mentor/Admin only) Filter by a specific team ID."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}": {
+      "get": {
+        "tags": [
+          "Sessions"
+        ],
+        "summary": "Get a session by ID",
+        "description": "Returns the full session object including embedded TIPSC, DFV, and Discovery outputs. Students may only access their own sessions. Mentors may access sessions from their supervised teams. Accessing another student's session returns 404 (not 403) to prevent information leakage.",
+        "operationId": "get_session_api_v1_sessions__session_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Sessions"
+        ],
+        "summary": "Archive (soft-delete) a session",
+        "description": "Soft-archives a session. The session is not deleted from the database \u2014 it is marked as ARCHIVED and excluded from default listing queries. Cannot archive a session while a flow is actively running. Fires a SESSION_ARCHIVED audit log entry.",
+        "operationId": "archive_session_api_v1_sessions__session_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/trigger/tipsc": {
+      "post": {
+        "tags": [
+          "Flows"
+        ],
+        "summary": "Manually trigger TIPSC evaluation",
+        "description": "Manual retry path for TIPSC \u2014 normally auto-triggered when a session is created. Idempotent: calling this on an already-QUEUED session returns current state without re-publishing.",
+        "operationId": "trigger_tipsc_api_v1_sessions__session_id__trigger_tipsc_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlowTriggerResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/trigger/dfv": {
+      "post": {
+        "tags": [
+          "Flows"
+        ],
+        "summary": "Trigger DFV evaluation",
+        "description": "Submits student-provided context strings and publishes to the DFV Kafka topic. Requires TIPSC to have completed with ready_for_dfv=True. Stores desirability, feasibility, and viability context on the session.",
+        "operationId": "trigger_dfv_api_v1_sessions__session_id__trigger_dfv_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DFVTriggerRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlowTriggerResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/trigger/discovery": {
+      "post": {
+        "tags": [
+          "Flows"
+        ],
+        "summary": "Trigger Discovery (customer interview plan)",
+        "description": "Triggers the Discovery phase after DFV has completed. Publishes to the userSession.discovery Kafka topic.",
+        "operationId": "trigger_discovery_api_v1_sessions__session_id__trigger_discovery_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlowTriggerResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/history": {
+      "get": {
+        "tags": [
+          "History"
+        ],
+        "summary": "Get session history",
+        "description": "Returns chronological audit history for a session.",
+        "operationId": "get_session_history_api_v1_sessions__session_id__history_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/comments": {
+      "post": {
+        "tags": [
+          "Comments"
+        ],
+        "summary": "Add a mentor comment to a session",
+        "description": "Mentor and Admin only. Creates a comment on the given session.",
+        "operationId": "add_comment_api_v1_sessions__session_id__comments_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommentCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Comments"
+        ],
+        "summary": "List comments for a session",
+        "description": "Returns all non-deleted comments for the session. RBAC enforced.",
+        "operationId": "get_comments_api_v1_sessions__session_id__comments_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CommentListItem"
+                  },
+                  "title": "Response Get Comments Api V1 Sessions  Session Id  Comments Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/comments/{comment_id}": {
+      "delete": {
+        "tags": [
+          "Comments"
+        ],
+        "summary": "Delete (soft) a mentor comment",
+        "description": "Mentor can delete their own comments. Admin can delete any comment.",
+        "operationId": "delete_comment_api_v1_comments__comment_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "comment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Comment Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/mentor/sessions": {
+      "get": {
+        "tags": [
+          "Mentor"
+        ],
+        "summary": "List sessions for mentor's supervised teams",
+        "description": "Returns a paginated summary list of all sessions belonging to teams supervised by the authenticated mentor. Supports filtering by `status` and `team_id`. Mentor with no assigned teams returns an empty list.",
+        "operationId": "list_mentor_sessions_api_v1_mentor_sessions_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter sessions by a specific team ID.",
+              "title": "Team Id"
+            },
+            "description": "Filter sessions by a specific team ID."
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter sessions by status (e.g. tipsc_completed, dfv_running).",
+              "title": "Status"
+            },
+            "description": "Filter sessions by status (e.g. tipsc_completed, dfv_running)."
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Page number (1-indexed).",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "Page number (1-indexed)."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Items per page.",
+              "default": 20,
+              "title": "Limit"
+            },
+            "description": "Items per page."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "title": "Response List Mentor Sessions Api V1 Mentor Sessions Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/mentor/sessions/{session_id}": {
+      "get": {
+        "tags": [
+          "Mentor"
+        ],
+        "summary": "Get full session detail (mentor view)",
+        "description": "Returns the full session document including all AI outputs (TIPSC, DFV, Discovery). The mentor must supervise the session's team \u2014 returns 404 otherwise.",
+        "operationId": "get_mentor_session_detail_api_v1_mentor_sessions__session_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "title": "Response Get Mentor Session Detail Api V1 Mentor Sessions  Session Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/mentor/teams": {
+      "get": {
+        "tags": [
+          "Mentor"
+        ],
+        "summary": "List mentor's supervised teams",
+        "description": "Returns the list of teams assigned to the authenticated mentor, including member details and active session counts.",
+        "operationId": "list_mentor_teams_api_v1_mentor_teams_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "title": "Response List Mentor Teams Api V1 Mentor Teams Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/sessions": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "List All Sessions",
+        "description": "Admin: List all sessions across the platform.",
+        "operationId": "list_all_sessions_api_v1_admin_sessions_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "team_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "student_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Student Id"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/audit": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Get System Audit Log",
+        "description": "Admin: View system-wide audit logs.",
+        "operationId": "get_system_audit_log_api_v1_admin_audit_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "event",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Event"
+            }
+          },
+          {
+            "name": "actor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Actor"
+            }
+          },
+          {
+            "name": "session_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/metrics": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Get Platform Metrics",
+        "description": "Admin: Get high-level platform health and usage metrics.",
+        "operationId": "get_platform_metrics_api_v1_admin_metrics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/internal/sessions/{session_id}/output": {
+      "post": {
+        "tags": [
+          "Internal Worker Tracking"
+        ],
+        "summary": "Receive Worker Output",
+        "description": "Endpoint for AI workers to post successful flow outputs back to the core database.",
+        "operationId": "receive_worker_output_internal_sessions__session_id__output_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "X-Worker-Secret",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Internal secret key from the worker pool",
+              "title": "X-Worker-Secret"
+            },
+            "description": "Internal secret key from the worker pool"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerOutputRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/sessions/{session_id}/failure": {
+      "post": {
+        "tags": [
+          "Internal Worker Tracking"
+        ],
+        "summary": "Receive Worker Failure",
+        "description": "Endpoint for AI workers to flag a flow failure so the session can be updated.",
+        "operationId": "receive_worker_failure_internal_sessions__session_id__failure_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "X-Worker-Secret",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Internal secret key from the worker pool",
+              "title": "X-Worker-Secret"
+            },
+            "description": "Internal secret key from the worker pool"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerFailureRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CommentCreateRequest": {
+        "properties": {
+          "comment": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 10,
+            "title": "Comment",
+            "description": "Mentor feedback. Min 10 chars, max 2000 chars."
+          }
+        },
+        "type": "object",
+        "required": [
+          "comment"
+        ],
+        "title": "CommentCreateRequest",
+        "description": "POST /sessions/{session_id}/comments request body.\n\nValidation (from api-spec.md Section 6.1):\n  - comment: min 10 chars, max 2000 chars"
+      },
+      "CommentListItem": {
+        "properties": {
+          "comment_id": {
+            "type": "string",
+            "title": "Comment Id"
+          },
+          "mentor_name": {
+            "type": "string",
+            "title": "Mentor Name"
+          },
+          "comment": {
+            "type": "string",
+            "title": "Comment"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "comment_id",
+          "mentor_name",
+          "comment",
+          "created_at"
+        ],
+        "title": "CommentListItem",
+        "description": "Summary comment shape \u2014 returned in GET /sessions/{session_id}/comments list.\nMatches api-spec.md Section 6.2 response (mentor_id excluded from list view)."
+      },
+      "CommentResponse": {
+        "properties": {
+          "comment_id": {
+            "type": "string",
+            "title": "Comment Id"
+          },
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "mentor_id": {
+            "type": "string",
+            "title": "Mentor Id"
+          },
+          "mentor_name": {
+            "type": "string",
+            "title": "Mentor Name"
+          },
+          "comment": {
+            "type": "string",
+            "title": "Comment"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "comment_id",
+          "session_id",
+          "mentor_id",
+          "mentor_name",
+          "comment",
+          "created_at"
+        ],
+        "title": "CommentResponse",
+        "description": "Full comment shape \u2014 returned on POST /sessions/{session_id}/comments.\nMatches api-spec.md Section 6.1 response."
+      },
+      "DFVTriggerRequest": {
+        "properties": {
+          "desirability_context": {
+            "type": "string",
+            "maxLength": 3000,
+            "minLength": 100,
+            "title": "Desirability Context"
+          },
+          "feasibility_context": {
+            "type": "string",
+            "maxLength": 3000,
+            "minLength": 100,
+            "title": "Feasibility Context"
+          },
+          "viability_context": {
+            "type": "string",
+            "maxLength": 3000,
+            "minLength": 100,
+            "title": "Viability Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "desirability_context",
+          "feasibility_context",
+          "viability_context"
+        ],
+        "title": "DFVTriggerRequest"
+      },
+      "FlowTriggerResponse": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "flow": {
+            "type": "string",
+            "title": "Flow"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "correlation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correlation Id"
+          },
+          "triggered_at": {
+            "type": "string",
+            "title": "Triggered At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "flow",
+          "status",
+          "correlation_id",
+          "triggered_at"
+        ],
+        "title": "FlowTriggerResponse"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "LoginRequest": {
+        "properties": {
+          "srn": {
+            "type": "string",
+            "title": "Srn"
+          },
+          "password": {
+            "type": "string",
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "srn",
+          "password"
+        ],
+        "title": "LoginRequest",
+        "description": "POST /auth/login request body."
+      },
+      "LogoutRequest": {
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "title": "Refresh Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "refresh_token"
+        ],
+        "title": "LogoutRequest",
+        "description": "POST /auth/logout request body."
+      },
+      "RefreshRequest": {
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "title": "Refresh Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "refresh_token"
+        ],
+        "title": "RefreshRequest",
+        "description": "POST /auth/refresh request body."
+      },
+      "SessionCreateRequest": {
+        "properties": {
+          "problem_statement": {
+            "type": "string",
+            "maxLength": 5000,
+            "minLength": 50,
+            "title": "Problem Statement",
+            "description": "Clear description of the problem the student's idea addresses (50\u20135000 chars)."
+          },
+          "idea": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 10,
+            "title": "Idea",
+            "description": "The business idea or proposed solution."
+          }
+        },
+        "type": "object",
+        "required": [
+          "problem_statement",
+          "idea"
+        ],
+        "title": "SessionCreateRequest",
+        "description": "POST /sessions request body.\n\nThe client must also supply an `Idempotency-Key` header (UUID4).\nThe route handler reads that from the request headers and passes it\nto session_service.create_session()."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "WorkerFailureRequest": {
+        "properties": {
+          "correlation_id": {
+            "type": "string",
+            "title": "Correlation Id"
+          },
+          "flow": {
+            "type": "string",
+            "title": "Flow"
+          },
+          "error_code": {
+            "type": "string",
+            "title": "Error Code"
+          },
+          "error_message": {
+            "type": "string",
+            "title": "Error Message"
+          },
+          "retry_count": {
+            "type": "integer",
+            "title": "Retry Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "correlation_id",
+          "flow",
+          "error_code",
+          "error_message"
+        ],
+        "title": "WorkerFailureRequest"
+      },
+      "WorkerOutputRequest": {
+        "properties": {
+          "correlation_id": {
+            "type": "string",
+            "title": "Correlation Id"
+          },
+          "flow": {
+            "type": "string",
+            "title": "Flow"
+          },
+          "output": {
+            "type": "object",
+            "title": "Output"
+          },
+          "duration_seconds": {
+            "type": "number",
+            "title": "Duration Seconds"
+          },
+          "worker_id": {
+            "type": "string",
+            "title": "Worker Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "correlation_id",
+          "flow",
+          "output",
+          "duration_seconds",
+          "worker_id"
+        ],
+        "title": "WorkerOutputRequest"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}

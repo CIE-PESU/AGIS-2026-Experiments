@@ -78,6 +78,11 @@ class SessionSnapshot:
     idea: str
     tipsc: Optional[dict] = None  # {"ready_for_dfv": bool, "reasoning": str, ...}
     dfv: Optional[dict] = None  # {"summary": str, ...}
+    correlation_id: Optional[str] = None
+
+    @property
+    def id(self) -> str:
+        return self.session_id
 
 
 class SessionRepoProtocol(Protocol):
@@ -246,7 +251,12 @@ class FlowService:
         if session.status != SessionStatus.TIPSC_COMPLETED:
             raise InvalidStateTransitionError(session.status, SessionStatus.DFV_WAITING)
 
-        ready_for_dfv = bool(session.tipsc and getattr(session.tipsc, "ready_for_dfv", False))
+        if not session.tipsc:
+            ready_for_dfv = False
+        elif isinstance(session.tipsc, dict):
+            ready_for_dfv = bool(session.tipsc.get("ready_for_dfv", False))
+        else:
+            ready_for_dfv = bool(getattr(session.tipsc, "ready_for_dfv", False))
         if not ready_for_dfv:
             raise DFVNotUnlockedError(session_id)
 
@@ -296,8 +306,19 @@ class FlowService:
         payload = _base_kafka_payload(session, "discovery", correlation_id)
         payload["problem_statement"] = session.problem_statement
         payload["idea"] = session.idea
-        payload["tipsc_summary"] = session.tipsc.reasoning if session.tipsc else ""
-        payload["dfv_summary"] = session.dfv.summary if session.dfv else ""
+        if not session.tipsc:
+            payload["tipsc_summary"] = ""
+        elif isinstance(session.tipsc, dict):
+            payload["tipsc_summary"] = session.tipsc.get("reasoning", "")
+        else:
+            payload["tipsc_summary"] = getattr(session.tipsc, "reasoning", "")
+
+        if not session.dfv:
+            payload["dfv_summary"] = ""
+        elif isinstance(session.dfv, dict):
+            payload["dfv_summary"] = session.dfv.get("summary", "")
+        else:
+            payload["dfv_summary"] = getattr(session.dfv, "summary", "")
 
         await self._publish_or_raise(DISCOVERY_TOPIC, payload, "discovery")
         await self._commit_status_or_raise(session, SessionStatus.DISCOVERY_WAITING)

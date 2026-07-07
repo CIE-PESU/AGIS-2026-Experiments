@@ -52,6 +52,10 @@ class FakeSessionRepo:
         self.dfv_input_writes.append((session_id, dfv_inputs))
         return True
 
+    async def set_correlation_id(self, session_id, correlation_id):
+        session = self.sessions[session_id]
+        session.correlation_id = correlation_id
+
 
 class FakeKafkaProducer:
     def __init__(self, should_fail: bool = False):
