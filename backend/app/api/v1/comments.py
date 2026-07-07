@@ -65,4 +65,4 @@ async def delete_comment(
     current_user: CurrentUser = Depends(get_current_user),
     comment_service: CommentService = Depends(get_comment_service),
 ):
-    await comment_service.delete_comment(comment_id, current_user)
+  )
