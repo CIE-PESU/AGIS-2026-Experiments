@@ -34,6 +34,7 @@ from app.exceptions.base import ValidationException
 from app.schemas.auth import CurrentUser
 from app.schemas.session import SessionCreateRequest
 from app.services.session_service import session_service
+from app.utils.object_id import validate_object_id
 from app.utils.response import paginated_response, success_response
 
 logger = logging.getLogger(__name__)
@@ -141,6 +142,7 @@ async def get_session(
       401 TOKEN_INVALID    — missing/invalid JWT
       404 SESSION_NOT_FOUND
     """
+    validate_object_id(session_id)
     session = await session_service.get_session(
         session_id=session_id,
         current_user=current_user,
@@ -236,6 +238,7 @@ async def archive_session(
       404 SESSION_NOT_FOUND              — session not found or not owned by caller
       409 CANNOT_ARCHIVE_ACTIVE_SESSION  — a flow is currently running
     """
+    validate_object_id(session_id)
     session = await session_service.archive_session(
         session_id=session_id,
         current_user=current_user,

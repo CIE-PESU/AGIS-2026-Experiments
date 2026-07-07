@@ -3,30 +3,26 @@ Comment endpoints:
   POST   /sessions/{id}/comments
   GET    /sessions/{id}/comments
   DELETE /comments/{comment_id}
-
-Same wiring caveat as api/v1/flows.py (B-12): this imports Palash's auth
-deps and needs real comment_repo / session_repo / audit_service instances
-plugged into get_comment_service(). comment_service.py itself has no such
-dependency and is unit-tested standalone (tests/test_comment_service.py).
 """
 
 from fastapi import APIRouter, Depends, status
 
 from app.dependencies.auth import CurrentUser, get_current_user
+from app.repositories.comment_repo import comment_repo
+from app.repositories.session_repo import session_repo
 from app.schemas.comment import CommentCreateRequest, CommentListItem, CommentResponse
+from app.services.audit_service import audit_service
 from app.services.comment_service import CommentService
 
 router = APIRouter(tags=["Comments"])
 
 
 def get_comment_service() -> CommentService:
-    """
-    TODO: replace with real singletons once B-11 (comment_repo), B-04
-    (session_repo), and B-08 (audit_service) are on develop-backend.
-    """
-    raise NotImplementedError(
-        "Wire real comment_repo / session_repo / audit_service here "
-        "once B-11 / B-04 / B-08 are merged."
+    """Wire the real singletons — comment_repo, session_repo, audit_service."""
+    return CommentService(
+        comment_repo=comment_repo,  # type: ignore[arg-type]
+        session_repo=session_repo,  # type: ignore[arg-type]
+        audit_service=audit_service,  # type: ignore[arg-type]
     )
 
 
@@ -34,6 +30,8 @@ def get_comment_service() -> CommentService:
     "/sessions/{session_id}/comments",
     response_model=CommentResponse,
     status_code=status.HTTP_201_CREATED,
+    summary="Add a mentor comment to a session",
+    description="Mentor and Admin only. Creates a comment on the given session.",
 )
 async def add_comment(
     session_id: str,
@@ -47,6 +45,8 @@ async def add_comment(
 @router.get(
     "/sessions/{session_id}/comments",
     response_model=list[CommentListItem],
+    summary="List comments for a session",
+    description="Returns all non-deleted comments for the session. RBAC enforced.",
 )
 async def get_comments(
     session_id: str,
@@ -59,6 +59,8 @@ async def get_comments(
 @router.delete(
     "/comments/{comment_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete (soft) a mentor comment",
+    description="Mentor can delete their own comments. Admin can delete any comment.",
 )
 async def delete_comment(
     comment_id: str,

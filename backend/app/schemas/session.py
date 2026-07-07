@@ -89,9 +89,9 @@ class SessionCreateRequest(BaseModel):
 
     problem_statement: str = Field(
         ...,
-        min_length=10,
-        max_length=2000,
-        description="Clear description of the problem the student's idea addresses.",
+        min_length=50,
+        max_length=5000,
+        description="Clear description of the problem the student's idea addresses (50–5000 chars).",
     )
     idea: str = Field(
         ...,
