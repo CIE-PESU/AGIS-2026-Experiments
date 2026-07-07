@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Menu, Rocket, X, Lightbulb, Cpu, Target, Brain } from "lucide-react";
+import { ArrowRight, Menu, Rocket, X, Lightbulb, Cpu, Target, Brain, Instagram, Linkedin, Youtube} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logos } from "@/components/shared/Logos";
+import { PES_LOGO_WHITE } from "@/constants"
 
 /* ═══════════════════════════════════════════════════════════════════
    PETAL FAN DIAGRAM — rounded petals radiating from a central hub,
@@ -229,13 +230,13 @@ const phases = [
   {
     tag: "Phase 1", color: "#2b9eb3", tagBg: "rgba(43,158,179,0.1)",
     title: "TIPSC Evaluation", subtitle: "Is the idea fundamentally sound?",
-    body: "The TIPSC agent scores five dimensions — Timing, Idea, Problem, Solution, and Competition — using a traffic-light system. Each dimension gets a Green, Amber, or Red signal so founders know exactly where their idea is strong and where it needs work before going further.",
+    body: "The TIPSC agent scores five dimensions — Timely, Importance, Profitability and Solvability — using a traffic-light system. Each dimension gets a Green, Amber, or Red signal so founders know exactly where their idea is strong and where it needs work before going further.",
     signals: [
-      { dim: "Timing",      dot: "#10b981", label: "Strong"   },
-      { dim: "Idea",        dot: "#10b981", label: "Strong"   },
-      { dim: "Problem",     dot: "#f59e0b", label: "Moderate" },
-      { dim: "Solution",    dot: "#10b981", label: "Strong"   },
-      { dim: "Competition", dot: "#dc2626", label: "Weak"     },
+      { dim: "Timely",      dot: "#10b981", label: "Strong"   },
+      { dim: "Importance",  dot: "#10b981", label: "Strong"   },
+      { dim: "Profitability", dot: "#f59e0b", label: "Moderate" },
+      { dim: "Solvability", dot: "#10b981", label: "Strong"   },
+      { dim: "Contextual", dot: "#dc2626", label: "Weak"     },
     ],
   },
   {
@@ -379,7 +380,7 @@ export function LandingPage() {
                   { dim:"Importance",        dot:"#10b981", label:"Strong",   note:"Clear differentiation from existing solutions."        },
                   { dim:"Profitable",     dot:"#f59e0b", label:"Moderate", note:"Pain point is real but severity needs validation."     },
                   { dim:"Solvable",    dot:"#10b981", label:"Strong",   note:"Technically achievable with available tools."          },
-                  { dim:"Compliance", dot:"#dc2626", label:"Weak",     note:"Two well-funded competitors occupy the same space."    },
+                  { dim:"Contextual", dot:"#dc2626", label:"Weak",     note:"Two well-funded competitors occupy the same space."    },
                 ] as {dim:string;dot:string;label:string;note:string}[]).map(({dim,dot,label,note}) => (
                   <div key={dim} className="flex items-start gap-3">
                     <div className="mt-1 h-3 w-3 flex-shrink-0 rounded-full" style={{ background: dot }} />
@@ -563,27 +564,40 @@ export function LandingPage() {
           <div className="grid gap-12 border-b border-white/10 pb-10 md:grid-cols-[2fr_1fr_1fr_1fr]">
             <div>
               <div className="mb-4 flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 font-poppins text-[13px] font-bold">CIE</div>
-                <div>
-                  <p className="font-poppins text-[15px] font-bold leading-tight">CIE</p>
-                  <p className="text-[10px] text-white/50">PES University</p>
-                </div>
+                <img src={PES_LOGO_WHITE} alt="CIE" style={{width: '150px',height: 'auto',}}  />
               </div>
               <p className="mb-5 max-w-[220px] text-[13px] leading-[1.7] text-white/50">
                 Center for Innovation &amp; Entrepreneurship, PES University. Empowering student founders since 2018.
               </p>
-              <div className="flex gap-2">
-                {([
-                  ["in","https://www.linkedin.com/company/center-for-innovation-and-entrepreneurship-pes-university/"],
-                  ["ig","https://www.instagram.com/cie.pesu/"],
-                  ["yt","https://www.youtube.com/@CIEPodcast-PESU"],
-                  ["sp","https://open.spotify.com/show/2SPdUtKAl4f0CmXrNqhzAc"],
-                ] as [string,string][]).map(([label,href]) => (
-                  <a key={label} href={href}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-[11px] font-semibold text-white/60 transition-colors hover:text-white"
-                    style={{ background:"rgba(255,255,255,0.08)" }}>{label}</a>
-                ))}
-              </div>
+              <div className="mt-3 flex gap-3">
+<a
+
+href="https://www.linkedin.com/company/centre-for-innovation-and-entrepreneurship-pes-university/"
+target="_blank"
+rel="noopener noreferrer"
+className="hover:text-white transition-colors"
+>
+<Linkedin />
+</a>
+
+<a
+href="https://www.instagram.com/cie.pesu/"
+target="_blank"
+rel="noopener noreferrer"
+className="hover:text-white transition-colors"
+>
+<Instagram />
+</a>
+
+<a
+href="https://www.youtube.com/@CIEPodcast-PESU"
+target="_blank"
+rel="noopener noreferrer"
+className="hover:text-white transition-colors"
+>
+<Youtube />
+</a>
+</div>
             </div>
             {([
               ["Platform",[["Sign In","/login"],["What it is","#what-it-is"],["Phases","#how-it-works"],["Who it's for","#who-its-for"]]],
