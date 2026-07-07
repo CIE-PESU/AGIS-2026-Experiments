@@ -2,9 +2,12 @@
 """Pre-Eval -> TIPSC pipeline using crewAI with local LLM (LM Studio)."""
 
 import os,re
+from utils.followup_context import FollowUpContext
 
 os.environ["OPENAI_API_KEY"] = "lm-studio"
 os.environ["OPENAI_MODEL_NAME"] = "openai/qwen/qwen3.5-9b"
+os.environ["OTEL_SDK_DISABLED"] = "true"
+os.environ["CREWAI_DISABLE_TELEMETRY"] = "true"
 
 import json
 import sys
@@ -34,7 +37,8 @@ BASE_DIR = Path(__file__).resolve().parent
 
 os.environ["TAVILY_API_KEY"] = "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"   # ← paste your key
 search_tool = TavilySearchTool()
-
+os.environ.setdefault("VALIDATION_TIMEOUT_SECS", "600")
+os.environ.setdefault("REGULATORY_TIMEOUT_SECS", "600")
 # ── Helpers ────────────────────────────────────
 
 
@@ -245,17 +249,34 @@ def main():
     print_tipsc_summary(tips_out)
     
     MAX_FOLLOWUP_TURNS = 3
-    followup_context= ""
+    conversation = FollowUpContext()
+
+    # Phase 2 — use TIPSC's own needs_followup signal first
+    if not tips_out.needs_followup:
+        print("\n  TIPSC agent determined no follow-up is needed.")
+    else:
+        if tips_out.missing_criteria:
+            print(f"\n  Weak dimensions: {', '.join(tips_out.missing_criteria)}")
+        if tips_out.criteria_state:
+            for dim, state in tips_out.criteria_state.items():
+                print(f"  {dim}: {state}")
 
     for turn in range(MAX_FOLLOWUP_TURNS):
 
+        # Skip the loop entirely if TIPSC itself says no follow-up needed
+        if not tips_out.needs_followup and turn == 0:
+            print("\n  No further follow-up needed.")
+            break
+
+        followup_context = conversation.build()
+
         followup = run_followup(
-        llm,
-        tips_out,
-        agents_cfg,
-        task_cfg,
-        followup_context=followup_context,
-        compliance_context=compliance_context,
+            llm,
+            tips_out,
+            agents_cfg,
+            task_cfg,
+            followup_context=followup_context,
+            compliance_context=compliance_context,
         )
 
         if not followup.needs_followup:
@@ -263,31 +284,32 @@ def main():
             break
 
         if not followup.questions:
-            print("  Warning: follow-up requested but no questions provided.")
-            break
+            followup = run_followup(
+                llm,
+                tips_out,
+                agents_cfg,
+                task_cfg,
+                followup_context=followup_context,
+                compliance_context=compliance_context,
+            )
+            if not followup.needs_followup or not followup.questions:
+                print("\n  Follow-up evaluation complete.")
+                break
 
         question = followup.questions[0]
 
         print("\n" + "=" * 60)
         print(f"FOLLOW-UP QUESTION ({turn + 1}/{MAX_FOLLOWUP_TURNS})")
         print("=" * 60)
-
         print(question)
 
         answer = input("> ").strip()
-
         if not answer:
             answer = "(no answer provided)"
 
+        conversation.add(question, answer)
 
- 
-        followup_context += f"""
-        Follow-up Question {turn+1}:
-        {question}
-
-        Founder Answer:
-        {answer}
-        """
+        followup_context = conversation.build()
 
         print("\nRe-evaluating TIPSC with new information...\n")
 
@@ -303,8 +325,7 @@ def main():
         )
         print_tipsc_summary(tips_out)
 
-    # after the follow-up loop ends, save the final tips_out
-    save_json(tips_out.model_dump(), "tipsc_output_final.json") 
+    save_json(tips_out.model_dump(), "tipsc_output_final.json")
 
 
     print("\n" + "=" * 60)

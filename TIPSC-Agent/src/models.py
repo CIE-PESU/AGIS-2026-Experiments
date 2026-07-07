@@ -166,6 +166,11 @@ class TIPSCOutput(BaseModel):
 
     ready_for_dfv: bool
 
+    # Phase 2 — Agent contract fields
+    needs_followup: bool = False
+    missing_criteria: list[str] = []
+    criteria_state: dict = {}
+
     @field_validator("solution_alignment", "overall_readiness", mode="before")
     @classmethod
     def uppercase_literals(cls, v):
