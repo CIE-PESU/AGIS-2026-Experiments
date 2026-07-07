@@ -16,31 +16,16 @@ from app.api.v1.health import router as health_router
 from app.api.v1.sessions import router as sessions_router
 from app.api.v1.flows import router as flows_router
 from app.api.v1.history import router as history_router
-
-# Root v1 router — prefix applied by main.py's include_router call
-v1_router = APIRouter()
-
-# ── Auth ───────────────────────────────────────────────────────────────────────
-v1_router.include_router(auth_router)
-
-# ── Sessions ───────────────────────────────────────────────────────────────────
-v1_router.include_router(sessions_router)
-
-# ── Flows (TIPSC / DFV / Discovery triggers) ──────────────────────────────────
-v1_router.include_router(flows_router)
-
-# ── History (audit log per session) ───────────────────────────────────────────
-v1_router.include_router(history_router)
-
-# ── Health (no prefix — mounted at root level) ─────────────────────────────────
-# Health endpoints are also registered separately at root level in main.py
-# so they work both as /health and /api/v1/health
-
-# ── Day 3 routes — uncomment as teammates merge their branches ─────────────────
+from app.api.v1.admin import router as admin_router
 from app.api.v1.comments import router as comments_router
 from app.api.v1.mentor import router as mentor_router
-# from app.api.v1.admin import router as admin_router
 
+v1_router = APIRouter()
+
+v1_router.include_router(auth_router)
+v1_router.include_router(sessions_router)
+v1_router.include_router(flows_router)
+v1_router.include_router(history_router)
 v1_router.include_router(comments_router)
 v1_router.include_router(mentor_router)
-# v1_router.include_router(admin_router)
+v1_router.include_router(admin_router, prefix="/admin")

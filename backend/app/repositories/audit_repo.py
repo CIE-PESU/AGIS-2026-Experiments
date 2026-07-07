@@ -59,5 +59,35 @@ class AuditRepository(BaseRepository[AuditLog]):
     async def count_by_session(self, session_id: str) -> int:
         return await AuditLog.find(AuditLog.session_id == session_id).count()
 
+    async def find_all_system(
+        self,
+        filters: Optional[dict[str, Any]] = None,
+        page: int = 1,
+        limit: int = 50,
+    ) -> list[AuditLog]:
+        """Admin query — returns system-wide audit logs with time and event filters."""
+        query = AuditLog.find_all()
+        
+        if filters:
+            if filters.get("event"):
+                query = AuditLog.find(AuditLog.event == filters["event"])
+            if filters.get("actor"):
+                query = AuditLog.find(AuditLog.actor == filters["actor"])
+            if filters.get("session_id"):
+                query = AuditLog.find(AuditLog.session_id == filters["session_id"])
+            if filters.get("from_date"):
+                query = AuditLog.find(AuditLog.timestamp >= filters["from_date"])
+            if filters.get("to_date"):
+                query = AuditLog.find(AuditLog.timestamp <= filters["to_date"])
+                
+        skip = (page - 1) * limit
+        return await query.sort(-AuditLog.timestamp).skip(skip).limit(limit).to_list() # type: ignore[arg-type]
+
+    async def count_system_events(self, event_type: str, since: datetime) -> int:
+        """Helper for metrics to count specific events (like logins or errors) in a timeframe."""
+        return await AuditLog.find(
+            AuditLog.event == event_type,
+            AuditLog.timestamp >= since
+        ).count()
 
 audit_repo = AuditRepository()
