@@ -6,7 +6,6 @@ from models import PreEvalOutput, TIPSCOutput, FollowUpOutput, EthicsOutput, Val
 
 
 
-os.environ["TAVILY_API_KEY"] = "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"   # ← paste your key
 search_tool = TavilySearchTool()
 
 
