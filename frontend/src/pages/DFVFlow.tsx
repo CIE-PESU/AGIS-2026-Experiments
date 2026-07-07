@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, Navigate } from "react-router-dom";
-import { CheckCircle2, DollarSign, Heart, Loader2, ThumbsDown, ThumbsUp, Wrench } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, DollarSign, Heart, Loader2, ThumbsDown, ThumbsUp, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,15 +9,18 @@ import { DFV_CONTEXT_MIN, USE_MOCK_FLOWS } from "@/constants";
 import { runDFVAnalysis } from "@/services/api";
 import { triggerDfv } from "@/services/authSessions";
 import { useAuth } from "@/context/AuthContext";
-import type { DFVResult } from "@/data/mockData";
+import type { DFVResult, TIPSCResult } from "@/data/mockData";
 import { toast } from "sonner";
 
 export function DFVFlow() {
-  const { session, sessionId, results, saveResults, unlockNext, addEvent } = useAuth();
+  const { session, sessionId, results, saveResults, formData, setFormData, unlockNext, addEvent } = useAuth();
   const [phase, setPhase] = useState<"form" | "processing" | "results">(results.dfv ? "results" : "form");
   const [result, setResult] = useState<DFVResult | null>(results.dfv);
   const [inputs, setInputs] = useState({ desirability_context: "", feasibility_context: "", viability_context: "" });
   if (session.dfv === "locked") return <Navigate to="/workspace" replace />;
+
+  const passed = result?.decision === "GO";
+
   async function run() {
     const payload = {
       desirability_context: inputs.desirability_context.trim(),
@@ -45,6 +48,29 @@ export function DFVFlow() {
     addEvent("DFV Analysis Completed");
     setPhase("results");
   }
+
+  function repeatDFV() {
+    setResult(null);
+    setInputs({ desirability_context: "", feasibility_context: "", viability_context: "" });
+    try {
+      saveResults("dfv", undefined as unknown as DFVResult);
+    } catch {
+      // ignore if saveResults doesn't accept undefined — local reset still applies
+    }
+    addEvent("DFV Restarted");
+    setPhase("form");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function repeatTIPSCFromHere() {
+    try {
+      saveResults("tips", undefined as unknown as TIPSCResult);
+    } catch {
+      // ignore if saveResults doesn't accept undefined
+    }
+    setFormData({});
+  }
+
   const sections = [
     ["desirability_context", Heart, "text-accent", "Who wants this, and why now?"],
     ["feasibility_context", Wrench, "text-secondary", "What can your team build and operate?"],
@@ -65,6 +91,35 @@ export function DFVFlow() {
         </div>
         <div className="mt-6 grid gap-4 md:grid-cols-3">{Object.entries(result.dimensions).map(([key, value]) => <div key={key} className="rounded-lg border p-4"><div className="flex items-center gap-2"><TrafficDot status={value.status} /><h3 className="font-bold capitalize">{key}</h3></div><p className="mt-3 text-sm text-muted-foreground">{value.summary}</p><ul className="mt-3 space-y-2 text-sm">{value.details.map((d) => <li key={d} className="flex gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-600" />{d}</li>)}</ul></div>)}</div>
         <h3 className="mt-6 font-bold">Recommendations</h3><ol className="mt-3 space-y-2 text-sm">{result.recommendations.map((rec, i) => <li key={rec}>{i + 1}. {rec}</li>)}</ol>
+
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t pt-6">
+          <div className="flex flex-wrap gap-3">
+            <Button variant="outline" onClick={repeatDFV} className="inline-flex items-center gap-2">
+              <ArrowLeft className="h-4 w-4" /> Repeat DFV
+            </Button>
+            <Button asChild variant="outline" onClick={repeatTIPSCFromHere} className="inline-flex items-center gap-2">
+              <Link to="/workspace/tipsc">
+                <ArrowLeft className="h-4 w-4" /> Repeat TIPSC
+              </Link>
+            </Button>
+          </div>
+          {passed ? (
+            <Button asChild variant="secondary">
+              <Link to="/workspace/discovery" className="inline-flex items-center gap-2">
+                Proceed to Customer Discovery <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          ) : (
+            <Button
+              variant="secondary"
+              disabled
+              title="Resolve the NO-GO dimensions above before proceeding to Customer Discovery"
+              className="inline-flex items-center gap-2 opacity-50 cursor-not-allowed"
+            >
+              Proceed to Customer Discovery <ArrowRight className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </CardContent></Card>}
     </main>
   );

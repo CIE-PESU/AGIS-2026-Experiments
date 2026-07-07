@@ -474,6 +474,7 @@ export function DiscoveryFlow() {
                     >
                       <input
                         type="checkbox"
+                        aria-label={label}
                         checked={isChecked}
                         onChange={() => {}}
                         className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 mt-0.5 cursor-pointer"

@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
 import { Link } from "react-router-dom";
-import { Brain, CheckCircle2, Loader2, Shield, XCircle } from "lucide-react";
+import { ArrowLeft, ArrowRight, Brain, CheckCircle2, Loader2, Shield, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -88,6 +88,20 @@ export function TIPSCFlow() {
     }
   }
 
+  function repeatTIPSC() {
+    setCompliance([]);
+    setTips(null);
+    setQuestion(null);
+    setRound(0);
+    setAnswer("");
+    setLocal({});
+    setFormData({});
+    addEvent("TIPSC Restarted");
+    setPhase("form");
+    // Scroll back to the top of the flow so it visually reads as "starting over"
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   const getStepIndex = (p: Phase): number => {
     switch (p) {
       case "form": return 0;
@@ -168,6 +182,27 @@ export function TIPSCFlow() {
             <div className={`mt-6 rounded-lg p-4 ${complete ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}>
               <div className="flex items-center gap-2 font-bold">{complete ? <CheckCircle2 /> : <XCircle />} {complete ? "Ready for DFV" : "Not Yet Ready"}</div>
               <p className="mt-2 text-sm">{tips.explanation}</p>
+              <div className="mt-4 flex items-center justify-between gap-3">
+                <Button variant="outline" onClick={repeatTIPSC} className="inline-flex items-center gap-2">
+                  <ArrowLeft className="h-4 w-4" /> Repeat
+                </Button>
+                {complete ? (
+                  <Button asChild variant="secondary">
+                    <Link to="/workspace/dfv" className="inline-flex items-center gap-2">
+                      Proceed to DFV <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button
+                    variant="secondary"
+                    disabled
+                    title="Resolve the weak/red dimensions above before proceeding to DFV"
+                    className="inline-flex items-center gap-2 opacity-50 cursor-not-allowed"
+                  >
+                    Proceed to DFV <ArrowRight className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             </div>
           )}
         </CardContent></Card>
