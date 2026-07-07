@@ -5,8 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Logos } from "@/components/shared/Logos";
 
 /* ═══════════════════════════════════════════════════════════════════
-   PETAL FAN DIAGRAM — inspired by reference: rounded petals radiating
-   from a central hub, each labeled with a title above and sub-label below.
+   PETAL FAN DIAGRAM — rounded petals radiating from a central hub,
+   each labeled with a title above and sub-label below. Animated to
+   read as a live pipeline: a scan arc sweeps the hub, and a light
+   particle travels from hub to each petal in sequence, visualizing
+   an idea moving through the six evaluation stages.
 ═══════════════════════════════════════════════════════════════════ */
 function ArcDiagram() {
   const W = 520, H = 460;
@@ -56,8 +59,13 @@ function ArcDiagram() {
     `;
   }
 
+  // radar/scan ring geometry (sweeps around the hub, echoing a slow-turning fan)
+  const ringR = INNER + 40;
+  const ringCirc = 2 * Math.PI * ringR;
+  const arcLen = ringCirc * 0.22;
+
   return (
-    <div className="relative mx-auto w-full max-w-[520px] select-none">
+    <div className="relative mx-auto w-full max-w-[520px] select-none cie-float">
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="100%"
         aria-label="CIE evaluation pipeline petal diagram" role="img">
         <defs>
@@ -74,11 +82,17 @@ function ArcDiagram() {
             <stop offset="0%"   stopColor="#3999c2" />
             <stop offset="100%" stopColor="#34305e" />
           </linearGradient>
+          <linearGradient id="radarg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%"   stopColor="#3999c2" stopOpacity="0" />
+            <stop offset="100%" stopColor="#3999c2" stopOpacity="0.9" />
+          </linearGradient>
         </defs>
 
         {steps.map((s, i) => {
           const ma = mid(i);
           const path = petalPath(ma);
+          const innerPt = polar(INNER, ma);
+          const tipMid  = polar(OUTER - 6, ma);
           // label sits just beyond the petal's rounded tip
           const lp = polar(OUTER + 22, ma);
           const sp = polar(OUTER + 22, ma);
@@ -86,17 +100,26 @@ function ArcDiagram() {
           const above = Math.sin(toRad(ma)) < -0.15; // tips pointing upward get label below, and vice versa
           const labelDy = above ? -14 : 24;
           const subDy   = above ? -2  : 38;
+          const motionPath = `M ${innerPt.x} ${innerPt.y} L ${tipMid.x} ${tipMid.y}`;
+          const delay = i * 0.35; // stagger so stages "light up" in pipeline order
 
           return (
             <g key={s.label}>
               <path d={path} fill={`url(#pg${i})`} filter="url(#pshadow)" />
               {/* subtle rim highlight */}
               <path d={path} fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="1" />
-              {/* small dot marker at the tip, echoing the reference's icon circles */}
-              <circle cx={polar(OUTER - 6, ma).x} cy={polar(OUTER - 6, ma).y} r={9}
-                fill="white" opacity="0.9" />
-              <circle cx={polar(OUTER - 6, ma).x} cy={polar(OUTER - 6, ma).y} r={9}
-                fill="none" stroke={s.color} strokeWidth="1.5" />
+
+              {/* flowing particle: the idea moving out to this stage */}
+              <circle r="3.5" fill="white">
+                <animateMotion path={motionPath} dur="2.8s" begin={`${delay}s`} repeatCount="indefinite" />
+                <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.15;0.8;1"
+                  dur="2.8s" begin={`${delay}s`} repeatCount="indefinite" />
+              </circle>
+
+              {/* small dot marker at the tip, gently pulsing in sequence */}
+              <circle cx={tipMid.x} cy={tipMid.y} r={9} fill="white"
+                className="cie-glow" style={{ animationDelay: `${delay}s` }} />
+              <circle cx={tipMid.x} cy={tipMid.y} r={9} fill="none" stroke={s.color} strokeWidth="1.5" />
 
               <text x={lp.x} y={lp.y + labelDy} textAnchor={anchor} dominantBaseline="middle"
                 fill={s.color} fontSize="11" fontWeight="800"
@@ -113,10 +136,19 @@ function ArcDiagram() {
         })}
 
         {/* ── Hub ── */}
-        <circle cx={CX} cy={CY} r={INNER + 40}
+        <circle cx={CX} cy={CY} r={ringR}
           fill="none" stroke="rgba(57,153,194,0.15)" strokeWidth="18" />
+
+        {/* rotating scan arc — sweeps around the hub like a slow-turning fan blade */}
+        <g className="cie-spin" style={{ transformOrigin: `${CX}px ${CY}px` }}>
+          <circle cx={CX} cy={CY} r={ringR} fill="none" stroke="url(#radarg)" strokeWidth="6"
+            strokeLinecap="round"
+            strokeDasharray={`${arcLen} ${ringCirc - arcLen}`} />
+        </g>
+
         <circle cx={CX} cy={CY} r={INNER + 26}
-          fill="url(#hubg)" filter="url(#pshadow)" />
+          fill="url(#hubg)" filter="url(#pshadow)"
+          className="cie-pulse" style={{ transformOrigin: `${CX}px ${CY}px` }} />
         <text x={CX} y={CY - 9} textAnchor="middle" dominantBaseline="middle"
           fill="white" fontSize="12" fontWeight="800"
           fontFamily="Poppins, sans-serif" letterSpacing="0.8">AI</text>
@@ -229,9 +261,20 @@ export function LandingPage() {
 
       {/* keyframes — scoped to this page */}
       <style>{`
-        @keyframes heroSpinSlow { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-        @keyframes heroFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
-        @keyframes heroPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
+        @keyframes cie-spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        @keyframes cie-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+        @keyframes cie-pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.045)} }
+        @keyframes cie-glow { 0%,100%{opacity:0.55} 50%{opacity:1} }
+        .cie-float { animation: cie-float 6s ease-in-out infinite; }
+        .cie-spin  { animation: cie-spin 9s linear infinite; }
+        .cie-pulse { animation: cie-pulse 4s ease-in-out infinite; }
+        .cie-glow  { animation: cie-glow 3.2s ease-in-out infinite; }
+        @media (prefers-reduced-motion: reduce) {
+          .cie-float, .cie-spin, .cie-pulse, .cie-glow,
+          .cie-float *, .cie-spin *, .cie-pulse *, .cie-glow * {
+            animation: none !important;
+          }
+        }
       `}</style>
 
       <Navbar />
@@ -298,7 +341,7 @@ export function LandingPage() {
       {/* ══════════════════════════════════════════════
           WHAT IT IS
       ══════════════════════════════════════════════ */}
-      <section className="border-b border-border bg-white py-20">
+      <section  id="what-it-is" className="border-b border-border bg-white py-20">
         <div className="mx-auto max-w-7xl px-6">
           <p className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[1.5px] text-accent">
             <span className="block h-0.5 w-5 rounded-full bg-accent" />What it is
@@ -332,11 +375,11 @@ export function LandingPage() {
               </div>
               <div className="flex flex-col gap-3">
                 {([
-                  { dim:"Timing",      dot:"#10b981", label:"Strong",   note:"Market conditions are favourable right now."           },
-                  { dim:"Idea",        dot:"#10b981", label:"Strong",   note:"Clear differentiation from existing solutions."        },
-                  { dim:"Problem",     dot:"#f59e0b", label:"Moderate", note:"Pain point is real but severity needs validation."     },
-                  { dim:"Solution",    dot:"#10b981", label:"Strong",   note:"Technically achievable with available tools."          },
-                  { dim:"Competition", dot:"#dc2626", label:"Weak",     note:"Two well-funded competitors occupy the same space."    },
+                  { dim:"Timely",      dot:"#10b981", label:"Strong",   note:"Market conditions are favourable right now."           },
+                  { dim:"Importance",        dot:"#10b981", label:"Strong",   note:"Clear differentiation from existing solutions."        },
+                  { dim:"Profitable",     dot:"#f59e0b", label:"Moderate", note:"Pain point is real but severity needs validation."     },
+                  { dim:"Solvable",    dot:"#10b981", label:"Strong",   note:"Technically achievable with available tools."          },
+                  { dim:"Compliance", dot:"#dc2626", label:"Weak",     note:"Two well-funded competitors occupy the same space."    },
                 ] as {dim:string;dot:string;label:string;note:string}[]).map(({dim,dot,label,note}) => (
                   <div key={dim} className="flex items-start gap-3">
                     <div className="mt-1 h-3 w-3 flex-shrink-0 rounded-full" style={{ background: dot }} />
@@ -457,7 +500,7 @@ export function LandingPage() {
       {/* ══════════════════════════════════════════════
           WHO IT'S FOR
       ══════════════════════════════════════════════ */}
-      <section className="bg-white py-20">
+      <section id="who-its-for" className="bg-white py-20">
         <div className="mx-auto max-w-7xl px-6">
           <p className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[1.5px] text-accent">
             <span className="block h-0.5 w-5 rounded-full bg-accent" />Who it's for
@@ -543,7 +586,7 @@ export function LandingPage() {
               </div>
             </div>
             {([
-              ["Platform",[["Sign In","/login"],["How It Works","#how-it-works"],["Phases","#how-it-works"],["For Mentors","#who"]]],
+              ["Platform",[["Sign In","/login"],["What it is","#what-it-is"],["Phases","#how-it-works"],["Who it's for","#who-its-for"]]],
               ["Inside CIE",[["About CIE","https://cie.pes.edu/about"],["Programs","https://cie.pes.edu/students/programs"],["Mentorship","https://cie.pes.edu/students/mentorship"],["Research","https://cie.pes.edu/research"]]],
               ["Contact",[["cie@pes.edu","mailto:cie@pes.edu"],["+91 80 2672 1983","tel:+918026721983"],["Contact Page","https://cie.pes.edu/contact"],["FAQs","https://cie.pes.edu/faqs"]]],
             ] as [string,[string,string][]][]).map(([heading,items]) => (
