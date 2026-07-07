@@ -68,7 +68,7 @@ def _get_flow_service() -> FlowService:
             else:
                 # Fallback: pass raw dict (shouldn't happen in normal flow)
                 payload_obj = payload  # type: ignore[assignment]
-            return await kafka_producer.publish(topic=topic, payload=payload_obj)
+            return await kafka_producer.publish(topic=topic, payload=payload_obj)  # type: ignore[arg-type]
 
     # Adapt the audit_service to the AuditServiceProtocol interface
     class AuditAdaptor:
