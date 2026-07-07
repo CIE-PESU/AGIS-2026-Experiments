@@ -298,7 +298,7 @@ export function LandingPage() {
             <div className="mb-6 inline-flex w-fit items-center gap-2 rounded-full border border-border bg-white/70 px-4 py-1.5 backdrop-blur-sm">
               <span className="h-1.5 w-1.5 rounded-full bg-[#e75a2d]" />
               <span className="text-[11px] font-bold uppercase tracking-[1.4px] text-muted-foreground">
-                CIE · Agentic Evaluation Platform
+                Entrepreneurship Coach
               </span>
             </div>
             <h1 className="font-poppins text-[clamp(42px,5.5vw,70px)] font-extrabold leading-[1.06] tracking-tight">
@@ -329,14 +329,7 @@ export function LandingPage() {
         </div>
 
         {/* Stats strip */}
-        <div className="relative mx-auto flex max-w-7xl divide-x divide-border border-t border-border/70 bg-white/40 px-6 backdrop-blur-sm">
-          {([["1000+","Ideas Validated"],["500+","Student Innovators"],["50+","Startups Launched"]] as [string,string][]).map(([num,label]) => (
-            <div key={label} className="flex-1 px-6 py-6">
-              <p className="font-poppins text-3xl font-extrabold leading-none tracking-tight text-primary">{num}</p>
-              <p className="mt-1 text-xs font-medium text-muted-foreground">{label}</p>
-            </div>
-          ))}
-        </div>
+        
       </section>
 
       {/* ══════════════════════════════════════════════
