@@ -1,0 +1,24 @@
+line-length = 100
+target-version = "py311"
+
+[lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort (import ordering)
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+]
+ignore = [
+    "E501",  # line length handled by ruff format, not the linter
+    "B008",  # Depends(...) in argument defaults is the standard FastAPI idiom
+    "UP042", # SessionStatus(str, Enum) is intentional — kept for Pydantic/JSON
+             # serialization compatibility; 233 state-machine tests already
+             # depend on this exact form.
+]
+
+[lint.per-file-ignores]
+"tests/*" = ["B011"]  # allow assert False patterns etc. in tests if needed
+
+[format]
+quote-style = "double"
