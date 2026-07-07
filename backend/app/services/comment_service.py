@@ -219,4 +219,4 @@ class CommentService:
             current_user.user_id,
             current_user.role,
             {"comment_id": comment_id},
-await comment_service.delete_comment(comment_id, current_user)
+        )
