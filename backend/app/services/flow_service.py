@@ -29,6 +29,7 @@ rather I call instead.
 """
 
 from __future__ import annotations
+from datetime import datetime
 
 import uuid
 from dataclasses import dataclass
@@ -88,6 +89,8 @@ class SessionRepoProtocol(Protocol):
         self, session_id: str, new_status: SessionStatus, expected_version: int
     ) -> bool: ...
 
+    async def set_correlation_id(self, session_id: str, correlation_id: str) -> None: ...
+
     async def update_dfv_inputs(self, session_id: str, dfv_inputs: dict) -> bool:
         """Not in Bhavesh's documented method list yet — see module docstring."""
         ...
@@ -122,7 +125,7 @@ def _base_kafka_payload(session: SessionSnapshot, flow: str, correlation_id: str
     return {
         "event_id": str(uuid.uuid4()),
         "correlation_id": correlation_id,
-        "session_id": session.session_id,
+        "session_id": str(session.id),
         "team_id": session.team_id,
         "student_id": session.student_id,
         "flow": flow,
@@ -176,10 +179,10 @@ class FlowService:
         self, session: SessionSnapshot, new_status: SessionStatus
     ) -> None:
         updated = await self._session_repo.update_status(
-            session.session_id, new_status, session.version
+            str(session.id), new_status, session.version
         )
         if not updated:
-            raise SessionUpdateConflictError(session.session_id)
+            raise SessionUpdateConflictError(str(session.id))
 
     # -- public API ----------------------------------------------------------
 
@@ -193,7 +196,7 @@ class FlowService:
 
         if session.status == SessionStatus.QUEUED:
             return {
-                "session_id": session.session_id,
+                "session_id": str(session.id),
                 "flow": "tipsc",
                 "status": session.status.value,
                 "correlation_id": None,
@@ -215,16 +218,17 @@ class FlowService:
 
         await self._publish_or_raise(TIPSC_TOPIC, payload, "tipsc")
         await self._commit_status_or_raise(session, SessionStatus.QUEUED)
+        await self._session_repo.set_correlation_id(session_id, correlation_id)
         await self._audit.log_event(
-            session_id,
-            "TIPSC_TRIGGERED",
-            student_id,
-            "student",
-            {"correlation_id": correlation_id},
+            session_id=session_id,
+            event="TIPSC_TRIGGERED",
+            actor=student_id,
+            actor_role="student",
+            metadata={"correlation_id": correlation_id},
         )
 
         return {
-            "session_id": session.session_id,
+            "session_id": str(session.id),
             "flow": "tipsc",
             "status": SessionStatus.QUEUED.value,
             "correlation_id": correlation_id,
@@ -242,7 +246,7 @@ class FlowService:
         if session.status != SessionStatus.TIPSC_COMPLETED:
             raise InvalidStateTransitionError(session.status, SessionStatus.DFV_WAITING)
 
-        ready_for_dfv = bool(session.tipsc and session.tipsc.get("ready_for_dfv"))
+        ready_for_dfv = bool(session.tipsc and getattr(session.tipsc, "ready_for_dfv", False))
         if not ready_for_dfv:
             raise DFVNotUnlockedError(session_id)
 
@@ -252,20 +256,23 @@ class FlowService:
 
         correlation_id = _new_correlation_id()
         payload = _base_kafka_payload(session, "dfv", correlation_id)
+        payload["problem_statement"] = session.problem_statement
+        payload["idea"] = session.idea
         payload.update(dfv_inputs)  # desirability_context, feasibility_context, viability_context
 
         await self._publish_or_raise(DFV_TOPIC, payload, "dfv")
         await self._commit_status_or_raise(session, SessionStatus.DFV_WAITING)
+        await self._session_repo.set_correlation_id(session_id, correlation_id)
         await self._audit.log_event(
-            session_id,
-            "DFV_TRIGGERED",
-            student_id,
-            "student",
-            {"correlation_id": correlation_id},
+            session_id=session_id,
+            event="DFV_TRIGGERED",
+            actor=student_id,
+            actor_role="student",
+            metadata={"correlation_id": correlation_id},
         )
 
         return {
-            "session_id": session.session_id,
+            "session_id": str(session.id),
             "flow": "dfv",
             "status": SessionStatus.DFV_WAITING.value,
             "correlation_id": correlation_id,
@@ -289,21 +296,22 @@ class FlowService:
         payload = _base_kafka_payload(session, "discovery", correlation_id)
         payload["problem_statement"] = session.problem_statement
         payload["idea"] = session.idea
-        payload["tipsc_summary"] = (session.tipsc or {}).get("reasoning", "")
-        payload["dfv_summary"] = (session.dfv or {}).get("summary", "")
+        payload["tipsc_summary"] = session.tipsc.reasoning if session.tipsc else ""
+        payload["dfv_summary"] = session.dfv.summary if session.dfv else ""
 
         await self._publish_or_raise(DISCOVERY_TOPIC, payload, "discovery")
         await self._commit_status_or_raise(session, SessionStatus.DISCOVERY_WAITING)
+        await self._session_repo.set_correlation_id(session_id, correlation_id)
         await self._audit.log_event(
-            session_id,
-            "DISCOVERY_TRIGGERED",
-            student_id,
-            "student",
-            {"correlation_id": correlation_id},
+            session_id=session_id,
+            event="DISCOVERY_TRIGGERED",
+            actor=student_id,
+            actor_role="student",
+            metadata={"correlation_id": correlation_id},
         )
 
         return {
-            "session_id": session.session_id,
+            "session_id": str(session.id),
             "flow": "discovery",
             "status": SessionStatus.DISCOVERY_WAITING.value,
             "correlation_id": correlation_id,

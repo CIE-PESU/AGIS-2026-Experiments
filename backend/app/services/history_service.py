@@ -54,7 +54,7 @@ class HistoryService:
 
             session = await session_repo.find_by_id_and_student(
                 session_id=session_id,
-                student_id=user.srn,
+                student_id=current_user.user_id,
             )
 
             if session is None:

@@ -205,7 +205,6 @@ class AuthService:
                 User.role: pes_data.get("role", existing.role),
                 User.team_id: pes_data.get("team_id", existing.team_id),
                 User.mentor_team_ids: pes_data.get("mentor_team_ids", existing.mentor_team_ids),
-                User.updated_at: datetime.now(timezone.utc),
             })
             return existing
 

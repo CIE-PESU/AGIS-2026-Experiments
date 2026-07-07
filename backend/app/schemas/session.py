@@ -89,9 +89,9 @@ class SessionCreateRequest(BaseModel):
 
     problem_statement: str = Field(
         ...,
-        min_length=10,
-        max_length=2000,
-        description="Clear description of the problem the student's idea addresses.",
+        min_length=50,
+        max_length=5000,
+        description="Clear description of the problem the student's idea addresses (50–5000 chars).",
     )
     idea: str = Field(
         ...,
@@ -154,9 +154,9 @@ class SessionResponse(BaseModel):
             idea=session.idea,
             status=session.status.value if hasattr(session.status, "value") else session.status,
             version=session.version,
-            tipsc=session.tipsc,
-            dfv=session.dfv,
-            discovery=session.discovery,
+            tipsc=session.tipsc.model_dump() if session.tipsc else None,
+            dfv=session.dfv.model_dump() if session.dfv else None,
+            discovery=session.discovery.model_dump() if session.discovery else None,
             created_at=session.created_at,
             updated_at=session.updated_at,
             archived_at=session.archived_at,
@@ -197,9 +197,9 @@ class SessionListResponse(BaseModel):
             idea=session.idea,
             status=session.status.value if hasattr(session.status, "value") else session.status,
             version=session.version,
-            tipsc=session.tipsc,
-            dfv=session.dfv,
-            discovery=session.discovery,
+            tipsc=session.tipsc.model_dump() if session.tipsc else None,
+            dfv=session.dfv.model_dump() if session.dfv else None,
+            discovery=session.discovery.model_dump() if session.discovery else None,
             created_at=session.created_at,
             updated_at=session.updated_at,
             archived_at=session.archived_at,

@@ -30,6 +30,7 @@ from app.schemas.flow import DFVTriggerRequest, FlowTriggerResponse
 from app.services.audit_service import audit_service
 from app.services.flow_service import FlowService
 from app.kafka.producer import kafka_producer
+from app.utils.object_id import validate_object_id
 from app.utils.response import success_response
 
 logger = logging.getLogger(__name__)
@@ -67,7 +68,6 @@ def _get_flow_service() -> FlowService:
             else:
                 # Fallback: pass raw dict (shouldn't happen in normal flow)
                 payload_obj = payload  # type: ignore[assignment]
-
             return await kafka_producer.publish(topic=topic, payload=payload_obj)
 
     # Adapt the audit_service to the AuditServiceProtocol interface
@@ -110,6 +110,7 @@ async def trigger_tipsc(
     session_id: str,
     current_user: Annotated[CurrentUser, Depends(require_role(UserRole.STUDENT))],
 ):
+    validate_object_id(session_id)
     flow_service = _get_flow_service()
     result = await flow_service.trigger_tipsc(session_id, current_user.user_id)
     return result
@@ -132,6 +133,7 @@ async def trigger_dfv(
     body: DFVTriggerRequest,
     current_user: Annotated[CurrentUser, Depends(require_role(UserRole.STUDENT))],
 ):
+    validate_object_id(session_id)
     flow_service = _get_flow_service()
     result = await flow_service.trigger_dfv(
         session_id, current_user.user_id, body.model_dump()
@@ -154,6 +156,7 @@ async def trigger_discovery(
     session_id: str,
     current_user: Annotated[CurrentUser, Depends(require_role(UserRole.STUDENT))],
 ):
+    validate_object_id(session_id)
     flow_service = _get_flow_service()
     result = await flow_service.trigger_discovery(session_id, current_user.user_id)
     return result

@@ -51,6 +51,18 @@ class PESAuthClient:
             InvalidCredentialsError: PES returned 401 — wrong SRN or password.
             PESAuthUnavailableError: Network timeout or PES API is down.
         """
+        if settings.ENVIRONMENT == "development":
+            logger.info("DEV MODE: Bypassing PES Auth HTTP call for SRN=%s", srn)
+            # Accept any validly formatted SRN in dev mode
+            return {
+                "srn": srn,
+                "name": "Dev User",
+                "email": f"{srn.lower()}@pesu.pes.edu",
+                "role": "student",
+                "team_id": "TEST_TEAM",
+                "mentor_team_ids": []
+            }
+
         payload = {"srn": srn, "password": password}
 
         try:

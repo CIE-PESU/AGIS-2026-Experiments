@@ -6,6 +6,7 @@ All queries apply ownership filters at this layer, not in services or routes.
 from datetime import datetime
 from typing import Optional, Any
 from beanie.operators import In, NotIn
+from beanie import PydanticObjectId
 
 from app.models.session import Session
 from app.state_machine.states import SessionStatus
@@ -34,10 +35,10 @@ class SessionRepository(BaseRepository[Session]):
         Returns None if session exists but belongs to a different student.
         This intentionally returns None (not raises 403) to prevent information leakage.
         """
-        return await Session.find_one(
-            Session.id == session_id,  # type: ignore[arg-type]
-            Session.student_id == student_id,
-        )
+        session = await Session.get(session_id)
+        if session and session.student_id == student_id:
+            return session
+        return None
 
     async def find_by_student(
         self,
@@ -102,7 +103,7 @@ class SessionRepository(BaseRepository[Session]):
         Returns False if the version has changed (another update won)  — caller retries or raises conflict.
         """
         result = await Session.find_one(
-            Session.id == session_id,  # type: ignore[arg-type]
+            Session.id == PydanticObjectId(session_id),  # type: ignore[arg-type]
             Session.version == expected_version,
         ).update(
             {
@@ -130,11 +131,11 @@ class SessionRepository(BaseRepository[Session]):
         """
         if expected_version is not None:
             query = Session.find_one(
-                Session.id == session_id,  # type: ignore[arg-type]
+                Session.id == PydanticObjectId(session_id),  # type: ignore[arg-type]
                 Session.version == expected_version,
             )
         else:
-            query = Session.find_one(Session.id == session_id)  # type: ignore[arg-type]
+            query = Session.find_one(Session.id == PydanticObjectId(session_id))  # type: ignore[arg-type]
 
         result = await query.update(
             {
@@ -157,7 +158,7 @@ class SessionRepository(BaseRepository[Session]):
         """
         Write the flow failure metadata and advance session status atomically.
         """
-        result = await Session.find_one(Session.id == session_id).update(  # type: ignore[arg-type]
+        result = await Session.find_one(Session.id == PydanticObjectId(session_id)).update(  # type: ignore[arg-type]
             {
                 "$set": {
                     "failure_metadata": failure_metadata,
@@ -202,7 +203,7 @@ class SessionRepository(BaseRepository[Session]):
         `dfv_inputs` is expected to have keys:
           desirability_context, feasibility_context, viability_context
         """
-        result = await Session.find_one(Session.id == session_id).update(  # type: ignore[arg-type]
+        result = await Session.find_one(Session.id == PydanticObjectId(session_id)).update(  # type: ignore[arg-type]
             {
                 "$set": {
                     "dfv_inputs": dfv_inputs,
@@ -214,7 +215,7 @@ class SessionRepository(BaseRepository[Session]):
 
     async def set_correlation_id(self, session_id: str, correlation_id: str) -> None:
         """Store the Kafka correlation_id on the session so workers can validate it."""
-        await Session.find_one(Session.id == session_id).update(  # type: ignore[arg-type]
+        await Session.find_one(Session.id == PydanticObjectId(session_id)).update(  # type: ignore[arg-type]
             {"$set": {"correlation_id": correlation_id, "updated_at": datetime.utcnow()}}
         )
 

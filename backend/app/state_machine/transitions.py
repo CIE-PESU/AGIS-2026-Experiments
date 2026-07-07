@@ -12,18 +12,24 @@ from app.state_machine.states import RUNNING_STATES, SessionStatus
 # current_status -> set of statuses it is allowed to move to next.
 ALLOWED_TRANSITIONS: dict[SessionStatus, frozenset[SessionStatus]] = {
     SessionStatus.CREATED: frozenset({SessionStatus.QUEUED}),
-    SessionStatus.QUEUED: frozenset({SessionStatus.TIPSC_RUNNING}),
+    SessionStatus.QUEUED: frozenset(
+        {SessionStatus.TIPSC_RUNNING, SessionStatus.TIPSC_COMPLETED, SessionStatus.TIPSC_FAILED}
+    ),
     SessionStatus.TIPSC_RUNNING: frozenset(
         {SessionStatus.TIPSC_COMPLETED, SessionStatus.TIPSC_FAILED}
     ),
     SessionStatus.TIPSC_FAILED: frozenset({SessionStatus.QUEUED}),
     SessionStatus.TIPSC_COMPLETED: frozenset({SessionStatus.DFV_WAITING}),
-    SessionStatus.DFV_WAITING: frozenset({SessionStatus.DFV_RUNNING}),
+    SessionStatus.DFV_WAITING: frozenset(
+        {SessionStatus.DFV_RUNNING, SessionStatus.DFV_COMPLETED, SessionStatus.DFV_FAILED}
+    ),
     SessionStatus.DFV_RUNNING: frozenset(
         {SessionStatus.DFV_COMPLETED, SessionStatus.DFV_FAILED}
     ),
     SessionStatus.DFV_COMPLETED: frozenset({SessionStatus.DISCOVERY_WAITING}),
-    SessionStatus.DISCOVERY_WAITING: frozenset({SessionStatus.DISCOVERY_RUNNING}),
+    SessionStatus.DISCOVERY_WAITING: frozenset(
+        {SessionStatus.DISCOVERY_RUNNING, SessionStatus.COMPLETED, SessionStatus.DISCOVERY_FAILED}
+    ),
     SessionStatus.DISCOVERY_RUNNING: frozenset(
         {SessionStatus.COMPLETED, SessionStatus.DISCOVERY_FAILED}
     ),

@@ -25,16 +25,15 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import bcrypt
 from jose import ExpiredSignatureError, JWTError, jwt
-from passlib.context import CryptContext
 
 from app.core.config import settings
 from app.exceptions.base import TokenExpiredError, TokenInvalidError
 
 logger = logging.getLogger(__name__)
 
-# Bcrypt context for hashing refresh tokens
-_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# We use bcrypt directly to avoid passlib incompatibilities in Python 3.13+ / bcrypt 4+
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -99,7 +98,8 @@ def create_refresh_token() -> tuple[str, str]:
         - hashed_token → stored in MongoDB refresh_tokens collection.
     """
     raw = str(uuid.uuid4())
-    hashed = _pwd_context.hash(raw)
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(raw.encode('utf-8'), salt).decode('ascii')
     return raw, hashed
 
 
@@ -114,7 +114,7 @@ def verify_refresh_token(raw_token: str, stored_hash: str) -> bool:
     Returns:
         True if the token matches, False otherwise.
     """
-    return _pwd_context.verify(raw_token, stored_hash)
+    return bcrypt.checkpw(raw_token.encode('utf-8'), stored_hash.encode('ascii'))
 
 
 # ─────────────────────────────────────────────────────────────────────────────

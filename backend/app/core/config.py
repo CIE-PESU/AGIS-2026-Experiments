@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     RATE_LIMIT_API_PER_MINUTE: int = 60     # per user_id
 
     # ── Payload ────────────────────────────────────────────────────────────────
-    MAX_REQUEST_BODY_BYTES: int = 1_048_576  # 1 MB
+    MAX_REQUEST_BODY_BYTES: int = 10_485_760  # 10 MB (C4: returns 413 above this)
 
     @property
     def cors_origins_list(self) -> list[str]:
