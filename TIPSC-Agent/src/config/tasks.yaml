@@ -263,10 +263,15 @@ tipsc_task:
     - solvability_constraint
 
     Inside tips_rag_scores include:
-    - T
-    - I
-    - P
-    - S
+
+    - T: GREEN, YELLOW, or RED
+    - T_reason: one sentence explaining exactly why T got this score
+    - I: GREEN, YELLOW, or RED
+    - I_reason: one sentence explaining exactly why I got this score
+    - P: GREEN, YELLOW, or RED
+    - P_reason: one sentence explaining exactly why P got this score
+    - S: GREEN, YELLOW, or RED
+    - S_reason: one sentence explaining exactly why S got this score
 
     Do not rename any key. Do not omit any key.
     Do not return markdown. Do not return explanations.

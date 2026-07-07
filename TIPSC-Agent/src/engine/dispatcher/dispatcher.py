@@ -59,3 +59,9 @@ class WorkerDispatcher:
             self.producer.publish(KafkaTopics.TIPSC, ...)
             return None
         return self.tipsc_worker.execute(preeval, validation_context, compliance_context)
+    
+    def dispatch_followup(self, tipsc_output, followup_context, compliance_context):
+        return self.stages.execute_followup(tipsc_output, followup_context, compliance_context)
+
+    def dispatch_tipsc_reeval(self, preeval, validation_context, compliance_context, followup_context):
+        return self.stages.execute_tipsc_reeval(preeval, validation_context, compliance_context, followup_context)

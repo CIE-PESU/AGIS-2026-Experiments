@@ -20,11 +20,22 @@ class TIPSRAGScores(BaseModel):
     I: Literal["GREEN", "YELLOW", "RED"]
     P: Literal["GREEN", "YELLOW", "RED"]
     S: Literal["GREEN", "YELLOW", "RED"]
+    T_reason: str = ""
+    I_reason: str = ""
+    P_reason: str = ""
+    S_reason: str = ""
 
     @field_validator("T", "I", "P", "S", mode="before")
     @classmethod
     def uppercase_scores(cls, v):
         return v.strip().upper() if isinstance(v, str) else v
+
+    @field_validator("T_reason", "I_reason", "P_reason", "S_reason", mode="before")
+    @classmethod
+    def normalize_reasons(cls, v):
+        if v is None:
+            return ""
+        return str(v)
 
 
 class PreEvalOutput(BaseModel):
