@@ -169,6 +169,10 @@ class SessionService:
             session_id=session_id_str,
             correlation_id=correlation_id,
         )
+        
+        # Update the in-memory session so the API response reflects the triggered state
+        session.status = SessionStatus.QUEUED
+        session.correlation_id = correlation_id
 
         logger.info(
             "Session queued for TIPSC | session_id=%s | correlation_id=%s",
