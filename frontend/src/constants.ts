@@ -1,7 +1,10 @@
 export const PES_LOGO =
   "https://images.fillout.com/orgid-407996/flowpublicid-anon-zite/widgetid-default/fB5cj8wcBy1vvWnee5A8fk/pasted-image-1782896422944.png";
 
-export const CIE_LOGO =
+export const PES_LOGO_WHITE =
+  "https://www.image2url.com/r2/default/images/1783406411242-f13d44d5-fe44-4c25-be47-0dbf2abcd114.png" 
+
+  export const CIE_LOGO =
   "https://images.fillout.com/orgid-407996/flowpublicid-anon-zite/widgetid-default/uEbUMzTUa6gp95qonQK3nf/pasted-image-1782896478033.png";
 
 /** Base URL per docs/api-spec.md §1 */
