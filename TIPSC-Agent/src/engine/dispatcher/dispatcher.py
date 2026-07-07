@@ -11,6 +11,8 @@ from engine.workers import (
     RegulatoryWorker,
     EthicsWorker,
     TIPSCWorker,
+    FollowUpWorker,
+    TIPSCReevalWorker,
 )
 
 
@@ -29,6 +31,8 @@ class WorkerDispatcher:
         self.regulatory_worker = RegulatoryWorker(stages)
         self.ethics_worker = EthicsWorker(stages)
         self.tipsc_worker = TIPSCWorker(stages)
+        self.followup_worker = FollowUpWorker(stages)         
+        self.tipsc_reeval_worker = TIPSCReevalWorker(stages)  
 
     def dispatch_preeval(self, *args):
         if self.use_kafka:
@@ -61,7 +65,23 @@ class WorkerDispatcher:
         return self.tipsc_worker.execute(preeval, validation_context, compliance_context)
     
     def dispatch_followup(self, tipsc_output, followup_context, compliance_context):
-        return self.stages.execute_followup(tipsc_output, followup_context, compliance_context)
+        if self.use_kafka:
+            self.producer.publish(KafkaTopics.FOLLOWUP, ...)
+            return None
+        return self.followup_worker.execute(
+            tipsc_output,
+            followup_context,
+            compliance_context,
+        )
 
     def dispatch_tipsc_reeval(self, preeval, validation_context, compliance_context, followup_context):
-        return self.stages.execute_tipsc_reeval(preeval, validation_context, compliance_context, followup_context)
+        if self.use_kafka:
+            self.producer.publish(KafkaTopics.TIPSC, ...)
+            return None
+        return self.tipsc_reeval_worker.execute(
+            preeval,
+            validation_context,
+            compliance_context,
+            followup_context,
+        )
+    
