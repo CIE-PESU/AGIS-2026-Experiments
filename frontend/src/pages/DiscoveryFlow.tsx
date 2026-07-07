@@ -13,10 +13,13 @@ import {
   ListChecks,
   HelpCircle,
   PlayCircle,
-  BookOpen
+  BookOpen,
+  ArrowRight,
+  Lightbulb
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import { generateJTBD } from "@/services/api";
 import { triggerDiscovery } from "@/services/authSessions";
 import { USE_MOCK_FLOWS } from "@/constants";
@@ -24,10 +27,148 @@ import { useAuth } from "@/context/AuthContext";
 import type { JTBDResult } from "@/data/mockData";
 import { downloadMarkdown, generateDiscoveryMarkdown } from "@/utils/exportMarkdown";
 
+/* ═══════════════════════════════════════════════════════════════════
+   DISCOVERY QUESTIONS FORM — founder's own thinking, captured before
+   the agent runs. Questions on the left, learning guide on the right,
+   side by side always (not stacked below on small screens).
+═══════════════════════════════════════════════════════════════════ */
+interface FieldConfig {
+  id: string;
+  label: string;
+  placeholder: string;
+  required?: boolean;
+  guide: { title: string; why: string; goodExample: string; avoidThis: string; jtbdTip: string };
+}
+
+const discoveryFormFields: FieldConfig[] = [
+  { id: "problem", label: "What problem are you trying to solve?", placeholder: "Be specific about the challenge you have identified", required: true, guide: { title: "What problem are you trying to solve?", why: "We start by understanding what problem you have identified. This helps us ground your customer discovery in a real need.", goodExample: "Students struggle to manage group project deadlines and contributions effectively.", avoidThis: 'Avoid vague statements like "make things better" or "improve efficiency" without specifics.', jtbdTip: "In JTBD terms, this is the circumstance or trigger that makes your customer 'hire' a solution." } },
+  { id: "targetCustomer", label: "Who experiences this problem?", placeholder: "Describe your target customer in specific terms", required: true, guide: { title: "Who experiences this problem?", why: "Different people experience problems differently. Knowing who you are focusing on helps us tailor your research.", goodExample: "Software development students in their 2nd–4th year working on capstone projects.", avoidThis: 'Avoid broad audience descriptions like "everyone" or "people." Get specific about demographics, roles, and context.', jtbdTip: "In JTBD terms, your customer is the person in a specific circumstance trying to get a job done." } },
+  { id: "importance", label: "Why is solving this problem important?", placeholder: "What are the consequences if this problem is not solved?", required: true, guide: { title: "Why is solving this problem important?", why: "Understanding the impact helps you decide if this is worth investigating deeply.", goodExample: "Poor coordination leads to missed deadlines, failed courses, and weakened team dynamics affecting future collaboration.", avoidThis: 'Avoid claiming it is important for "everyone." Focus on the specific impact for your target customer.', jtbdTip: "In JTBD terms, this is the desired outcome and the emotional satisfaction your customer seeks." } },
+  { id: "assumptions", label: "Why do you think this problem happens?", placeholder: "Share your current theories about the root causes", required: true, guide: { title: "Why do you think this problem happens?", why: "These are your current hypotheses. They help you identify what you need to learn through interviews.", goodExample: "I assume the problem happens because students don't have a shared digital workspace and lack clear role assignments.", avoidThis: 'Avoid stating solutions disguised as problems. "They need project management software" is a solution, not a problem understanding.', jtbdTip: "In JTBD terms, these are your assumptions about the customer's context, constraints, and current approach." } },
+  { id: "learningObjectives", label: "What are you hoping to learn from customer interviews?", placeholder: "What questions or uncertainties do you have?", required: true, guide: { title: "What are you hoping to learn from customer interviews?", why: "This clarifies what questions to ask in interviews. You can structure interviews around your learning objectives.", goodExample: "I want to learn what students currently use to track deadlines and how they handle unexpected changes in team member availability.", avoidThis: "Avoid open-ended curiosity. Focus on specific gaps in your understanding that will change your approach.", jtbdTip: "In JTBD terms, you're identifying the gaps between your assumptions and the customer's real Job-To-Be-Done." } },
+  { id: "additionalNotes", label: "Anything else you would like the AI Coach to know?", placeholder: "Optional: any additional context", guide: { title: "Additional context", why: "Share any background info, constraints, or prior research that might help the AI Coach give you better feedback.", goodExample: "We've already done 3 informal interviews and noticed students rely heavily on WhatsApp groups for coordination.", avoidThis: "Don't feel pressured to fill this in — it's optional.", jtbdTip: "Any extra context helps the coach understand your starting point better." } },
+];
+
+function DiscoveryQuestionsForm({ onSubmit }: { onSubmit: (data: Record<string, string>) => void }) {
+  const [formData, setFormData] = useState<Record<string, string>>({});
+  const [activeField, setActiveField] = useState("problem");
+
+  const activeGuide = discoveryFormFields.find((f) => f.id === activeField)?.guide;
+  const requiredFields = discoveryFormFields.filter((f) => f.required);
+  const filledCount = requiredFields.filter((f) => formData[f.id]?.trim()).length;
+  const allFilled = filledCount === requiredFields.length;
+  const progress = (filledCount / requiredFields.length) * 100;
+
+  return (
+    <div className="max-w-6xl mx-auto px-4 py-8 flex flex-row gap-8 items-start">
+      <style>{discoveryFormAnimationStyles}</style>
+      <div className="flex-1 min-w-0">
+        <div className="bg-card rounded-xl border shadow-md p-6 md:p-8">
+          <h2 className="text-2xl font-bold text-foreground mb-1">Describe Your Problem</h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Tell us about the problem you are trying to solve. Do not worry about JTBD terminology — just describe your thinking clearly.
+          </p>
+          <div className="h-1.5 mb-8 w-full rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full rounded-full bg-secondary transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+
+          <div className="space-y-6">
+            {discoveryFormFields.map((field, i) => (
+              <div
+                key={field.id}
+                className="discovery-field-fade-in"
+                style={{ animationDelay: `${i * 60}ms` }}
+              >
+                <label className="block text-sm font-semibold text-foreground mb-1.5">
+                  {field.label}{field.required && <span className="text-accent ml-0.5">*</span>}
+                </label>
+                <Textarea
+                  value={formData[field.id] || ""}
+                  onChange={(e) => setFormData((p) => ({ ...p, [field.id]: e.target.value }))}
+                  onFocus={() => setActiveField(field.id)}
+                  placeholder={field.placeholder}
+                  rows={3}
+                  className={`resize-none transition-all duration-200 shadow-sm ${activeField === field.id ? "ring-2 ring-secondary/40 border-secondary" : ""}`}
+                />
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-8 flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">{filledCount}/{requiredFields.length} required fields completed</p>
+            <Button
+              onClick={() => onSubmit(formData)}
+              disabled={!allFilled}
+              className="gap-2 shadow-md text-white"
+              style={{ background: allFilled ? "linear-gradient(135deg, hsl(14 78% 53%) 0%, hsl(14 78% 48%) 100%)" : undefined }}
+            >
+              Review My Thinking <ArrowRight className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+      <div className="w-80 shrink-0">
+        <div className="sticky top-8">
+          {activeGuide && (
+            <div
+              key={activeGuide.title}
+              className="discovery-guide-fade-in bg-card border rounded-xl shadow-md p-5 space-y-4"
+            >
+              <div>
+                <p className="text-[10px] font-bold tracking-widest text-secondary uppercase mb-1">Learning Guide</p>
+                <h3 className="text-sm font-bold text-foreground leading-snug">{activeGuide.title}</h3>
+              </div>
+              <DiscoveryGuideBit icon={<Lightbulb className="w-3.5 h-3.5 text-secondary" />} label="Why are we asking this?" text={activeGuide.why} />
+              <DiscoveryGuideBit icon={<CheckCircle2 className="w-3.5 h-3.5 text-secondary" />} label="Good example" text={activeGuide.goodExample} italic />
+              <DiscoveryGuideBit icon={<AlertTriangle className="w-3.5 h-3.5 text-accent" />} label="Avoid this" text={activeGuide.avoidThis} italic />
+              <div className="rounded-lg p-3 border-l-2 border-secondary" style={{ background: "linear-gradient(135deg, hsl(197 56% 48% / 0.08) 0%, hsl(197 56% 48% / 0.03) 100%)" }}>
+                <p className="text-[10px] font-bold tracking-wider text-secondary uppercase mb-1">JTBD Tip</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">{activeGuide.jtbdTip}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* Plain CSS replacements for the fade/slide-in effects that framer-motion used to provide. */
+const discoveryFormAnimationStyles = `
+@keyframes discovery-fade-in-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.discovery-field-fade-in {
+  animation: discovery-fade-in-up 0.35s ease-out both;
+}
+.discovery-guide-fade-in {
+  animation: discovery-fade-in-up 0.2s ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .discovery-field-fade-in, .discovery-guide-fade-in {
+    animation: none;
+  }
+}
+`;
+
+function DiscoveryGuideBit({ icon, label, text, italic }: { icon: React.ReactNode; label: string; text: string; italic?: boolean }) {
+  return (
+    <div className="space-y-0.5">
+      <div className="flex items-center gap-1.5">{icon}<span className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">{label}</span></div>
+      <p className={`text-xs text-muted-foreground leading-relaxed ${italic ? "italic" : ""}`}>{text}</p>
+    </div>
+  );
+}
+
 export function DiscoveryFlow() {
   const { session, sessionId, results, saveResults, unlockNext, addEvent } = useAuth();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<JTBDResult | null>(results.discovery);
+  const [discoveryInputs, setDiscoveryInputs] = useState<Record<string, string> | null>(null);
   const [checklistState, setChecklistState] = useState<Record<number, boolean>>({});
   const [activeGuideTab, setActiveGuideTab] = useState<"before" | "during" | "after">("before");
 
@@ -37,6 +178,9 @@ export function DiscoveryFlow() {
     setLoading(true);
     addEvent("Discovery Triggered");
     try {
+      // NOTE: pass `discoveryInputs` along to your backend once triggerDiscovery/generateJTBD
+      // are updated to accept the founder's problem/customer/JTBD answers.
+      // e.g. await triggerDiscovery(sessionId, discoveryInputs);
       if (sessionId) await triggerDiscovery(sessionId);
     } catch {
       if (!USE_MOCK_FLOWS) {
@@ -44,12 +188,17 @@ export function DiscoveryFlow() {
         return;
       }
     }
+    // e.g. const data = await generateJTBD(discoveryInputs);
     const data = await generateJTBD();
     setResult(data);
     saveResults("discovery", data);
     unlockNext("discovery");
     addEvent("Discovery Completed");
     setLoading(false);
+  }
+
+  function handleFormSubmit(data: Record<string, string>) {
+    setDiscoveryInputs(data);
   }
 
   const exportDiscoveryPlan = () => {
@@ -84,8 +233,13 @@ export function DiscoveryFlow() {
         </div>
       </div>
 
-      {/* Trigger Area */}
-      {!result && !loading && (
+      {/* Step 1: Founder's own thinking, captured before the agent runs */}
+      {!result && !loading && !discoveryInputs && (
+        <DiscoveryQuestionsForm onSubmit={handleFormSubmit} />
+      )}
+
+      {/* Step 2: Original trigger area — unchanged, just gated behind the form now */}
+      {!result && !loading && discoveryInputs && (
         <Card className="border-primary/20 bg-primary/5">
           <CardContent className="space-y-4 p-8 text-center max-w-2xl mx-auto">
             <Users className="mx-auto h-12 w-12 text-primary/80" />
@@ -201,7 +355,7 @@ export function DiscoveryFlow() {
                     </div>
                     <h3 className="font-bold text-slate-800 text-base mb-2">{ass.assumption}</h3>
                     <p className="text-sm text-slate-500 mb-4 leading-relaxed"><span className="font-semibold text-slate-700">Impact: </span>{ass.whyItMatters}</p>
-                    
+
                     <div className="mt-auto space-y-3 pt-3 border-t">
                       <div>
                         <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Required Evidence</h4>
@@ -214,7 +368,7 @@ export function DiscoveryFlow() {
                           ))}
                         </ul>
                       </div>
-                      
+
                       <div className="rounded-md bg-slate-50 p-2.5 space-y-1.5">
                         <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Validation Signals</h4>
                         {ass.signals.map((sig, idx) => (

@@ -24,7 +24,7 @@ function ArcDiagram() {
     { label: "Idea",       sub: "Submit your idea",       color: "#34305e" },
     { label: "Compliance", sub: "Legal & ethics check",    color: "#e75a2d" },
     { label: "TIPSC",      sub: "5-dimension scoring",     color: "#2b9eb3" },
-    { label: "DFV",        sub: "D · F · V analysis",      color: "#7c6fc4" },
+    { label: "DFV",        sub: "Desirability·Feasibility·Viability",      color: "#7c6fc4" },
     { label: "Discovery",  sub: "JTBD research plan",      color: "#e9a800" },
     { label: "Verdict",    sub: "GO / NO-GO decision",     color: "#059669" },
   ];
