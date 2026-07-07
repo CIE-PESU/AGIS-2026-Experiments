@@ -1,10 +1,20 @@
 
 import os
-os.environ["OPENAI_API_KEY"] = "ollama"  # Ollama ignores the key's value, but litellm requires something non-empty
-os.environ["OPENAI_API_BASE"] = "http://10.14.140.78:11434/v1"  # Ollama's OpenAI-compatible endpoint, friend's machine
-os.environ["OPENAI_MODEL_NAME"] = "openai/qwen3.5:9b"  # e.g. "openai/qwen2.5:7b" -- run `ollama list` to see exact tag
-import json
 from dotenv import load_dotenv
+
+# Load .env FIRST, before anything reads from it.
+load_dotenv()
+
+# LLM endpoint is now configurable via .env — no more editing this file
+# every time someone's IP changes. Falls back to your own local LM Studio
+# (127.0.0.1:1234) if LM_STUDIO_BASE_URL isn't set.
+LM_STUDIO_BASE_URL = os.getenv("LM_STUDIO_BASE_URL", "http://127.0.0.1:1234/v1")
+LM_STUDIO_MODEL = os.getenv("LM_STUDIO_MODEL", "openai/qwen3.5-9b")
+
+os.environ["OPENAI_API_KEY"] = "lm-studio"  # LM Studio ignores the key's value, but litellm requires something non-empty
+os.environ["OPENAI_API_BASE"] = LM_STUDIO_BASE_URL  # LM Studio's OpenAI-compatible endpoint
+os.environ["OPENAI_MODEL_NAME"] = LM_STUDIO_MODEL  # must match the model name shown in LM Studio
+import json
 from crewai import Agent, Task, Crew, Process, LLM
 from crewai_tools import SerperDevTool, ScrapeWebsiteTool
 from pathlib import Path
@@ -104,9 +114,9 @@ class TruncatedScrapeWebsiteTool(ScrapeWebsiteTool):
 scrape_tool = TruncatedScrapeWebsiteTool()
 
 llm = LLM(
-    model="openai/qwen3.5:9b",  # e.g. "openai/qwen2.5:7b" -- must match `ollama list` exactly, including tag
-    base_url="http://10.14.140.78:11434/v1",
-    api_key="ollama",
+    model=LM_STUDIO_MODEL,  # must match the model name loaded in LM Studio
+    base_url=LM_STUDIO_BASE_URL,
+    api_key="lm-studio",
     temperature=0.1,
 )
 
