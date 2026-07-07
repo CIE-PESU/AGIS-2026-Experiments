@@ -2,8 +2,11 @@
 """Pre-Eval -> TIPSC pipeline using crewAI with local LLM (LM Studio)."""
 
 import os,re
+from utils.followup_context import FollowUpContext
 from dotenv import load_dotenv
 load_dotenv()
+os.environ["OTEL_SDK_DISABLED"] = "true"
+os.environ["CREWAI_DISABLE_TELEMETRY"] = "true"
 
 import json
 import sys
@@ -16,11 +19,6 @@ from models import PreEvalOutput, TIPSCOutput, FollowUpOutput, EthicsOutput, Val
 
 from engine.stages import PipelineStages
 from engine.pipeline_executor import PipelineExecutor
-
-from pipeline import (
-    run_tipsc,
-    run_followup,
-)
 
 import logging
 
@@ -36,7 +34,8 @@ logging.basicConfig(
 BASE_DIR = Path(__file__).resolve().parent
 
 search_tool = TavilySearchTool()
-
+os.environ.setdefault("VALIDATION_TIMEOUT_SECS", "600")
+os.environ.setdefault("REGULATORY_TIMEOUT_SECS", "600")
 # ── Helpers ────────────────────────────────────
 
 
@@ -131,16 +130,23 @@ def print_ethics_result(ethics: EthicsOutput) -> None:
 
 
 def print_tipsc_summary(tips_out: TIPSCOutput) -> None:
-    m = tips_out.tips_validated_metrics
     s = tips_out.tips_rag_scores
-    print(f"  T: {m.timely_factor}")
-    print(f"  I: {m.importance_metric}")
-    print(f"  P: {m.profitability_pivot}")
-    print(f"  S: {m.solvability_constraint}")
-    print(f"\n  Scores → T={s.T}  I={s.I}  P={s.P}  S={s.S}")
-    print(f"  Readiness: {tips_out.overall_readiness}  |  DFV: {tips_out.ready_for_dfv}")
+    score_icon = lambda v: "🟢" if v == "GREEN" else ("🟡" if v == "YELLOW" else "🔴")
 
-
+    print(f"  {score_icon(s.T)} T (Timely):     {s.T}")
+    if s.T_reason:
+        print(f"      {s.T_reason}")
+    print(f"  {score_icon(s.I)} I (Important):  {s.I}")
+    if s.I_reason:
+        print(f"      {s.I_reason}")
+    print(f"  {score_icon(s.P)} P (Profitable): {s.P}")
+    if s.P_reason:
+        print(f"      {s.P_reason}")
+    print(f"  {score_icon(s.S)} S (Solvable):   {s.S}")
+    if s.S_reason:
+        print(f"      {s.S_reason}")
+    print(f"\n  Readiness: {tips_out.overall_readiness}  |  DFV: {tips_out.ready_for_dfv}")
+    
 # ── Entry point ────────────────────────────────
 
 
@@ -246,17 +252,31 @@ def main():
     print_tipsc_summary(tips_out)
     
     MAX_FOLLOWUP_TURNS = 3
-    followup_context= ""
+    conversation = FollowUpContext()
+
+    # Phase 2 — use TIPSC's own needs_followup signal first
+    if not tips_out.needs_followup:
+        print("\n  TIPSC agent determined no follow-up is needed.")
+    else:
+        if tips_out.missing_criteria:
+            print(f"\n  Weak dimensions: {', '.join(tips_out.missing_criteria)}")
+        if tips_out.criteria_state:
+            for dim, state in tips_out.criteria_state.items():
+                print(f"  {dim}: {state}")
 
     for turn in range(MAX_FOLLOWUP_TURNS):
 
-        followup = run_followup(
-        llm,
-        tips_out,
-        agents_cfg,
-        task_cfg,
-        followup_context=followup_context,
-        compliance_context=compliance_context,
+        # Skip the loop entirely if TIPSC itself says no follow-up needed
+        if not tips_out.needs_followup and turn == 0:
+            print("\n  No further follow-up needed.")
+            break
+
+        followup_context = conversation.build()
+
+        followup = executor.dispatcher.dispatch_followup(
+            tips_out,
+            followup_context=followup_context,
+            compliance_context=compliance_context,
         )
 
         if not followup.needs_followup:
@@ -264,48 +284,41 @@ def main():
             break
 
         if not followup.questions:
-            print("  Warning: follow-up requested but no questions provided.")
-            break
+            followup = executor.dispatcher.dispatch_followup(
+            tips_out,
+            followup_context=followup_context,
+            compliance_context=compliance_context,
+        )
+            if not followup.needs_followup or not followup.questions:
+                print("\n  Follow-up evaluation complete.")
+                break
 
         question = followup.questions[0]
 
         print("\n" + "=" * 60)
         print(f"FOLLOW-UP QUESTION ({turn + 1}/{MAX_FOLLOWUP_TURNS})")
         print("=" * 60)
-
         print(question)
 
         answer = input("> ").strip()
-
         if not answer:
             answer = "(no answer provided)"
 
+        conversation.add(question, answer)
 
- 
-        followup_context += f"""
-        Follow-up Question {turn+1}:
-        {question}
-
-        Founder Answer:
-        {answer}
-        """
+        followup_context = conversation.build()
 
         print("\nRe-evaluating TIPSC with new information...\n")
 
-        tips_out = run_tipsc(
-            llm,
+        tips_out = executor.dispatcher.dispatch_tipsc_reeval(
             preeval_out,
-            agents_cfg,
-            task_cfg,
-            tipsc_rubric,
             validation_context=validation_context,
             compliance_context=compliance_context,
             followup_context=followup_context,
         )
         print_tipsc_summary(tips_out)
 
-    # after the follow-up loop ends, save the final tips_out
-    save_json(tips_out.model_dump(), "tipsc_output_final.json") 
+    save_json(tips_out.model_dump(), "tipsc_output_final.json")
 
 
     print("\n" + "=" * 60)

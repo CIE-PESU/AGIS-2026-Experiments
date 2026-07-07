@@ -109,3 +109,25 @@ class PipelineStages:
             ethics,
             regulatory,
         )
+    
+    def execute_followup(self, tipsc_output, followup_context, compliance_context):
+        return run_followup(
+            self.llm,
+            tipsc_output,
+            self.agents_cfg,
+            self.task_cfg,
+            followup_context=followup_context,
+            compliance_context=compliance_context,
+        )
+
+    def execute_tipsc_reeval(self, preeval, validation_context, compliance_context, followup_context):
+        return run_tipsc(
+            self.llm,
+            preeval,
+            self.agents_cfg,
+            self.task_cfg,
+            self.tipsc_rubric,
+            validation_context=validation_context,
+            compliance_context=compliance_context,
+            followup_context=followup_context,
+        )

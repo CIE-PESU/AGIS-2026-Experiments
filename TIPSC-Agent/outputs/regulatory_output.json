@@ -1,0 +1,26 @@
+{
+  "target_geography": "India",
+  "industry_sector": "Industrial IoT",
+  "applicable_regulations": [
+    {
+      "name": "Digital Personal Data Protection Act, 2023 (DPDP Act)",
+      "jurisdiction": "India",
+      "compliance_burden": "HIGH",
+      "brief_requirement": "Obtain explicit consent for processing digital personal data, appoint a Data Protection Officer if processing sensitive data or exceeding thresholds, map data flows, and report data breaches to the Data Protection Board of India within 72 hours."
+    },
+    {
+      "name": "CERT-In Cyber Security Directions, 2025",
+      "jurisdiction": "India",
+      "compliance_burden": "MEDIUM",
+      "brief_requirement": "Implement robust cybersecurity practices, conduct annual third-party cybersecurity audits, and report significant cyber incidents to CERT-In within 6 hours."
+    }
+  ],
+  "regulatory_summary": "The startup operating in India's Industrial IoT sector is subject to the Digital Personal Data Protection Act, 2023 (DPDP Act) due to the processing of digital personal data via IoT sensors, which imposes high compliance burdens regarding consent, data fiduciary obligations, and breach notification. Additionally, the startup must comply with the CERT-In Cyber Security Directions, 2025, which now apply broadly to all private entities in India, requiring annual third-party audits and strict incident reporting timelines. These regulations collectively demand a strong focus on data privacy governance and cybersecurity resilience.",
+  "requires_specialist_review": true,
+  "key_compliance_risks": [
+    "Processing personal data (e.g., employee biometrics or location) without explicit consent under the DPDP Act.",
+    "Failure to report a cyber incident within the mandated 6-hour window under CERT-In Directions.",
+    "Inadequate data security measures leading to data breaches and potential penalties under the DPDP Act.",
+    "Non-compliance with annual third-party cybersecurity audit requirements."
+  ]
+}

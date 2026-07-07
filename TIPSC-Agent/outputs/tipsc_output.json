@@ -1,0 +1,34 @@
+{
+  "refined_idea": {
+    "customer_segment": "Small and medium-sized manufacturing companies operating CNC machines, assembly lines, and industrial equipment in India.",
+    "qualified_problem": "Small and medium-sized manufacturing companies struggle to detect machine failures before they occur, leading to unexpected production downtime, costly repairs, and missed delivery deadlines.",
+    "consequence": "Unexpected machine failures interrupt production, increase maintenance costs, reduce productivity, delay customer deliveries, and negatively impact profitability.",
+    "proposed_solution": "An AI-powered predictive maintenance platform that uses IoT vibration and temperature sensors to monitor industrial machines and predict failures before they occur."
+  },
+  "solution_alignment": "GREEN",
+  "tips_validated_metrics": {
+    "timely_factor": "Growing market demand with low current adoption rates in the target geography.",
+    "importance_metric": "Direct impact on production continuity, costs, and profitability.",
+    "profitability_pivot": "Assumption of willingness to pay for affordable solutions is confirmed, but specific pricing or B2B model details are missing.",
+    "solvability_constraint": "High compliance burden (DPDP Act, CERT-In) requires a credible acquisition plan; technical capabilities exist but regulatory compliance is not explicitly addressed by the team."
+  },
+  "tips_rag_scores": {
+    "T": "GREEN",
+    "I": "GREEN",
+    "P": "YELLOW",
+    "S": "RED"
+  },
+  "overall_readiness": "WEAK",
+  "ready_for_dfv": false,
+  "needs_followup": true,
+  "missing_criteria": [
+    "P",
+    "S"
+  ],
+  "criteria_state": {
+    "T": "resolved",
+    "I": "resolved",
+    "P": "weak",
+    "S": "unclear"
+  }
+}
