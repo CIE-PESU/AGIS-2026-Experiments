@@ -1,10 +1,12 @@
-class FollowUpWorker:
+import asyncio
+from engine.workers.base_worker import BaseWorker
 
-    def __init__(self, stages):
-        self.stages = stages
 
-    def execute(self, tipsc_output, followup_context, compliance_context):
-        return self.stages.execute_followup(
+class FollowUpWorker(BaseWorker):
+
+    async def execute(self, tipsc_output, followup_context, compliance_context):
+        return await asyncio.to_thread(
+            self.stages.execute_followup,
             tipsc_output,
             followup_context,
             compliance_context,

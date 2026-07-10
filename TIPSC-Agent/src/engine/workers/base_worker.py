@@ -1,3 +1,4 @@
+import asyncio
 from abc import ABC, abstractmethod
 
 
@@ -7,5 +8,5 @@ class BaseWorker(ABC):
         self.stages = stages
 
     @abstractmethod
-    def execute(self, *args, **kwargs):
+    async def execute(self, *args, **kwargs):
         pass

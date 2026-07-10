@@ -1,15 +1,7 @@
-from concurrent.futures import ThreadPoolExecutor
+import asyncio
 import logging
 from engine.dispatcher import WorkerDispatcher
 from engine.state_machine import PipelineContext, PipelineState
-
-from engine.workers import (
-    PreEvalWorker,
-    ValidationWorker,
-    RegulatoryWorker,
-    EthicsWorker,
-    TIPSCWorker,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -20,15 +12,15 @@ class PipelineExecutor:
         self.stages = stages
         self.dispatcher = WorkerDispatcher(stages)
 
-    def run(self, preeval_input):
-        
+    async def run(self, preeval_input):
+
         context = PipelineContext(
             state=PipelineState.PRE_EVAL
         )
 
         logger.info("Starting Pre-Evaluation")
 
-        context.preeval = self.dispatcher.dispatch_preeval(preeval_input)
+        context.preeval = await self.dispatcher.dispatch_preeval(preeval_input)
 
         logger.info("Pre-Evaluation completed")
 
@@ -36,35 +28,22 @@ class PipelineExecutor:
 
         context.state = PipelineState.VALIDATION_RUNNING
 
-        #Parallel Start
-        with ThreadPoolExecutor(max_workers=2) as executor:
+        context.validation, context.regulatory = await asyncio.gather(
+            self.dispatcher.dispatch_validation(context.preeval),
+            self.dispatcher.dispatch_regulatory(context.preeval),
+        )
 
-            validation_future = executor.submit(
-                self.dispatcher.dispatch_validation,
-                context.preeval,
-            )
-
-            regulatory_future = executor.submit(
-                self.dispatcher.dispatch_regulatory,
-                context.preeval,
-            )
-            
-            context.state = PipelineState.REGULATORY_RUNNING
-
-            context.validation = validation_future.result()
-            logger.info("Validation completed")
-            context.regulatory = regulatory_future.result()
-            logger.info("Regulatory completed")
-        #Parallel End
+        context.state = PipelineState.REGULATORY_RUNNING
+        logger.info("Validation completed")
+        logger.info("Regulatory completed")
 
         validation_context = context.validation.model_dump_json(indent=2)
-
         regulatory_context = context.regulatory.model_dump_json(indent=2)
 
         context.state = PipelineState.ETHICS_RUNNING
 
         logger.info("Starting Ethics")
-        context.ethics = self.dispatcher.dispatch_ethics(
+        context.ethics = await self.dispatcher.dispatch_ethics(
             context.preeval,
             validation_context,
             regulatory_context,
@@ -80,7 +59,7 @@ class PipelineExecutor:
 
         logger.info("Starting TIPSC")
 
-        context.tipsc = self.dispatcher.dispatch_tipsc(
+        context.tipsc = await self.dispatcher.dispatch_tipsc(
             context.preeval,
             validation_context,
             context.compliance_context,

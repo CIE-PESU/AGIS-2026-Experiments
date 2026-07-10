@@ -11,6 +11,8 @@ from models import (
 )
 
 class PipelineState(str, Enum):
+
+    QUEUED = "QUEUED"
     PRE_EVAL = "PRE_EVAL"
 
     VALIDATION_RUNNING = "VALIDATION_RUNNING"

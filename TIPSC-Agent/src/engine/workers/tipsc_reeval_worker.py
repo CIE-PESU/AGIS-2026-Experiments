@@ -1,10 +1,12 @@
-class TIPSCReevalWorker:
+import asyncio
+from engine.workers.base_worker import BaseWorker
 
-    def __init__(self, stages):
-        self.stages = stages
 
-    def execute(self, preeval, validation_context, compliance_context, followup_context):
-        return self.stages.execute_tipsc_reeval(
+class TIPSCReevalWorker(BaseWorker):
+
+    async def execute(self, preeval, validation_context, compliance_context, followup_context):
+        return await asyncio.to_thread(
+            self.stages.execute_tipsc_reeval,
             preeval,
             validation_context,
             compliance_context,

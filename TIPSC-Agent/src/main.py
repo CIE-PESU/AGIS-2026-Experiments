@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Pre-Eval -> TIPSC pipeline using crewAI with local LLM (LM Studio)."""
 
+import asyncio
 import os,re
 from utils.followup_context import FollowUpContext
 from dotenv import load_dotenv
@@ -13,9 +14,8 @@ import sys
 from pathlib import Path
 
 import yaml
-from crewai import Agent, Crew, LLM, Process, Task
-from crewai_tools import TavilySearchTool
-from models import PreEvalOutput, TIPSCOutput, FollowUpOutput, EthicsOutput, ValidationOutput, RegulatoryOutput
+from crewai import LLM
+from models import TIPSCOutput, EthicsOutput, ValidationOutput, RegulatoryOutput
 
 from engine.stages import PipelineStages
 from engine.pipeline_executor import PipelineExecutor
@@ -33,7 +33,6 @@ logging.basicConfig(
 
 BASE_DIR = Path(__file__).resolve().parent
 
-search_tool = TavilySearchTool()
 os.environ.setdefault("VALIDATION_TIMEOUT_SECS", "600")
 os.environ.setdefault("REGULATORY_TIMEOUT_SECS", "600")
 # ── Helpers ────────────────────────────────────
@@ -150,7 +149,7 @@ def print_tipsc_summary(tips_out: TIPSCOutput) -> None:
 # ── Entry point ────────────────────────────────
 
 
-def main():
+async def main():
     agents_cfg = load_yaml("config/agents.yaml")
     task_cfg = load_yaml("config/tasks.yaml")
     preeval_skill = load_text("skills/preeval/SKILL.md")
@@ -194,7 +193,7 @@ def main():
     } 
 
     executor = PipelineExecutor(stages)
-    results= executor.run(preeval_input)
+    results= await executor.run(preeval_input)
 
 
     preeval_out = results["preeval"]
@@ -273,7 +272,7 @@ def main():
 
         followup_context = conversation.build()
 
-        followup = executor.dispatcher.dispatch_followup(
+        followup = await executor.dispatcher.dispatch_followup(
             tips_out,
             followup_context=followup_context,
             compliance_context=compliance_context,
@@ -284,11 +283,11 @@ def main():
             break
 
         if not followup.questions:
-            followup = executor.dispatcher.dispatch_followup(
-            tips_out,
-            followup_context=followup_context,
-            compliance_context=compliance_context,
-        )
+            followup = await executor.dispatcher.dispatch_followup(
+                tips_out,
+                followup_context=followup_context,
+                compliance_context=compliance_context,
+            )
             if not followup.needs_followup or not followup.questions:
                 print("\n  Follow-up evaluation complete.")
                 break
@@ -310,7 +309,7 @@ def main():
 
         print("\nRe-evaluating TIPSC with new information...\n")
 
-        tips_out = executor.dispatcher.dispatch_tipsc_reeval(
+        tips_out = await executor.dispatcher.dispatch_tipsc_reeval(
             preeval_out,
             validation_context=validation_context,
             compliance_context=compliance_context,
@@ -362,4 +361,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

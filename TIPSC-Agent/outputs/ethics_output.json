@@ -1,11 +1,11 @@
 {
-  "harm_vector": "GREEN",
-  "harm_reason": "The product predicts machine failures to prevent downtime and cost overruns, providing a direct benefit to users without causing physical, financial, or psychological harm.",
-  "legal_risk": "YELLOW",
-  "legal_reason": "The core business model involves processing digital personal data under India's DPDP Act (HIGH burden) and complying with CERT-In Cyber Security Directions, which are heavily regulated but not facially illegal.",
+  "harm_vector": "YELLOW",
+  "harm_reason": "Harm is misuse-dependent and indirect; the product is neutral but could be misused to discriminate if deployed without safeguards.",
+  "legal_risk": "RED",
+  "legal_reason": "The core business model of scraping social media profiles to build behavioral risk scores for automated housing decisions violates GDPR Article 6/9 (lawful basis) and Article 22 (automated decision-making), making it facially illegal in the target jurisdictions.",
   "problem_solution_integrity": "GREEN",
-  "integrity_reason": "The proposed AI-powered predictive maintenance solution directly addresses the stated problem of unexpected machine failures and does not replicate or worsen the harm.",
-  "ethics_pass": true,
-  "compliance_flag": true,
-  "rejection_reason": ""
+  "integrity_reason": "The solution addresses the stated problem of unreliable vetting by providing faster, data-rich screening, even though the specific method is legally problematic.",
+  "ethics_pass": false,
+  "compliance_flag": false,
+  "rejection_reason": "The startup must be blocked because its core business model relies on processing personal data and making automated housing decisions in violation of GDPR Article 6, 9, and 22."
 }

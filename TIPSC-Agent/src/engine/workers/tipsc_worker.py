@@ -1,15 +1,17 @@
+import asyncio
 from engine.workers.base_worker import BaseWorker
 
 
 class TIPSCWorker(BaseWorker):
 
-    def execute(
+    async def execute(
         self,
         preeval,
         validation_context,
         compliance_context,
     ):
-        return self.stages.execute_tipsc(
+        return await asyncio.to_thread(
+            self.stages.execute_tipsc,
             preeval,
             validation_context,
             compliance_context,

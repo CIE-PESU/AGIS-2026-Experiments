@@ -1,3 +1,6 @@
 /TIPSC-Agent/.env
 /TIPSC-Agent/*/__pycache__/
 /TIPSC-Agent/**/__pycache__/
+/TIPSC-Agent/outputs/
+/TIPSC-Agent/src/test_async_verify.py
+/TIPSC-Agent/src/test_worker_async.py
