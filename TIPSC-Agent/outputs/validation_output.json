@@ -1,0 +1,24 @@
+{
+  "target_geography": "Germany, France, Netherlands",
+  "industry_sector": "Tenant Screening / Property Management",
+  "checked_assumptions": [
+    {
+      "assumption": "Landlords already collect social media handles from applicants informally.",
+      "verdict": "UNCONFIRMED",
+      "evidence": "Search results focused heavily on GDPR regulations and privacy laws. No evidence was found of landlords informally collecting social media handles as a standard or common practice in the specified geography."
+    },
+    {
+      "assumption": "Background check agencies are slow and expensive.",
+      "verdict": "UNCONFIRMED",
+      "evidence": "Market reports indicate global growth and competitors offering instant screening, but specific evidence confirming that traditional agencies in Germany, France, and the Netherlands are specifically 'slow and expensive' compared to AI alternatives was not explicitly detailed."
+    },
+    {
+      "assumption": "Tenants want faster approvals.",
+      "verdict": "UNCONFIRMED",
+      "evidence": "Competitor descriptions highlight 'instant approval' as key value propositions, but direct quotes from tenants in the EU stating they *want* faster approvals were not found."
+    }
+  ],
+  "competitor_landscape": "The global tenant screening market includes major players like RentSpree, TurboTenant, SmartMove, and specialized AI providers like SmartGarant. These competitors generally offer integrated suites including credit checks, income verification, and criminal background checks. In the EU context, the landscape is likely fragmented with local players adhering to strict GDPR compliance, while US-centric SaaS platforms may operate via specific data partnerships or limited scope.",
+  "market_notes": "Regulatory Risk: The EU (specifically Germany, France, Netherlands) has strict GDPR regulations. Scraping public social media profiles for 'behavioral risk scores' likely violates data protection principles regarding the purpose of collection and the nature of the data (inferred behavioral traits), making the proposed solution technically feasible but legally high-risk in the target geography.\nMarket Size: The global tenant screening market is valued at ~$5.8B (2025) and growing, indicating a viable sector, but the EU segment specifically requires careful localization for compliance.\nSolution Viability: While AI screening exists, the specific approach of using social media scraping contradicts the prevailing regulatory stance in the target geography, suggesting the solution may need significant modification to be compliant.",
+  "validation_summary": "WEAK"
+}
