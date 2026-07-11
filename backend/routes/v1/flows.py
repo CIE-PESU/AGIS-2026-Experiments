@@ -26,7 +26,7 @@ from exceptions.base import (
 )
 from repositories.session_repo import session_repo
 from schemas.auth import CurrentUser
-from schemas.flow import DFVTriggerRequest, FlowTriggerResponse
+from schemas.flow import DFVTriggerRequest, FlowTriggerResponse, FollowupAnswerRequest
 from services.audit_service import audit_service
 from services.flow_service import FlowService
 from kafka.producer import kafka_producer
@@ -160,3 +160,49 @@ async def trigger_discovery(
     flow_service = _get_flow_service()
     result = await flow_service.trigger_discovery(session_id, current_user.user_id)
     return result
+
+
+@router.post(
+    "/user/{student_id}/followup",
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Submit founder answer to TIPSC followup question",
+    description=(
+        "Writes the founder's answer to the pending question and triggers the followup Kafka event to resume TIPSC."
+    ),
+)
+async def submit_followup(
+    request: Request,
+    student_id: str,
+    body: FollowupAnswerRequest,
+    current_user: Annotated[CurrentUser, Depends(require_role(UserRole.STUDENT))],
+):
+    # Ensure students can only submit for themselves
+    if current_user.user_id != student_id:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot submit followup for another user.")
+
+    # We need to find the active session for this student that is WAITING_FOR_FOUNDER
+    # and update it. Since FlowService expects session_id, let's fetch it first.
+    # Actually, we should put this logic in FlowService.
+    flow_service = _get_flow_service()
+    
+    # We need to add a method to FlowService to handle this, or do it here manually for the integration.
+    # We will do it here by calling session_repo to get the active session.
+    session = await session_repo.get_active_session_by_user(student_id)
+    if not session:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No active session waiting for founder.")
+
+    session_id = str(session["_id"])
+    
+    # Update DB with pending answer and set status to tipsc_running
+    await session_repo.submit_followup_answer(session_id, body.answer)
+
+    try:
+        from kafka.topics import KafkaTopic
+        topic = KafkaTopic.USER_SESSION_TIPSC_FOLLOWUP if hasattr(KafkaTopic, "USER_SESSION_TIPSC_FOLLOWUP") else "userSession.followup"
+    except (ImportError, AttributeError):
+        topic = "userSession.followup"
+
+    await kafka_producer.publish(topic, {"user_session_id": session_id})
+    return {"status": "accepted", "session_id": session_id}

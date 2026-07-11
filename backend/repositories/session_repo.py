@@ -182,6 +182,33 @@ class SessionRepository(BaseRepository[Session]):
         await session.save()
         return True
 
+    async def get_active_session_by_user(self, student_id: str) -> Optional[dict[str, Any]]:
+        """Fetch the latest session that is waiting for founder."""
+        session = await Session.find_one(
+            Session.student_id == student_id,
+            Session.status == SessionStatus.WAITING_FOR_FOUNDER
+        ).sort(-Session.updated_at)
+        
+        if session:
+            data = session.model_dump()
+            data["_id"] = str(session.id)
+            return data
+        return None
+        
+    async def submit_followup_answer(self, session_id: str, answer: str) -> bool:
+        """Write pending_answer and transition back to TIPSC_RUNNING."""
+        result = await Session.find_one(Session.id == PydanticObjectId(session_id)).update(  # type: ignore[arg-type]
+            {
+                "$set": {
+                    "pending_answer": answer,
+                    "status": SessionStatus.TIPSC_RUNNING,
+                    "updated_at": datetime.utcnow(),
+                },
+                "$inc": {"version": 1},
+            }
+        )
+        return result is not None and result.modified_count == 1
+
     async def find_active_by_student(self, student_id: str) -> Optional[Session]:
         """
         Returns the student's active (non-archived) session, or None.

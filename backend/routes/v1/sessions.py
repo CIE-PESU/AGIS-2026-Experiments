@@ -151,6 +151,37 @@ async def get_session(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# GET /user/{student_id}/session — Retrieve current active session
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get(
+    "/user/{student_id}/session",
+    status_code=status.HTTP_200_OK,
+    summary="Get active session by student ID",
+    description=(
+        "Returns the active (non-archived) session for the student. "
+    ),
+)
+async def get_active_session_by_user(
+    request: Request,
+    student_id: str,
+    current_user: Annotated[CurrentUser, Depends(get_current_user)],
+):
+    from repositories.session_repo import session_repo
+    
+    if current_user.user_id != student_id and current_user.role == UserRole.STUDENT:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot access session of another user.")
+
+    session = await session_repo.find_active_by_student(student_id)
+    if not session:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No active session found for user.")
+
+    return success_response(data=session.model_dump(), request=request)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # GET /sessions — List sessions (paginated)
 # ─────────────────────────────────────────────────────────────────────────────
 

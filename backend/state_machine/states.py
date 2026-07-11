@@ -14,6 +14,7 @@ class SessionStatus(str, Enum):
     QUEUED = "queued"
 
     TIPSC_RUNNING = "tipsc_running"
+    WAITING_FOR_FOUNDER = "waiting_for_founder"
     TIPSC_COMPLETED = "tipsc_completed"
     TIPSC_FAILED = "tipsc_failed"
 

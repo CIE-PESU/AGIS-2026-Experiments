@@ -18,3 +18,6 @@ class FlowTriggerResponse(BaseModel):
     status: str
     correlation_id: str | None
     triggered_at: str
+
+class FollowupAnswerRequest(BaseModel):
+    answer: str = Field(..., min_length=1, max_length=5000)
