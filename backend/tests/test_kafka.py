@@ -13,9 +13,9 @@ The integration smoke test (Vijay's Day 2 B-13 script) covers end-to-end publish
 
 import pytest
 
-from app.exceptions.base import AppException, KafkaPublishError
-from app.kafka.payloads import TIPSCEventPayload, DFVEventPayload, DiscoveryEventPayload
-from app.kafka.producer import KafkaProducerClient, kafka_producer
+from exceptions.base import AppException, KafkaPublishError
+from kafka.payloads import TIPSCEventPayload, DFVEventPayload, DiscoveryEventPayload
+from kafka.producer import KafkaProducerClient, kafka_producer
 
 
 def test_singleton_pattern():

@@ -1,10 +1,10 @@
 import asyncio
-from app.database.mongodb import connect_db
-from app.services.flow_service import FlowService
-from app.repositories.session_repo import session_repo
-from app.kafka.producer import kafka_producer
-from app.services.audit_service import audit_service
-from app.models.session import Session
+from database.mongodb import connect_db
+from services.flow_service import FlowService
+from repositories.session_repo import session_repo
+from kafka.producer import kafka_producer
+from services.audit_service import audit_service
+from models.session import Session
 
 async def run():
     await connect_db()

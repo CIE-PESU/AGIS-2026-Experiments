@@ -1,6 +1,6 @@
 from datetime import datetime
 import uuid
-from app.kafka.payloads import DFVEventPayload
+from kafka.payloads import DFVEventPayload
 
 payload = {
     "event_id": str(uuid.uuid4()),

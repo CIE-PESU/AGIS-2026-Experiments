@@ -10,20 +10,20 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.flow_exceptions import (
+from services.flow_exceptions import (
     DFVNotUnlockedError,
     FlowAlreadyRunningError,
     InvalidStateTransitionError,
     SessionNotFoundError,
 )
-from app.services.flow_service import (
+from services.flow_service import (
     DFV_TOPIC,
     DISCOVERY_TOPIC,
     TIPSC_TOPIC,
     FlowService,
     SessionSnapshot,
 )
-from app.state_machine.states import SessionStatus
+from state_machine.states import SessionStatus
 
 
 class FakeSessionRepo:
@@ -165,7 +165,7 @@ async def test_trigger_tipsc_kafka_failure_does_not_update_status():
     session = make_session(status=SessionStatus.CREATED)
     service, repo, kafka, audit = build_service(session, kafka_fails=True)
 
-    from app.services.flow_exceptions import KafkaUnavailableError
+    from services.flow_exceptions import KafkaUnavailableError
 
     with pytest.raises(KafkaUnavailableError):
         await service.trigger_tipsc(session.session_id, session.student_id)
@@ -285,7 +285,7 @@ async def test_version_mismatch_raises_conflict():
     audit = FakeAuditService()
     service = FlowService(repo, kafka, audit)
 
-    from app.services.flow_exceptions import SessionUpdateConflictError
+    from services.flow_exceptions import SessionUpdateConflictError
 
     with pytest.raises(SessionUpdateConflictError):
         await service.trigger_tipsc(session.session_id, session.student_id)

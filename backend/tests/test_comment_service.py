@@ -10,12 +10,12 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from app.services.comment_exceptions import (
+from services.comment_exceptions import (
     CommentNotFoundError,
     InsufficientPermissionsError,
     SessionNotFoundError,
 )
-from app.services.comment_service import (
+from services.comment_service import (
     Comment,
     CommentService,
     SessionAccessInfo,

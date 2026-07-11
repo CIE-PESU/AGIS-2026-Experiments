@@ -1,7 +1,7 @@
 import asyncio
-from app.database.mongodb import connect_db
-from app.models.session import Session
-from app.schemas.session import SessionResponse, SessionListResponse
+from database.mongodb import connect_db
+from models.session import Session
+from schemas.session import SessionResponse, SessionListResponse
 
 async def run():
     await connect_db()

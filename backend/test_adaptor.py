@@ -1,6 +1,6 @@
 import asyncio
-from app.api.v1.flows import KafkaAdaptor
-from app.services.flow_service import DFV_TOPIC
+from routes.v1.flows import KafkaAdaptor
+from services.flow_service import DFV_TOPIC
 
 payload = {
     "event_id": "test",

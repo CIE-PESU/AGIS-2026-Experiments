@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.comment import CommentCreateRequest
+from schemas.comment import CommentCreateRequest
 
 
 def test_comment_over_2000_chars_rejected():

@@ -1,13 +1,13 @@
 import asyncio
-from app.database.mongodb import connect_db
-from app.services.worker_service import worker_service
+from database.mongodb import connect_db
+from services.worker_service import worker_service
 from fastapi import BackgroundTasks
 
 async def run():
     await connect_db()
     try:
         # I need to get the correlation_id of the session created
-        from app.models.session import Session
+        from models.session import Session
         session = await Session.find_one({"status": "queued"})
         if not session:
             print("No queued session")

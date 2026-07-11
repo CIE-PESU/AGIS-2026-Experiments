@@ -60,8 +60,8 @@ class TestSRNValidation:
 # ObjectId format validation
 # ─────────────────────────────────────────────────────────────────────────────
 
-from app.utils.object_id import validate_object_id
-from app.exceptions.base import ValidationException
+from utils.object_id import validate_object_id
+from exceptions.base import ValidationException
 
 
 class TestObjectIdValidation:
@@ -98,7 +98,7 @@ class TestObjectIdValidation:
 # Session schema — problem_statement & idea validation (B-21)
 # ─────────────────────────────────────────────────────────────────────────────
 
-from app.schemas.session import SessionCreateRequest
+from schemas.session import SessionCreateRequest
 
 
 class TestSessionCreateRequestValidation:
@@ -143,7 +143,7 @@ class TestSessionCreateRequestValidation:
 # DFV context fields — min 100 chars each
 # ─────────────────────────────────────────────────────────────────────────────
 
-from app.schemas.flow import DFVTriggerRequest
+from schemas.flow import DFVTriggerRequest
 
 
 class TestDFVTriggerValidation:
@@ -196,7 +196,7 @@ class TestIdempotencyC1:
         If find_by_idempotency_key returns an existing session,
         create_session must return that session immediately — no Kafka publish.
         """
-        from app.services.session_service import SessionService
+        from services.session_service import SessionService
 
         existing_session = MagicMock()
         existing_session.id = "507f1f77bcf86cd799439011"
@@ -220,7 +220,7 @@ class TestKafkaDownD1:
     """
 
     def test_kafka_failure_raises_kafka_publish_error(self):
-        from app.services.session_service import SessionService
+        from services.session_service import SessionService
         import inspect
         src = inspect.getsource(SessionService.create_session)
         # Session must stay CREATED — status only advances AFTER successful publish
@@ -244,7 +244,7 @@ class TestOptimisticLockE4:
     """
 
     def test_version_mismatch_raises_409(self):
-        from app.services.worker_service import WorkerService
+        from services.worker_service import WorkerService
         import inspect
         src = inspect.getsource(WorkerService.accept_flow_output)
         assert "if not updated" in src
@@ -262,7 +262,7 @@ class TestCorrelationIdF2:
     """
 
     def test_correlation_id_check_is_present(self):
-        from app.services.worker_service import WorkerService
+        from services.worker_service import WorkerService
         import inspect
         src = inspect.getsource(WorkerService.accept_flow_output)
         assert "session.correlation_id != correlation_id" in src
@@ -280,16 +280,16 @@ class TestTerminalStateF5:
     """
 
     def test_terminal_state_guard_is_present(self):
-        from app.services.worker_service import WorkerService
+        from services.worker_service import WorkerService
         import inspect
         src = inspect.getsource(WorkerService.accept_flow_output)
         assert "TERMINAL_STATES" in src
         assert "Cannot update a terminal session" in src
 
     def test_completed_is_in_terminal_states(self):
-        from app.state_machine.states import SessionStatus, TERMINAL_STATES
+        from state_machine.states import SessionStatus, TERMINAL_STATES
         assert SessionStatus.COMPLETED in TERMINAL_STATES
 
     def test_archived_is_in_terminal_states(self):
-        from app.state_machine.states import SessionStatus, TERMINAL_STATES
+        from state_machine.states import SessionStatus, TERMINAL_STATES
         assert SessionStatus.ARCHIVED in TERMINAL_STATES

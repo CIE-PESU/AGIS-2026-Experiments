@@ -12,10 +12,10 @@ import itertools
 
 import pytest
 
-from app.state_machine.exceptions import InvalidStateTransitionError
-from app.state_machine.states import RUNNING_STATES, SessionStatus
-from app.state_machine.transitions import ALLOWED_TRANSITIONS
-from app.state_machine.validator import validate_transition
+from state_machine.exceptions import InvalidStateTransitionError
+from state_machine.states import RUNNING_STATES, SessionStatus
+from state_machine.transitions import ALLOWED_TRANSITIONS
+from state_machine.validator import validate_transition
 
 ALLOWED_PAIRS = [
     (current, target)
@@ -110,7 +110,7 @@ def test_no_forbidden_module_imports():
     import pathlib
 
     state_machine_dir = pathlib.Path(__file__).parent.parent / "app" / "state_machine"
-    banned_prefixes = ("app.models", "app.repositories", "app.kafka")
+    banned_prefixes = ("models", "repositories", "kafka")
 
     for py_file in state_machine_dir.glob("*.py"):
         tree = ast.parse(py_file.read_text())

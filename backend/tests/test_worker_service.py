@@ -2,16 +2,16 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 from fastapi import BackgroundTasks
 
-from app.exceptions.session import (
+from exceptions.session import (
     SessionNotFoundError,
     InvalidStateTransitionError,
 )
-from app.exceptions.base import (
+from exceptions.base import (
     CorrelationIDMismatchError,
     InvalidOutputSchemaError,
 )
-from app.models.session import SessionStatus
-from app.services.worker_service import WorkerService
+from models.session import SessionStatus
+from services.worker_service import WorkerService
 
 class FakeSessionSnapshot:
     def __init__(self, **kwargs):
@@ -51,8 +51,8 @@ class FakeSessionRepo:
 def worker_service(monkeypatch):
     service = WorkerService()
     repo = FakeSessionRepo()
-    monkeypatch.setattr("app.services.worker_service.session_repo", repo)
-    monkeypatch.setattr("app.services.worker_service.audit_service", AsyncMock())
+    monkeypatch.setattr("services.worker_service.session_repo", repo)
+    monkeypatch.setattr("services.worker_service.audit_service", AsyncMock())
     return service, repo
 
 @pytest.mark.asyncio
