@@ -1,16 +1,69 @@
 
 import os
-os.environ["OPENAI_API_KEY"] = "lm-studio"
-os.environ["OPENAI_API_BASE"] = "http://127.0.0.1:1234/v1"
-os.environ["OPENAI_MODEL_NAME"] = "openai/bonsai-8b"
-import json
 from dotenv import load_dotenv
+
+# Load .env FIRST, before anything reads from it.
+load_dotenv()
+
+# LLM endpoint is now configurable via .env — no more editing this file
+# every time someone's IP changes. Falls back to your own local LM Studio
+# (127.0.0.1:1234) if LM_STUDIO_BASE_URL isn't set.
+LM_STUDIO_BASE_URL = os.getenv("LM_STUDIO_BASE_URL", "http://127.0.0.1:1234/v1")
+LM_STUDIO_MODEL = os.getenv("LM_STUDIO_MODEL", "openai/qwen3.5-9b")
+
+os.environ["OPENAI_API_KEY"] = "lm-studio"  # LM Studio ignores the key's value, but litellm requires something non-empty
+os.environ["OPENAI_API_BASE"] = LM_STUDIO_BASE_URL  # LM Studio's OpenAI-compatible endpoint
+os.environ["OPENAI_MODEL_NAME"] = LM_STUDIO_MODEL  # must match the model name shown in LM Studio
+import json
 from crewai import Agent, Task, Crew, Process, LLM
 from crewai_tools import SerperDevTool, ScrapeWebsiteTool
 from pathlib import Path
 from pydantic import BaseModel, Field
+from typing import ClassVar
 from crewai.skills import discover_skills, activate_skill
 from datetime import datetime
+
+# LM Studio's OpenAI-compatible server doesn't support the object-style
+# tool_choice format CrewAI sends when forcing structured JSON output
+# (output_json=...). This tells LiteLLM to silently drop unsupported
+# params instead of raising a 400 error.
+import litellm
+litellm.drop_params = True
+
+# LM Studio's OpenAI-compatible server only accepts tool_choice as a plain
+# string ("none" | "auto" | "required"). Depending on the internal CrewAI
+# code path (native tool-calling, forced structured output, etc.), CrewAI/
+# LiteLLM sometimes builds the modern object-style tool_choice instead, e.g.
+# {"type": "function", "function": {"name": "..."}}. LM Studio rejects that
+# with a 400. Rather than chase every internal call site that might build
+# this object, we sanitize it at the litellm.completion/acompletion boundary
+# -- the last point before the request actually goes out over the network.
+_original_litellm_completion = litellm.completion
+_original_litellm_acompletion = litellm.acompletion
+
+
+def _sanitize_tool_choice(kwargs):
+    tool_choice = kwargs.get("tool_choice")
+    if isinstance(tool_choice, dict):
+        # Force -> "required" (still compels a tool call, just via the
+        # string form LM Studio understands). Anything else -> "auto".
+        tc_type = tool_choice.get("type")
+        kwargs["tool_choice"] = "required" if tc_type in ("function", "tool") else "auto"
+    return kwargs
+
+
+def _patched_litellm_completion(*args, **kwargs):
+    kwargs = _sanitize_tool_choice(kwargs)
+    return _original_litellm_completion(*args, **kwargs)
+
+
+async def _patched_litellm_acompletion(*args, **kwargs):
+    kwargs = _sanitize_tool_choice(kwargs)
+    return await _original_litellm_acompletion(*args, **kwargs)
+
+
+litellm.completion = _patched_litellm_completion
+litellm.acompletion = _patched_litellm_acompletion
 
 now = datetime.now()
 TodayDate = now.strftime("%d - %B - %Y")
@@ -27,6 +80,8 @@ def patched_supports_function_calling(self) -> bool:
     provider = getattr(self, "provider", None) or self._get_custom_llm_provider()
     if "groq" in model_name.lower() or provider == "groq":
         return False
+    if "qwen" in model_name.lower():
+        return False
     return original_supports_function_calling(self)
 
 LLM.supports_function_calling = patched_supports_function_calling
@@ -38,11 +93,29 @@ os.environ["SERPER_API_KEY"] = SERPER_API_KEY or ""
 
 # Initialize tools required for Phase 1 Desirability market analysis
 search_tool = SerperDevTool(api_key=SERPER_API_KEY)
-scrape_tool = ScrapeWebsiteTool()
+
+
+class TruncatedScrapeWebsiteTool(ScrapeWebsiteTool):
+    """ScrapeWebsiteTool returns a full page's raw text with no length cap.
+    A single scraped page can easily run 20k+ characters, which blows past
+    the local qwen model's context window in LM Studio (especially once
+    combined with the system prompt, task description, and prior tool
+    results in the ReAct-style conversation). This caps it to a safe size."""
+
+    MAX_CHARS: ClassVar[int] = 6000  # ~1500-2000 tokens; leaves headroom for the rest of the context
+
+    def _run(self, **kwargs):
+        result = super()._run(**kwargs)
+        if isinstance(result, str) and len(result) > self.MAX_CHARS:
+            return result[: self.MAX_CHARS] + "\n\n[...truncated: page content exceeded length limit...]"
+        return result
+
+
+scrape_tool = TruncatedScrapeWebsiteTool()
 
 llm = LLM(
-    model="bonsai-8b", 
-    base_url="http://127.0.0.1:1234/v1", 
+    model=LM_STUDIO_MODEL,  # must match the model name loaded in LM Studio
+    base_url=LM_STUDIO_BASE_URL,
     api_key="lm-studio",
     temperature=0.1,
 )
@@ -214,16 +287,81 @@ dfv_decision_task = Task(
            - status: Critically weigh all three dimensions. If any phase reveals a fatal flaw, set this field to 'NO-GO'. If all three pillars balance sustainably, set this to 'GO'.
            - justification: Provide a clear, data-backed analytical reason for why the project received a GO or a NO-GO status."""
     ),
-    expected_output="A structured JSON object matching the DFAOutput schema including refined_idea, tips_validated_metrics, hypotheses, and final_decision properties.",
+    expected_output=(
+        "Return ONLY a single valid JSON object -- no markdown code fences, no explanation "
+        "text before or after it -- matching exactly this structure:\n"
+        "{\n"
+        '  "refined_idea": {"customer_segment": "...", "qualified_problem": "...", '
+        '"consequence": "...", "proposed_solution": "..."},\n'
+        '  "hypotheses": {"desirability_statement": "...", "feasibility_statement": "...", '
+        '"viability_statement": "..."},\n'
+        '  "tips_validated_metrics": {"timely_factor": "...", "importance_metric": "...", '
+        '"profitability_pivot": "...", "solvability_constraint": "..."},\n'
+        '  "final_decision": {"status": "GO or NO-GO", "justification": "..."}\n'
+        "}"
+    ),
     context=[desirability_task, feasibility_task, viability_task],
     agent=dfv_risk_decision_agent,
-    output_json=DFAOutput
 )
 
 # print(desirability_agent.skills)
 # print(viability_agent.skills)
 # print(feasibility_agent.skills)
 # print(dfv_risk_decision_agent.skills)
+
+ggls = {
+    "desirability": """Analyze the following product proposal:
+        - Customer Problem: Professionals and consumers need hands-free, always-on access to information and communication without reaching for their phones
+        - Target Audience: Early adopters, enterprise field workers, healthcare professionals, aged 25-45
+        - Key Value Proposition: Heads-up display, voice commands, real-time info overlay, camera
+        - User Pain Points Solved: Distraction from phone usage, need for quick info access, hands-free operation
+        - Market Demand Indicators: Limited adoption, privacy concerns, social awkwardness in public
+        - Emotional Drivers: Tech novelty, productivity, futurism""",
+
+    "feasibility": """Analyze feasibility of the following product:
+        - Technology Stack: Android-based OS, bone conduction audio, 5MP camera, prism display, Wi-Fi/Bluetooth
+        - Infrastructure Model: Consumer hardware product with companion smartphone app
+        - Logistics: Retail and direct sales, developer program (Glass Explorer Program)
+        - Supply Chain: Google hardware manufacturing and distribution
+        - Technical Challenges: Battery life (~1 day), display brightness, voice recognition accuracy, heat dissipation
+        - Resource Requirements: Google-scale hardware R&D, manufacturing, software ecosystem""",
+
+    "viability": """Analyze the business viability of the following product:
+        - Revenue Model: Direct hardware sales ($1500 Explorer Edition), enterprise licensing
+        - Cost Structure: Hardware manufacturing, R&D, software maintenance, customer support
+        - Market Size: Wearable tech market ~$95B globally in 2024
+        - Unit Economics: High ASP but very low volume; enterprise pivot improved margins
+        - Competitive Position: First mover in smart glasses; now competes with Meta Ray-Ban, Snap Spectacles
+        - Profitability Status: Consumer version discontinued 2015; enterprise edition ongoing
+        - Growth Trajectory: Niche enterprise adoption (healthcare, logistics, manufacturing)"""
+}
+
+sncc = {
+    "desirability": """Analyze the following startup proposal:
+        - Customer Problem: Consumers want healthier, guilt-free snack alternatives that still taste good
+        - Target Audience: Health-conscious millennials and Gen Z, gym-goers, aged 18-35
+        - Key Value Proposition: High-protein, low-sugar snacks with clean ingredients
+        - User Pain Points Solved: Unhealthy snacking options, lack of transparency in ingredients, boring health foods
+        - Market Demand Indicators: Growing health food market, rise in fitness culture, demand for clean-label products
+        - Emotional Drivers: Health goals, body image, wellness lifestyle""",
+
+    "feasibility": """Analyze feasibility of the following startup:
+        - Technology Stack: D2C e-commerce platform, subscription management, basic food manufacturing
+        - Infrastructure Model: Contract manufacturing, D2C + quick-commerce distribution
+        - Logistics: Last-mile through Blinkit/Zepto/Swiggy partnerships, direct website
+        - Supply Chain: Ingredient sourcing from certified suppliers, co-packing
+        - Technical Challenges: Shelf life, taste-health balance, cold chain for certain SKUs
+        - Resource Requirements: Seed capital ~₹1-2Cr, food license (FSSAI), packaging, marketing""",
+
+    "viability": """Analyze the business viability of the following startup:
+        - Revenue Model: D2C product sales, quick-commerce platform listings, B2B corporate wellness supply
+        - Cost Structure: Manufacturing (COGS ~40-50%), packaging, platform commissions (20-30%), marketing (CAC)
+        - Market Size: India healthy snacks market ~$1B in 2024, projected $2.5B by 2028
+        - Unit Economics: Average order ₹400-700, repeat purchase monthly
+        - Competitive Position: Competes with Yoga Bar, RiteBite, The Whole Truth, Farmley
+        - Profitability Status: Early stage, path to profitability via D2C channel focus
+        - Growth Trajectory: Growing 30-40% YoY in premium health snack D2C segment"""
+}
 
 blnkt={
     
@@ -274,18 +412,53 @@ blnkt={
         ,
 }
 
-crew = Crew(
-    agents=[desirability_agent, feasibility_agent, viability_agent, dfv_risk_decision_agent],
-    tasks=[desirability_task, feasibility_task, viability_task, dfv_decision_task],
-    process=Process.sequential,
-    verbose=False
-)
+def _extract_json_block(raw: str) -> str:
+    """Models sometimes wrap JSON in markdown code fences despite instructions
+    not to. Strip that off before parsing, and fall back to grabbing the first
+    {...} block if there's stray text around the JSON."""
+    cleaned = raw.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.strip("`").strip()
+        if cleaned.lower().startswith("json"):
+            cleaned = cleaned[4:].strip()
+    if not cleaned.startswith("{"):
+        start = cleaned.find("{")
+        end = cleaned.rfind("}")
+        if start != -1 and end != -1:
+            cleaned = cleaned[start : end + 1]
+    return cleaned
 
-result = crew.kickoff(inputs=blnkt)
 
-print("\n--- FINAL DFA JSON OUTPUT WITH DECISION GATE --- \n")
-try:
-    print(json.dumps(json.loads(result.raw), indent=2))
-except Exception:
-    print(result.raw)
-    
+def run_analysis(inputs: dict):
+    crew = Crew(
+        agents=[desirability_agent, feasibility_agent, viability_agent, dfv_risk_decision_agent],
+        tasks=[desirability_task, feasibility_task, viability_task, dfv_decision_task],
+        process=Process.sequential,
+        verbose=False
+    )
+    result = crew.kickoff(inputs=inputs)
+
+    # We no longer use CrewAI's output_json=DFAOutput (its forced tool-call
+    # validation path is incompatible with this local reasoning model's
+    # tool-call format under LM Studio -- see the "multiple tool calls"
+    # errors this used to throw on perfectly valid output).
+    # Instead we validate the plain-JSON output ourselves against the exact
+    # same DFAOutput schema. Any failure here (bad JSON, missing/wrong
+    # fields) raises, and dfv_consumer.py's existing retry logic
+    # (MAX_RETRIES) will re-run the whole job automatically -- same
+    # end-to-end guarantee as before, just enforced on our side instead of
+    # CrewAI's.
+    cleaned = _extract_json_block(result.raw)
+    parsed = json.loads(cleaned)          # raises json.JSONDecodeError if malformed
+    DFAOutput.model_validate(parsed)      # raises pydantic.ValidationError if schema mismatched
+    result.raw = cleaned                  # store the cleaned version for downstream consumers
+
+    return result
+
+if __name__ == "__main__":
+    result = run_analysis(blnkt)
+    print("\n--- FINAL DFA JSON OUTPUT WITH DECISION GATE --- \n")
+    try:
+        print(json.dumps(json.loads(result.raw), indent=2))
+    except Exception:
+        print(result.raw)

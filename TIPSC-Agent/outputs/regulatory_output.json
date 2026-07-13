@@ -1,0 +1,27 @@
+{
+  "target_geography": "EU (Germany, France, Netherlands)",
+  "industry_sector": "proptech / tenant screening",
+  "applicable_regulations": [
+    {
+      "name": "GDPR (General Data Protection Regulation)",
+      "jurisdiction": "EU (Germany, France, Netherlands)",
+      "compliance_burden": "HIGH",
+      "brief_requirement": "Must conduct a Data Protection Impact Assessment (DPIA), establish a lawful basis for scraping and processing social media data, ensure transparency with applicants, and provide mechanisms for automated decision-making explanations."
+    },
+    {
+      "name": "EU AI Act",
+      "jurisdiction": "EU (Germany, France, Netherlands)",
+      "compliance_burden": "HIGH",
+      "brief_requirement": "If classified as a high-risk AI system, must undergo conformity assessment, implement robust risk management and data governance, ensure human oversight for decisions affecting housing access, and maintain detailed technical documentation."
+    }
+  ],
+  "regulatory_summary": "The startup operates in a highly regulated space within the EU, primarily governed by GDPR and the upcoming EU AI Act. The core business model of scraping social media profiles to create behavioral risk scores involves processing personal data and making automated decisions that significantly impact individuals' access to housing. This triggers strict requirements under GDPR regarding data minimization, purpose limitation, transparency, and the right to explanation for automated profiling. Simultaneously, the EU AI Act imposes additional obligations if the system is deemed 'high-risk,' requiring conformity assessments, human-in-the-loop oversight, and rigorous risk management systems before market entry. The compliance burden is HIGH due to the potential for severe financial penalties (up to 4% of global turnover under GDPR) and operational restrictions.",
+  "requires_specialist_review": true,
+  "key_compliance_risks": [
+    "Processing personal data from social media without explicit consent or a clear lawful basis may violate GDPR Article 6 and 9.",
+    "Automated decision-making leading to tenant rejection without human review or explanation violates GDPR Article 22.",
+    "Failure to conduct a Data Protection Impact Assessment (DPIA) before processing high-risk data subjects to automated profiling.",
+    "Potential classification as a 'high-risk' AI system under the EU AI Act requiring costly conformity assessment and technical documentation.",
+    "Scraping public profiles may still violate platform Terms of Service, leading to legal action from social media providers."
+  ]
+}
