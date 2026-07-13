@@ -16,7 +16,10 @@ ALLOWED_TRANSITIONS: dict[SessionStatus, frozenset[SessionStatus]] = {
         {SessionStatus.TIPSC_RUNNING, SessionStatus.TIPSC_COMPLETED, SessionStatus.TIPSC_FAILED}
     ),
     SessionStatus.TIPSC_RUNNING: frozenset(
-        {SessionStatus.TIPSC_COMPLETED, SessionStatus.TIPSC_FAILED}
+        {SessionStatus.TIPSC_COMPLETED, SessionStatus.TIPSC_FAILED, SessionStatus.WAITING_FOR_FOUNDER}
+    ),
+    SessionStatus.WAITING_FOR_FOUNDER: frozenset(
+        {SessionStatus.TIPSC_RUNNING}
     ),
     SessionStatus.TIPSC_FAILED: frozenset({SessionStatus.QUEUED}),
     SessionStatus.TIPSC_COMPLETED: frozenset({SessionStatus.DFV_WAITING}),
