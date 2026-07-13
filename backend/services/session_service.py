@@ -122,35 +122,36 @@ class SessionService:
             },
         )
 
-        # ── Step 5: Publish to Kafka ──────────────────────────────────────────
+        # ── Step 5: Trigger TIPSC directly (No Kafka) ──────────────────────────
         import uuid
         correlation_id = str(uuid.uuid4())
 
-        payload = TIPSCEventPayload(
-            session_id=session_id_str,
-            student_id=student_id,
-            team_id=team_id,
-            problem_statement=problem_statement,
-            idea=idea,
-            correlation_id=correlation_id,
-        )
+        payload = {
+            "session_id": session_id_str,
+            "student_id": student_id,
+            "team_id": team_id,
+            "problem_statement": problem_statement,
+            "idea": idea,
+            "correlation_id": correlation_id,
+        }
 
         try:
-            await kafka_producer.publish(
-                topic=KafkaTopic.USER_SESSION_TIPSC,
-                payload=payload,
-            )
+            from events.startup import tipsc_executor_instance
+            if not tipsc_executor_instance:
+                raise RuntimeError("TIPSC Executor not initialized.")
+            
+            # Fire and forget using BackgroundTasks
+            background_tasks.add_task(tipsc_executor_instance.run, session_id_str, payload)
         except Exception as exc:
-            # Kafka failed — session stays CREATED (not advanced to QUEUED).
-            # We do NOT delete the session — the student can retry via idempotency key.
+            # Internal execution dispatch failed
             logger.error(
-                "Kafka publish failed for session_id=%s | error=%s",
+                "TIPSC dispatch failed for session_id=%s | error=%s",
                 session_id_str,
                 exc,
                 exc_info=True,
             )
             raise KafkaPublishError(
-                f"Session created (id={session_id_str}) but Kafka publish failed. "
+                f"Session created (id={session_id_str}) but TIPSC dispatch failed. "
                 "Session status remains CREATED. Retry using the same Idempotency-Key."
             ) from exc
 

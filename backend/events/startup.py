@@ -20,9 +20,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../T
 
 logger = logging.getLogger(__name__)
 
-# Global instances to be used by shutdown.py
-preeval_consumer_instance = None
-followup_consumer_instance = None
+# Global instances to be used by shutdown.py and routes
+tipsc_executor_instance = None
 
 
 async def on_startup() -> None:
@@ -60,32 +59,24 @@ async def on_startup() -> None:
     except Exception as exc:
         logger.warning("[startup] Kafka Producer unavailable (non-fatal): %s", exc)
 
-    # ── 4. Kafka Consumers for TIPSC ───────────────────────────────────────────
+    # ── 4. Setup TIPSC Engine (No Kafka for TIPSC) ───────────────────────────
     try:
         from database.mongodb import get_client
         from engine.db import SessionStore
         from engine.stages import PipelineStages
         from engine.async_pipeline_executor import AsyncPipelineExecutor
-        from workers.preeval_consumer import PreevalConsumer
-        from workers.followup_consumer import FollowupConsumer
         from core.config import settings
 
         client = get_client()
-        # Ensure we connect to the right collection. SessionStore expects the collection object.
         db = SessionStore(client[settings.MONGODB_DB_NAME]["userSessions"])
         
-        # Instantiate pipeline stages with empty config or defaults as needed by the agent
         stages = PipelineStages(config_dir=os.path.abspath(os.path.join(os.path.dirname(__file__), "../../TIPSC-Agent/config")))
-        executor = AsyncPipelineExecutor(stages, db)
+        
+        global tipsc_executor_instance
+        tipsc_executor_instance = AsyncPipelineExecutor(stages, db)
 
-        global preeval_consumer_instance, followup_consumer_instance
-        preeval_consumer_instance = PreevalConsumer(settings.KAFKA_BOOTSTRAP_SERVERS, executor, db)
-        followup_consumer_instance = FollowupConsumer(settings.KAFKA_BOOTSTRAP_SERVERS, executor, db)
-
-        await preeval_consumer_instance.start()
-        await followup_consumer_instance.start()
-        logger.info("[startup] Kafka Consumers (Preeval/Followup) ✓")
+        logger.info("[startup] TIPSC Engine initialized (Direct execution) ✓")
     except Exception as exc:
-        logger.error("[startup] Kafka Consumers startup failed (non-fatal): %s", exc)
+        logger.error("[startup] TIPSC Engine startup failed: %s", exc)
 
     logger.info("=== AGIS Backend Ready ===")

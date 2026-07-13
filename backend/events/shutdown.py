@@ -40,15 +40,4 @@ async def on_shutdown() -> None:
     except Exception as exc:
         logger.error("[shutdown] MongoDB close error: %s", exc)
 
-    # ── 3. Kafka Consumers ─────────────────────────────────────────────────────
-    try:
-        from events.startup import preeval_consumer_instance, followup_consumer_instance
-        if preeval_consumer_instance:
-            await preeval_consumer_instance.stop()
-        if followup_consumer_instance:
-            await followup_consumer_instance.stop()
-        logger.info("[shutdown] Kafka Consumers closed ✓")
-    except Exception as exc:
-        logger.error("[shutdown] Kafka Consumers close error: %s", exc)
-
     logger.info("=== AGIS Backend Stopped ===")

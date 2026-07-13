@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, Request, status, BackgroundTasks
 
 from core.constants import UserRole
 from dependencies.auth import get_current_user, require_role
@@ -174,6 +174,7 @@ async def submit_followup(
     request: Request,
     student_id: str,
     body: FollowupAnswerRequest,
+    background_tasks: BackgroundTasks,
     current_user: Annotated[CurrentUser, Depends(require_role(UserRole.STUDENT))],
 ):
     # Ensure students can only submit for themselves
@@ -199,10 +200,18 @@ async def submit_followup(
     await session_repo.submit_followup_answer(session_id, body.answer)
 
     try:
-        from kafka.topics import KafkaTopic
-        topic = KafkaTopic.USER_SESSION_TIPSC_FOLLOWUP if hasattr(KafkaTopic, "USER_SESSION_TIPSC_FOLLOWUP") else "userSession.followup"
-    except (ImportError, AttributeError):
-        topic = "userSession.followup"
+        from events.startup import tipsc_executor_instance
+        if not tipsc_executor_instance:
+            raise RuntimeError("TIPSC Executor not initialized.")
+        background_tasks.add_task(tipsc_executor_instance.resume_after_followup, session_id, body.answer)
+    except Exception as exc:
+        logger.error(
+            "TIPSC resume dispatch failed for session_id=%s | error=%s",
+            session_id,
+            exc,
+            exc_info=True,
+        )
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail="Failed to dispatch TIPSC resume task.")
 
-    await kafka_producer.publish(topic, {"user_session_id": session_id})
     return {"status": "accepted", "session_id": session_id}
