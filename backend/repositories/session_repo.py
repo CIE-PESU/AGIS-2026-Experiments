@@ -3,12 +3,12 @@ Session repository — the ONLY layer that reads/writes the `sessions` collectio
 All queries apply ownership filters at this layer, not in services or routes.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Any
 from beanie.operators import In, NotIn
 from beanie import PydanticObjectId
 
-from models.session import Session
+from models.session import Session, StateTransition
 from state_machine.states import SessionStatus
 from repositories.base import BaseRepository
 
@@ -96,12 +96,23 @@ class SessionRepository(BaseRepository[Session]):
         session_id: str,
         new_status: SessionStatus,
         expected_version: int,
+        current_status: str = "",
+        actor: str = "system",
+        trigger: str = "update_status",
     ) -> bool:
         """
         Optimistic concurrency lock.
         Only updates if the current version matches expected_version.
-        Returns False if the version has changed (another update won)  — caller retries or raises conflict.
+        Returns False if the version has changed (another update won) — caller retries or raises conflict.
+        Appends a StateTransition record to state_history for audit trail.
         """
+        now = datetime.now(timezone.utc)
+        transition = StateTransition(
+            from_status=current_status,
+            to_status=new_status.value,
+            actor=actor,
+            trigger=trigger,
+        )
         result = await Session.find_one(
             Session.id == PydanticObjectId(session_id),  # type: ignore[arg-type]
             Session.version == expected_version,
@@ -109,9 +120,10 @@ class SessionRepository(BaseRepository[Session]):
             {
                 "$set": {
                     "status": new_status,
-                    "updated_at": datetime.utcnow(),
+                    "updated_at": now,
                 },
                 "$inc": {"version": 1},
+                "$push": {"state_history": transition.model_dump()},
             }
         )
         return result is not None and result.modified_count == 1
@@ -142,7 +154,7 @@ class SessionRepository(BaseRepository[Session]):
                 "$set": {
                     flow: output,
                     "status": new_status,
-                    "updated_at": datetime.utcnow(),
+                    "updated_at": datetime.now(timezone.utc),
                 },
                 "$inc": {"version": 1},
             }
@@ -163,7 +175,7 @@ class SessionRepository(BaseRepository[Session]):
                 "$set": {
                     "failure_metadata": failure_metadata,
                     "status": new_status,
-                    "updated_at": datetime.utcnow(),
+                    "updated_at": datetime.now(timezone.utc),
                 },
                 "$inc": {"version": 1},
             }
@@ -176,8 +188,8 @@ class SessionRepository(BaseRepository[Session]):
         if session is None:
             return False
         session.status = SessionStatus.ARCHIVED
-        session.archived_at = datetime.utcnow()
-        session.updated_at = datetime.utcnow()
+        session.archived_at = datetime.now(timezone.utc)
+        session.updated_at = datetime.now(timezone.utc)
         session.version += 1
         await session.save()
         return True

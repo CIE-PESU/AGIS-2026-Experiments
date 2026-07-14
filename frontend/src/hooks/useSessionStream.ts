@@ -77,7 +77,7 @@ export function deriveStageAccess(status: SessionDocument["status"]) {
   const discoveryDone = status === "completed";
 
   return {
-    tipsc: tipscDone ? "completed" as const : status.includes("tipsc") || status === "queued" || status === "created" ? "in_progress" as const : "available" as const,
+    tipsc: tipscDone ? "completed" as const : status.includes("tipsc") || status === "queued" || status === "created" || status === "waiting_for_founder" ? "in_progress" as const : "available" as const,
     dfv: !tipscDone ? "locked" as const : dfvDone ? "completed" as const : status.includes("dfv") ? "in_progress" as const : "available" as const,
     discovery: !dfvDone ? "locked" as const : discoveryDone ? "completed" as const : status.includes("discovery") ? "in_progress" as const : "available" as const
   };

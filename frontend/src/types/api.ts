@@ -8,6 +8,7 @@ export type SessionStatus =
   | "tipsc_running"
   | "tipsc_completed"
   | "tipsc_failed"
+  | "waiting_for_founder"
   | "dfv_waiting"
   | "dfv_running"
   | "dfv_completed"
@@ -94,9 +95,34 @@ export type SessionDocument = {
   problem_statement: string;
   idea: string;
   status: SessionStatus;
-  tipsc: Record<string, unknown> | null;
-  dfv: Record<string, unknown> | null;
-  discovery: Record<string, unknown> | null;
+  /** Flat TIPSCOutput object from backend — no .output wrapper */
+  tipsc?: {
+    tips_rag_scores?: {
+      T?: string; I?: string; P?: string; S?: string;
+      T_reason?: string; I_reason?: string; P_reason?: string; S_reason?: string;
+    };
+    ready_for_dfv?: boolean;
+    needs_followup?: boolean;
+    overall_readiness?: string;
+    compliance_flag?: boolean;
+    reasoning?: string;
+    followups_asked?: number;
+    completed_at?: string;
+  } | null;
+  /** DFV output — .output may or may not be nested */
+  dfv?: {
+    status?: string;
+    output?: Record<string, any>;
+    error?: string;
+    completed_at?: string;
+  } | null;
+  /** Discovery output — same shape as DFV */
+  discovery?: {
+    status?: string;
+    output?: Record<string, any>;
+    error?: string;
+    completed_at?: string;
+  } | null;
   created_at: string;
   updated_at: string;
 };

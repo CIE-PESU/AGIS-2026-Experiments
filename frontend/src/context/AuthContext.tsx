@@ -140,19 +140,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [resetWorkspace]);
 
   const setSessionFromServer = useCallback((doc: SessionDocument) => {
-    setSessionIdState(doc.session_id);
+    setSessionIdState(doc.session_id ?? (doc as any)._id ?? null);
     setServerStatus(doc.status);
     setSession(deriveStageAccess(doc.status));
 
-    // Also extract the actual data from the document's nested fields
-    if (doc.tipsc && doc.tipsc.output) {
-      setResults(prev => ({ ...prev, tips: doc.tipsc!.output as any }));
+    // TIPSC result — the `tipsc` field IS the result object directly (no .output wrapper)
+    if (doc.tipsc) {
+      setResults(prev => ({ ...prev, tips: doc.tipsc as any }));
     }
-    if (doc.dfv && doc.dfv.output) {
-      setResults(prev => ({ ...prev, dfv: doc.dfv!.output as any }));
+
+    // DFV result — the `dfv` field may have .output nested or be the result directly
+    if (doc.dfv) {
+      const dfvResult = (doc.dfv as any).output ?? doc.dfv;
+      setResults(prev => ({ ...prev, dfv: dfvResult as any }));
     }
-    if (doc.discovery && doc.discovery.output) {
-      setResults(prev => ({ ...prev, discovery: doc.discovery!.output as any }));
+
+    // Discovery result — same shape as DFV
+    if (doc.discovery) {
+      const discoveryResult = (doc.discovery as any).output ?? doc.discovery;
+      setResults(prev => ({ ...prev, discovery: discoveryResult as any }));
     }
   }, []);
 

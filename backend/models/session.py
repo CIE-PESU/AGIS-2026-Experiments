@@ -3,7 +3,7 @@ Session Beanie ODM model — `sessions` collection.
 Core collection. Embeds TIPSC, DFV, and Discovery outputs.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Any
 from beanie import Document
 from pydantic import BaseModel, Field
@@ -93,7 +93,18 @@ class WorkerFailureMetadata(BaseModel):
     error_code: str
     error_message: str
     retry_count: int = 0
-    failed_at: datetime = Field(default_factory=datetime.utcnow)
+    failed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+# ── State transition audit trail ───────────────────────────────────────────────
+
+class StateTransition(BaseModel):
+    """Records a single status transition for audit purposes."""
+    from_status: str
+    to_status: str
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    actor: str = "system"   # "student" | "worker" | "system"
+    trigger: str = ""       # e.g. "session_created", "tipsc_completed", "update_status"
 
 
 # ── Session document ──────────────────────────────────────────────────────────
@@ -125,9 +136,12 @@ class Session(Document):
     # Idempotency key for session creation (stored so duplicate POSTs are caught)
     idempotency_key: Optional[str] = None
 
+    # Full audit trail of every status transition
+    state_history: list[StateTransition] = Field(default_factory=list)
+
     archived_at: Optional[datetime] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Settings:
         name = "sessions"
