@@ -300,25 +300,33 @@ async def stream_session(
     import json
     from fastapi.responses import StreamingResponse
     from repositories.session_repo import session_repo
-    from auth.jwt import decode_access_token
-    from exceptions.base import TokenInvalidError
+    from auth.jwt import decode_token
+    from exceptions.base import TokenInvalidError, TokenExpiredError
 
     validate_object_id(session_id)
 
     if token:
         try:
-            current_user = decode_access_token(token)
-            # Verify the session belongs to this user
-            session_check = await session_repo.find_by_id_and_student(session_id, current_user.user_id)
+            payload = decode_token(token)
+            # Verify the session belongs to this user (decode_token returns a payload dict)
+            session_check = await session_repo.find_by_id_and_student(session_id, payload["sub"])
             if session_check is None:
                 from fastapi import HTTPException
                 raise HTTPException(403, "Session not found or access denied")
-        except TokenInvalidError:
+        except (TokenInvalidError, TokenExpiredError):
             from fastapi import HTTPException
             raise HTTPException(401, "Invalid or expired token")
     else:
-        # For development: allow unauthenticated streams with a warning
-        logger.warning("SSE stream accessed without token for session_id=%s", session_id)
+        from core.config import settings
+        if settings.ENVIRONMENT != "development":
+            from fastapi import HTTPException
+            raise HTTPException(
+                status_code=401,
+                detail="Authorization token required. Pass ?token=<access_token> as a query parameter.",
+            )
+        logger.warning(
+            "SSE stream accessed without token (dev mode only) for session_id=%s", session_id
+        )
 
     async def event_generator():
         last_status = None

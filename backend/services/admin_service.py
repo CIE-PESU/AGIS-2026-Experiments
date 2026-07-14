@@ -1,5 +1,5 @@
 # app/services/admin_service.py
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from repositories.session_repo import session_repo
@@ -19,7 +19,7 @@ async def get_metrics() -> dict[str, Any]:
     metrics = await session_repo.get_system_metrics()
     
     # Calculate time-bound audit metrics
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
     one_hour_ago = now - timedelta(hours=1)
     

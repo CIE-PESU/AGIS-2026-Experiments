@@ -15,6 +15,7 @@ Usage:
 """
 
 import asyncio
+import json
 import logging
 import os
 import signal
@@ -78,7 +79,7 @@ class BaseKafkaWorker(ABC):
             group_id=self.get_group_id(),
             auto_offset_reset="earliest",
             enable_auto_commit=False,
-            value_deserializer=lambda m: __import__("json").loads(m.decode("utf-8")),
+            value_deserializer=lambda m: json.loads(m.decode("utf-8")),
             session_timeout_ms=120_000,
             heartbeat_interval_ms=20_000,
             max_poll_interval_ms=1_800_000,

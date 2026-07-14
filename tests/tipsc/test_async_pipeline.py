@@ -79,7 +79,7 @@ async def main():
 
     session_id = f"ses_{uuid.uuid4().hex[:12]}"
     mongo_client = AsyncIOMotorClient("mongodb://127.0.0.1:27017")
-    db = SessionStore(mongo_client["agis"]["userSessions"])
+    db = SessionStore(mongo_client["agis"]["sessions"])
     executor = AsyncPipelineExecutor(stages, db)
 
     print(f"\nSession ID: {session_id}")
@@ -157,7 +157,7 @@ async def main():
         if doc.get("state") == PipelineState.FAILED:
             print(f"\n  ❌ Rejection: {doc.get('rejection_reason') or doc.get('error')}")
 
-        print(f"\n  Full document written to MongoDB collection 'agis.userSessions'")
+        print(f"\n  Full document written to MongoDB collection 'agis.sessions'")
     else:
         print("\n  No document found in MongoDB.")
 

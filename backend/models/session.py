@@ -47,7 +47,7 @@ class TIPSCOutput(BaseModel):
     compliance_flag:     bool = False
     reasoning:           str = ""   # populated from ethics/compliance context
     followups_asked:     int = 0
-    completed_at:        datetime = Field(default_factory=datetime.utcnow)
+    completed_at:        datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class DFVOutput(BaseModel):

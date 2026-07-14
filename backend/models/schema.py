@@ -11,7 +11,7 @@ should be updated to re-export from this module rather than define their own cop
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional
 
@@ -49,7 +49,7 @@ class DFVJobMessage(BaseModel):
     correlation_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     retry_count:    int = Field(default=0)
     payload:        DFVJobPayload
-    published_at:   datetime = Field(default_factory=datetime.utcnow)
+    published_at:   datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # ---------------------------------------------------------------------------
@@ -85,7 +85,7 @@ class DiscoveryJobMessage(BaseModel):
     correlation_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     retry_count:    int = Field(default=0)
     payload:        DiscoveryJobPayload
-    published_at:   datetime = Field(default_factory=datetime.utcnow)
+    published_at:   datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # ---------------------------------------------------------------------------
@@ -100,7 +100,7 @@ class NotificationMessage(BaseModel):
     status:         FlowStatus
     idea_name:      Optional[str]  = None
     error:          Optional[str]  = None
-    emitted_at:     datetime       = Field(default_factory=datetime.utcnow)
+    emitted_at:     datetime       = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # ---------------------------------------------------------------------------
@@ -111,11 +111,11 @@ class DeadLetterMessage(BaseModel):
     """Published to userSession.dfv.dlq when DFV exceeds max retries."""
     original_message: DFVJobMessage
     failure_reason:   str
-    failed_at:        datetime = Field(default_factory=datetime.utcnow)
+    failed_at:        datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class DiscoveryDeadLetterMessage(BaseModel):
     """Published to userSession.discovery.dlq when Discovery exceeds max retries."""
     original_message: DiscoveryJobMessage
     failure_reason:   str
-    failed_at:        datetime = Field(default_factory=datetime.utcnow)
+    failed_at:        datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

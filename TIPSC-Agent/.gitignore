@@ -1,5 +1,4 @@
-.env
-.venv
-Outputs/
 *.egg-info/
 __pycache__/
+.env
+outputs/

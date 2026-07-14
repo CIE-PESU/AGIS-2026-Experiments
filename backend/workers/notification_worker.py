@@ -17,32 +17,35 @@ Behavior:
 - Malformed messages are logged and skipped, not fatal.
 """
 
+# stdlib
 import asyncio
 import json
 import logging
+import os
+import sys
 from datetime import datetime, timezone
 
+# third-party
 from aiokafka import AIOKafkaConsumer
+from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import ValidationError
 
+# env + path bootstrap (must run before any local imports)
+_env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
+load_dotenv(dotenv_path=_env_path)
+
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if os.path.join(PROJECT_ROOT, "backend") not in sys.path:
+    sys.path.insert(0, os.path.join(PROJECT_ROOT, "backend"))
+
+# local
+from kafka.topics import KafkaTopic
 from models.schema import NotificationMessage
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("notification_worker")
 
-import os
-from dotenv import load_dotenv
-
-_env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
-load_dotenv(dotenv_path=_env_path)
-
-import sys
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-if os.path.join(PROJECT_ROOT, "backend") not in sys.path:
-    sys.path.insert(0, os.path.join(PROJECT_ROOT, "backend"))
-
-from kafka.topics import KafkaTopic
 
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "127.0.0.1:9092")
 NOTIFICATIONS_TOPIC = KafkaTopic.USER_SESSION_NOTIFICATIONS

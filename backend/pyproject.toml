@@ -29,8 +29,10 @@ warn_return_any = false
 warn_unused_configs = true
 
 [tool.pytest.ini_options]
+testpaths = ["../tests/backend"]
+pythonpath = ["."]          
 asyncio_mode = "auto"
-testpaths = ["tests"]
-python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
+markers = [
+    "integration: requires Docker/MongoDB/Kafka (run manually)",
+    "smoke: requires a running backend server (run manually)",
+]

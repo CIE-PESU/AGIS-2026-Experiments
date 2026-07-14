@@ -13,8 +13,8 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api/v1";
 /** Session polling interval per docs/backend-arch.md §2.3 */
 export const SESSION_POLL_INTERVAL_MS = 5000;
 
-/** Use mock flow responses when backend is unavailable (dev only) */
-export const USE_MOCK_FLOWS = import.meta.env.VITE_USE_MOCK_FLOWS !== "false";
+// Defaults to real API. Set VITE_USE_MOCK_FLOWS=true in .env.local to re-enable mocks.
+export const USE_MOCK_FLOWS = import.meta.env.VITE_USE_MOCK_FLOWS === "true";
 
 export const SESSION_FIELD_MIN = 50;
 export const SESSION_FIELD_MAX = 5000;

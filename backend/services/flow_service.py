@@ -29,13 +29,13 @@ rather I call instead.
 """
 
 from __future__ import annotations
-from datetime import datetime
 
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Optional, Protocol
 
+from kafka.topics import KafkaTopic
 from services.flow_exceptions import (
     DFVNotUnlockedError,
     FlowAlreadyRunningError,
@@ -50,9 +50,11 @@ from state_machine.exceptions import (
 from state_machine.states import RUNNING_STATES, SessionStatus
 from state_machine.validator import validate_transition
 
-TIPSC_TOPIC = "userSession.tipsc"
-DFV_TOPIC = "userSession.dfv"
-DISCOVERY_TOPIC = "userSession.discovery"
+# Re-export as aliases for backwards compatibility with existing tests
+TIPSC_TOPIC = KafkaTopic.USER_SESSION_TIPSC
+DFV_TOPIC = KafkaTopic.USER_SESSION_DFV
+DISCOVERY_TOPIC = KafkaTopic.USER_SESSION_DISCOVERY
+
 
 
 # ---------------------------------------------------------------------------

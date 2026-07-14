@@ -30,7 +30,7 @@ KAFKA_BOOTSTRAP_SERVERS = "127.0.0.1:9092"
 DFV_TOPIC = "userSession.dfv"
 MONGO_URI = "mongodb://127.0.0.1:27017"
 DB_NAME = "agis"
-USER_SESSIONS_COLLECTION = "userSessions"
+USER_SESSIONS_COLLECTION = "sessions"
 
 
 async def find_a_done_session(db):
@@ -64,9 +64,9 @@ async def main():
         correlation_id=correlation_id,
         idea_name=idea_name,
         payload=DFVJobPayload(
-            desirability="duplicate test - should never be processed",
-            feasibility="duplicate test - should never be processed",
-            viability="duplicate test - should never be processed",
+            desirability_context="duplicate test - should never be processed",
+            feasibility_context="duplicate test - should never be processed",
+            viability_context="duplicate test - should never be processed",
         ),
     )
 

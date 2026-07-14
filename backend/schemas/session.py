@@ -21,23 +21,42 @@ from pydantic import BaseModel, Field, field_validator
 # These are used in SessionResponse so the full shape is returned to clients.
 # ─────────────────────────────────────────────────────────────────────────────
 
-class TIPSCScoreSchema(BaseModel):
-    timing: int
-    idea: int
-    problem: int
-    solution: int
-    competition: int
+class TIPSCRAGScoresSchema(BaseModel):
+    """RAG (Red/Amber/Green) scores for each TIPS dimension. Mirrors models/session.py:TIPSCRAGScores."""
+    T: str = ""
+    I: str = ""
+    P: str = ""
+    S: str = ""
+    T_reason: str = ""
+    I_reason: str = ""
+    P_reason: str = ""
+    S_reason: str = ""
+
+
+class TIPSCRefinedIdeaSchema(BaseModel):
+    """Mirrors models/session.py:TIPSCRefinedIdea."""
+    customer_segment: str = ""
+    qualified_problem: str = ""
+    consequence: str = ""
+    proposed_solution: str = ""
 
 
 class TIPSCOutputSchema(BaseModel):
-    score: TIPSCScoreSchema
-    total_score: int
-    ready_for_dfv: bool
-    compliance_flag: bool
-    compliance_issues: list[str] = Field(default_factory=list)
+    """
+    API response shape for TIPSC output.
+    MUST be kept in sync with models/session.py:TIPSCOutput field-for-field.
+    """
+    tips_rag_scores: TIPSCRAGScoresSchema = Field(default_factory=TIPSCRAGScoresSchema)
+    refined_idea: TIPSCRefinedIdeaSchema = Field(default_factory=TIPSCRefinedIdeaSchema)
+    solution_alignment: str = ""
+    overall_readiness: str = ""
+    ready_for_dfv: bool = False
+    needs_followup: bool = False
+    missing_criteria: list[str] = Field(default_factory=list)
+    compliance_flag: bool = False
+    reasoning: str = ""
     followups_asked: int = 0
-    reasoning: str
-    completed_at: datetime
+    completed_at: Optional[datetime] = None
 
 
 class DFVDimensionSchema(BaseModel):

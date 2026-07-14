@@ -109,7 +109,7 @@ def test_no_forbidden_module_imports():
     import ast
     import pathlib
 
-    state_machine_dir = pathlib.Path(__file__).parent.parent / "app" / "state_machine"
+    state_machine_dir = pathlib.Path(__file__).parent.parent.parent / "backend" / "state_machine"
     banned_prefixes = ("models", "repositories", "kafka")
 
     for py_file in state_machine_dir.glob("*.py"):

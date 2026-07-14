@@ -217,7 +217,7 @@ class SessionRepository(BaseRepository[Session]):
                 "$set": {
                     "pending_answer": answer,
                     "status": SessionStatus.TIPSC_RUNNING,
-                    "updated_at": datetime.utcnow(),
+                    "updated_at": datetime.now(timezone.utc),
                 },
                 "$inc": {"version": 1},
             }
@@ -250,7 +250,7 @@ class SessionRepository(BaseRepository[Session]):
             {
                 "$set": {
                     "dfv_inputs": dfv_inputs,
-                    "updated_at": datetime.utcnow(),
+                    "updated_at": datetime.now(timezone.utc),
                 }
             }
         )
@@ -259,7 +259,7 @@ class SessionRepository(BaseRepository[Session]):
     async def set_correlation_id(self, session_id: str, correlation_id: str) -> None:
         """Store the Kafka correlation_id on the session. No version check — this is an idempotent metadata write."""
         await Session.find_one(Session.id == PydanticObjectId(session_id)).update(  # type: ignore[arg-type]
-            {"$set": {"correlation_id": correlation_id, "updated_at": datetime.utcnow()}}
+            {"$set": {"correlation_id": correlation_id, "updated_at": datetime.now(timezone.utc)}}
         )
 
     async def count_by_teams(
