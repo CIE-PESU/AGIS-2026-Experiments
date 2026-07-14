@@ -199,20 +199,7 @@ class FlowService:
         """
         session = await self._load_session(session_id, student_id)
 
-        if session.status == SessionStatus.QUEUED:
-            return {
-                "session_id": str(session.id),
-                "flow": "tipsc",
-                "status": session.status.value,
-                "correlation_id": None,
-                "triggered_at": _now_iso(),
-            }
 
-        if session.status in RUNNING_STATES:
-            raise FlowAlreadyRunningError(session_id, session.status.value)
-
-        if session.status != SessionStatus.CREATED:
-            raise InvalidStateTransitionError(session.status, SessionStatus.QUEUED)
 
         self._guard_transition(session, SessionStatus.QUEUED)
 
@@ -245,11 +232,7 @@ class FlowService:
     ) -> dict:
         session = await self._load_session(session_id, student_id)
 
-        if session.status == SessionStatus.DFV_RUNNING:
-            raise FlowAlreadyRunningError(session_id, session.status.value)
 
-        if session.status != SessionStatus.TIPSC_COMPLETED:
-            raise InvalidStateTransitionError(session.status, SessionStatus.DFV_WAITING)
 
         if not session.tipsc:
             ready_for_dfv = False
@@ -292,13 +275,7 @@ class FlowService:
     async def trigger_discovery(self, session_id: str, student_id: str) -> dict:
         session = await self._load_session(session_id, student_id)
 
-        if session.status == SessionStatus.DISCOVERY_RUNNING:
-            raise FlowAlreadyRunningError(session_id, session.status.value)
 
-        if session.status != SessionStatus.DFV_COMPLETED:
-            raise InvalidStateTransitionError(
-                session.status, SessionStatus.DISCOVERY_WAITING
-            )
 
         self._guard_transition(session, SessionStatus.DISCOVERY_WAITING)
 

@@ -1,6 +1,15 @@
 """Async MongoDB wrapper for pipeline state reads/writes."""
 
 from datetime import datetime
+from bson import ObjectId
+
+
+def _to_oid(session_id: str):
+    """Convert string session_id to ObjectId, falling back to string for tests."""
+    try:
+        return ObjectId(session_id)
+    except Exception:
+        return session_id
 
 
 class SessionStore:
@@ -9,21 +18,22 @@ class SessionStore:
         self._collection = collection
 
     async def update_session(self, session_id: str, patch: dict):
+        patch["updated_at"] = datetime.utcnow().isoformat()
         await self._collection.update_one(
-            {"_id": session_id},
+            {"_id": _to_oid(session_id)},
             {"$set": patch},
-            upsert=True,
+            upsert=False,  # sessions are created by Beanie, not by this store
         )
 
     async def get_session(self, session_id: str) -> dict | None:
-        return await self._collection.find_one({"_id": session_id})
+        return await self._collection.find_one({"_id": _to_oid(session_id)})
 
     async def get_active_session_by_user(self, student_id: str) -> dict | None:
         """Find the most recent WAITING_FOR_FOUNDER session for a user."""
         return await self._collection.find_one(
             {
                 "student_id": student_id,
-                "state": "WAITING_FOR_FOUNDER",
+                "status": "waiting_for_founder",   # lowercase, matches backend enum
             },
             sort=[("updated_at", -1)],
         )

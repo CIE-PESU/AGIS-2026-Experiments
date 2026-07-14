@@ -98,9 +98,10 @@ async def create_session(
             field="Idempotency-Key",
         )
 
+    resolved_team_id = body.team_id or current_user.team_id or f"team_{current_user.user_id[-6:]}"
     session = await session_service.create_session(
         student_id=current_user.user_id,
-        team_id=current_user.team_id or "",
+        team_id=resolved_team_id,
         problem_statement=body.problem_statement,
         idea=body.idea,
         idempotency_key=idempotency_key,

@@ -13,57 +13,69 @@ from state_machine.states import SessionStatus
 
 # ── Embedded output models ────────────────────────────────────────────────────
 
-class TIPSCScore(BaseModel):
-    timing: int
-    idea: int
-    problem: int
-    solution: int
-    competition: int
+class TIPSCRAGScores(BaseModel):
+    """RAG (Red/Amber/Green) scores for each TIPS dimension."""
+    T: str = ""   # "GREEN" | "YELLOW" | "RED"
+    I: str = ""
+    P: str = ""
+    S: str = ""
+    T_reason: str = ""
+    I_reason: str = ""
+    P_reason: str = ""
+    S_reason: str = ""
+
+
+class TIPSCRefinedIdea(BaseModel):
+    customer_segment:   str = ""
+    qualified_problem:  str = ""
+    consequence:        str = ""
+    proposed_solution:  str = ""
 
 
 class TIPSCOutput(BaseModel):
-    score: TIPSCScore
-    total_score: int
-    ready_for_dfv: bool
-    compliance_flag: bool
-    compliance_issues: list[str] = Field(default_factory=list)
-    followups_asked: int = 0
-    reasoning: str
-    completed_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class DFVDimension(BaseModel):
-    score: int
-    report: str
-    recommendations: list[str] = Field(default_factory=list)
+    """
+    Shape produced by TIPSC-Agent/src/engine/async_pipeline_executor.py.
+    MUST match TIPSC-Agent/src/models.py:TIPSCOutput field-for-field.
+    """
+    tips_rag_scores:     TIPSCRAGScores = TIPSCRAGScores()
+    refined_idea:        TIPSCRefinedIdea = TIPSCRefinedIdea()
+    solution_alignment:  str = ""   # "GREEN" | "YELLOW" | "RED"
+    overall_readiness:   str = ""   # "STRONG" | "MODERATE" | "WEAK"
+    ready_for_dfv:       bool = False
+    needs_followup:      bool = False
+    missing_criteria:    list[str] = Field(default_factory=list)
+    compliance_flag:     bool = False
+    reasoning:           str = ""   # populated from ethics/compliance context
+    followups_asked:     int = 0
+    completed_at:        datetime = Field(default_factory=datetime.utcnow)
 
 
 class DFVOutput(BaseModel):
-    desirability: DFVDimension
-    feasibility: DFVDimension
-    viability: DFVDimension
-    overall_decision: str   # "GO" | "NO_GO" | "CONDITIONAL"
-    summary: str
-    json_report: dict[str, Any] = Field(default_factory=dict)
-    completed_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class JTBDElement(BaseModel):
-    job: str
-    outcome: str
-    pain: str
-
-
-class InterviewPlan(BaseModel):
-    target_segment: str
-    interview_questions: list[str] = Field(default_factory=list)
-    hypothesis_to_validate: str
+    """
+    Shape written by combined_agent_worker.py to the session's `dfv` field.
+    The `output` sub-field contains the raw CrewAI crew output parsed from JSON.
+    """
+    correlation_id: str = ""
+    status:         str = ""   # FlowStatus value: "done" | "failed" | "running" | "timeout"
+    output:         Optional[dict[str, Any]] = None   # raw agent output dict
+    error:          Optional[str] = None
+    retry_count:    int = 0
+    started_at:     Optional[datetime] = None
+    completed_at:   Optional[datetime] = None
+    idea_name:      str = ""
 
 
 class DiscoveryOutput(BaseModel):
-    jtbd_elements: list[JTBDElement] = Field(default_factory=list)
-    interview_plan: InterviewPlan
-    completed_at: datetime = Field(default_factory=datetime.utcnow)
+    """
+    Shape written by combined_agent_worker.py to the session's `discovery` field.
+    """
+    correlation_id: str = ""
+    status:         str = ""
+    output:         Optional[dict[str, Any]] = None
+    error:          Optional[str] = None
+    retry_count:    int = 0
+    started_at:     Optional[datetime] = None
+    completed_at:   Optional[datetime] = None
 
 
 # ── DFV inputs (stored when student triggers DFV) ─────────────────────────────

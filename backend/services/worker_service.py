@@ -35,6 +35,23 @@ class WorkerService:
         session = await session_repo.find_by_id(session_id)
         if not session:
             raise SessionNotFoundError()
+
+        # --- IDEMPOTENCY CHECK ---
+        # If the session already has this exact correlation_id stored in the flow's sub-field,
+        # a previous delivery already processed this message. Safe to no-op.
+        if session.correlation_id == correlation_id:
+            # Check if the target flow field is already in a terminal state
+            flow_data = getattr(session, flow, None)
+            if flow_data is not None:
+                existing_status = getattr(flow_data, "status", None)
+                if existing_status in ("done", "completed"):
+                    logger.info(
+                        "Idempotency hit — skipping duplicate worker output | "
+                        "session_id=%s flow=%s correlation_id=%s",
+                        session_id, flow, correlation_id,
+                    )
+                    return {"status": "duplicate", "message": f"{flow} output already applied."}
+        # --- END IDEMPOTENCY CHECK ---
         
         if session.correlation_id != correlation_id:
             raise CorrelationIDMismatchError()

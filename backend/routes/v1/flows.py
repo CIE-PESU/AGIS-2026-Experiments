@@ -11,9 +11,9 @@ These endpoints are thin wrappers. All state-machine logic lives in FlowService.
 from __future__ import annotations
 
 import logging
-from typing import Annotated
+from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, Request, status, BackgroundTasks
+from fastapi import APIRouter, Depends, Request, status, BackgroundTasks, Header
 
 from core.constants import UserRole
 from dependencies.auth import get_current_user, require_role
@@ -26,7 +26,7 @@ from exceptions.base import (
 )
 from repositories.session_repo import session_repo
 from schemas.auth import CurrentUser
-from schemas.flow import DFVTriggerRequest, FlowTriggerResponse, FollowupAnswerRequest
+from schemas.flow import DFVTriggerRequest, DiscoveryTriggerRequest, FlowTriggerResponse, FollowupAnswerRequest
 from services.audit_service import audit_service
 from services.flow_service import FlowService
 from kafka.producer import kafka_producer
@@ -132,8 +132,26 @@ async def trigger_dfv(
     session_id: str,
     body: DFVTriggerRequest,
     current_user: Annotated[CurrentUser, Depends(require_role(UserRole.STUDENT))],
+    idempotency_key: Annotated[
+        Optional[str],
+        Header(alias="Idempotency-Key", description="UUID4. Prevents duplicate triggers on retry."),
+    ] = None,
 ):
     validate_object_id(session_id)
+    
+    # If an Idempotency-Key is provided, check for a duplicate in-flight trigger
+    if idempotency_key:
+        session = await session_repo.find_by_id(session_id)
+        if session and session.correlation_id and session.status == "dfv_waiting":
+            # A trigger already fired and is in-flight — return current state
+            return {
+                "session_id": session_id,
+                "flow": "dfv",
+                "status": session.status.value,
+                "correlation_id": session.correlation_id,
+                "triggered_at": session.updated_at.isoformat() if session.updated_at else "",
+            }
+            
     flow_service = _get_flow_service()
     result = await flow_service.trigger_dfv(
         session_id, current_user.user_id, body.model_dump()
@@ -155,8 +173,27 @@ async def trigger_discovery(
     request: Request,
     session_id: str,
     current_user: Annotated[CurrentUser, Depends(require_role(UserRole.STUDENT))],
+    body: DiscoveryTriggerRequest = DiscoveryTriggerRequest(),
+    idempotency_key: Annotated[
+        Optional[str],
+        Header(alias="Idempotency-Key", description="UUID4. Prevents duplicate triggers on retry."),
+    ] = None,
 ):
     validate_object_id(session_id)
+    
+    # If an Idempotency-Key is provided, check for a duplicate in-flight trigger
+    if idempotency_key:
+        session = await session_repo.find_by_id(session_id)
+        if session and session.correlation_id and session.status == "discovery_waiting":
+            # A trigger already fired and is in-flight — return current state
+            return {
+                "session_id": session_id,
+                "flow": "discovery",
+                "status": session.status.value,
+                "correlation_id": session.correlation_id,
+                "triggered_at": session.updated_at.isoformat() if session.updated_at else "",
+            }
+
     flow_service = _get_flow_service()
     result = await flow_service.trigger_discovery(session_id, current_user.user_id)
     return result
@@ -197,7 +234,11 @@ async def submit_followup(
     session_id = str(session["_id"])
     
     # Update DB with pending answer and set status to tipsc_running
-    await session_repo.submit_followup_answer(session_id, body.answer)
+    session_version = session.get("version", 0)
+    updated = await session_repo.submit_followup_answer(session_id, body.answer, session_version)
+    if not updated:
+        from fastapi import HTTPException
+        raise HTTPException(409, "Session was concurrently modified. Please retry.")
 
     try:
         from events.startup import tipsc_executor_instance

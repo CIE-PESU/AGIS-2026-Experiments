@@ -37,7 +37,7 @@ CONSUMER_GROUP = "notification_worker_group"
 
 MONGO_URI = "mongodb://127.0.0.1:27017"
 DB_NAME = "agis"
-USER_SESSIONS_COLLECTION = "userSessions"
+USER_SESSIONS_COLLECTION = "sessions"
 
 
 class NotificationWorker:

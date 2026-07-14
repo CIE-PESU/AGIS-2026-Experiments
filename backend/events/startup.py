@@ -68,7 +68,7 @@ async def on_startup() -> None:
         from core.config import settings
 
         client = get_client()
-        db = SessionStore(client[settings.MONGODB_DB_NAME]["userSessions"])
+        db = SessionStore(client[settings.MONGODB_DB_NAME]["sessions"])
         
         stages = PipelineStages(config_dir=os.path.abspath(os.path.join(os.path.dirname(__file__), "../../TIPSC-Agent/config")))
         
@@ -76,6 +76,9 @@ async def on_startup() -> None:
         tipsc_executor_instance = AsyncPipelineExecutor(stages, db)
 
         logger.info("[startup] TIPSC Engine initialized (Direct execution) ✓")
+        # Architecture note: TIPSC runs as an in-process BackgroundTask, not a Kafka consumer.
+        # DFV and Discovery are Kafka-driven (combined_agent_worker.py).
+        # Followup answers are handled by the /followup API endpoint, not a Kafka consumer.
     except Exception as exc:
         logger.error("[startup] TIPSC Engine startup failed: %s", exc)
 

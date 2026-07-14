@@ -195,9 +195,12 @@ class SessionRepository(BaseRepository[Session]):
             return data
         return None
         
-    async def submit_followup_answer(self, session_id: str, answer: str) -> bool:
-        """Write pending_answer and transition back to TIPSC_RUNNING."""
-        result = await Session.find_one(Session.id == PydanticObjectId(session_id)).update(  # type: ignore[arg-type]
+    async def submit_followup_answer(self, session_id: str, answer: str, expected_version: int) -> bool:
+        """Write pending_answer and transition back to TIPSC_RUNNING. Requires version for concurrency safety."""
+        result = await Session.find_one(
+            Session.id == PydanticObjectId(session_id),  # type: ignore[arg-type]
+            Session.version == expected_version,
+        ).update(
             {
                 "$set": {
                     "pending_answer": answer,
@@ -212,10 +215,11 @@ class SessionRepository(BaseRepository[Session]):
     async def find_active_by_student(self, student_id: str) -> Optional[Session]:
         """
         Returns the student's active (non-archived) session, or None.
-        Used to enforce the one-active-session-per-student rule.
+        Sessions with empty team_id are considered invalid and excluded.
         """
         return await Session.find_one(
             Session.student_id == student_id,
+            Session.team_id != "",
             NotIn(Session.status, [SessionStatus.ARCHIVED]),  # type: ignore[arg-type]
         )
 
@@ -241,7 +245,7 @@ class SessionRepository(BaseRepository[Session]):
         return result is not None and result.modified_count == 1
 
     async def set_correlation_id(self, session_id: str, correlation_id: str) -> None:
-        """Store the Kafka correlation_id on the session so workers can validate it."""
+        """Store the Kafka correlation_id on the session. No version check — this is an idempotent metadata write."""
         await Session.find_one(Session.id == PydanticObjectId(session_id)).update(  # type: ignore[arg-type]
             {"$set": {"correlation_id": correlation_id, "updated_at": datetime.utcnow()}}
         )

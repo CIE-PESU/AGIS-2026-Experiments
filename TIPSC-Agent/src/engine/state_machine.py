@@ -11,33 +11,19 @@ from models import (
 )
 
 class PipelineState(str, Enum):
-
-    QUEUED = "QUEUED"
-    PRE_EVAL = "PRE_EVAL"
-
-    VALIDATION_RUNNING = "VALIDATION_RUNNING"
-
-    REGULATORY_RUNNING = "REGULATORY_RUNNING"
-
-    ETHICS_RUNNING = "ETHICS_RUNNING"
-
-    TIPSC_RUNNING = "TIPSC_RUNNING"
-
-    FOLLOWUP_REQUIRED = "FOLLOWUP_REQUIRED"
-
-    WAITING_FOR_FOUNDER = "WAITING_FOR_FOUNDER"
-
-    TIPSC_REEVALUATION = "TIPSC_REEVALUATION"
-
-    TIPSC_COMPLETE = "TIPSC_COMPLETE"
-
-    READY_FOR_DFV = "READY_FOR_DFV"
-
-    DFV_RUNNING = "DFV_RUNNING"
-
-    DFV_COMPLETE = "DFV_COMPLETE"
-
-    FAILED = "FAILED"
+    """
+    Pipeline state values. MUST match backend/state_machine/states.py SessionStatus
+    exactly (same lowercase strings) so that MongoDB queries work across both systems.
+    """
+    QUEUED              = "queued"
+    PRE_EVAL            = "pre_eval"
+    VALIDATION_RUNNING  = "validation_running"
+    ETHICS_RUNNING      = "ethics_running"
+    TIPSC_RUNNING       = "tipsc_running"
+    TIPSC_REEVALUATION  = "tipsc_reevaluation"
+    WAITING_FOR_FOUNDER = "waiting_for_founder"
+    TIPSC_COMPLETE      = "tipsc_completed"   # matches SessionStatus.TIPSC_COMPLETED
+    FAILED              = "failed"
 
 
 @dataclass

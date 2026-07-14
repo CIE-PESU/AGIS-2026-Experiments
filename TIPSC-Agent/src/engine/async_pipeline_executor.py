@@ -105,7 +105,10 @@ class AsyncPipelineExecutor:
             context.preeval, validation_context, context.compliance_context,
         )
 
-        await self._update(session_id, {"tipsc": context.tipsc.model_dump()})
+        tipsc_dump = context.tipsc.model_dump()
+        tipsc_dump["reasoning"] = context.compliance_context[:500] if context.compliance_context else ""
+        tipsc_dump["compliance_flag"] = context.ethics.compliance_flag if context.ethics else False
+        await self._update(session_id, {"tipsc": tipsc_dump})
 
         if not context.tipsc.needs_followup:
             await self._update(session_id, {"state": PipelineState.TIPSC_COMPLETE})

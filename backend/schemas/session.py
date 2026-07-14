@@ -99,6 +99,7 @@ class SessionCreateRequest(BaseModel):
         max_length=2000,
         description="The business idea or proposed solution.",
     )
+    team_id: Optional[str] = Field(default=None, description="Override the JWT team_id if student is registering a new team")
 
     @field_validator("problem_statement", "idea", mode="before")
     @classmethod

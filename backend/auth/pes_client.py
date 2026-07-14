@@ -53,14 +53,15 @@ class PESAuthClient:
         """
         if settings.ENVIRONMENT == "development":
             logger.info("DEV MODE: Bypassing PES Auth HTTP call for SRN=%s", srn)
-            # Accept any validly formatted SRN in dev mode
+            # Derive a unique team ID from the SRN so dev users don't all share one team
+            team_suffix = srn[-3:].lower() if srn else "000"
             return {
                 "srn": srn,
-                "name": "Dev User",
+                "name": f"Dev Student ({srn})",
                 "email": f"{srn.lower()}@pesu.pes.edu",
                 "role": "student",
-                "team_id": "TEST_TEAM",
-                "mentor_team_ids": []
+                "team_id": f"team_{team_suffix}",
+                "mentor_team_ids": [],
             }
 
         payload = {"srn": srn, "password": password}

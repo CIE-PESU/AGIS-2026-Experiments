@@ -21,3 +21,17 @@ class FlowTriggerResponse(BaseModel):
 
 class FollowupAnswerRequest(BaseModel):
     answer: str = Field(..., min_length=1, max_length=5000)
+
+class DiscoveryTriggerRequest(BaseModel):
+    """
+    Optional body for POST /sessions/{id}/trigger/discovery.
+    If omitted, the backend assembles the payload from the session document.
+    Fields here override the assembled payload.
+    """
+    # These override the assembled discovery payload if provided
+    problem_statement: Optional[str] = None
+    additional_context: Optional[str] = Field(
+        default=None,
+        max_length=3000,
+        description="Any additional context the student wants to pass to the discovery agent.",
+    )

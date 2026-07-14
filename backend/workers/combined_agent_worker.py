@@ -52,7 +52,7 @@ CREWAI_TIMEOUT_SECONDS = 600
 
 MONGO_URI = "mongodb://127.0.0.1:27017"
 DB_NAME = "agis"
-USER_SESSIONS_COLLECTION = "userSessions"
+USER_SESSIONS_COLLECTION = "sessions"
 
 
 def _log(correlation_id: str, msg: str, level: str = "info"):
