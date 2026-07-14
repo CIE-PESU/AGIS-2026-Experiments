@@ -276,3 +276,56 @@ async def archive_session(
         background_tasks=background_tasks,
     )
     return success_response(data=session.model_dump(), request=request)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET /sessions/{session_id}/stream — Server-Sent Events for real-time updates
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get(
+    "/{session_id}/stream",
+    summary="SSE stream for session updates",
+    description="Yields Server-Sent Events when the session status changes.",
+)
+async def stream_session(
+    request: Request,
+    session_id: str,
+    # Note: For real auth with EventSource, clients often pass token in query param 
+    # since browser EventSource doesn't support custom headers.
+    # We will skip strict auth here for the prototype SSE, or assume token in query.
+):
+    import asyncio
+    import json
+    from fastapi.responses import StreamingResponse
+    from repositories.session_repo import session_repo
+
+    validate_object_id(session_id)
+
+    async def event_generator():
+        last_state_hash = None
+        
+        while True:
+            if await request.is_disconnected():
+                break
+                
+            # Fetch current session state
+            session_data = await session_repo.get_by_id(session_id)
+            if session_data:
+                # We only care about statuses of tipsc, dfv, discovery
+                current_state = {
+                    "tipsc": session_data.get("tipsc", {}).get("status"),
+                    "dfv": session_data.get("dfv", {}).get("status"),
+                    "discovery": session_data.get("discovery", {}).get("status"),
+                }
+                current_hash = hash(frozenset(current_state.items()))
+                
+                if current_hash != last_state_hash:
+                    last_state_hash = current_hash
+                    # Clean up the object ID for JSON serialization
+                    session_data["_id"] = str(session_data["_id"])
+                    
+                    yield f"data: {json.dumps(session_data)}\n\n"
+            
+            await asyncio.sleep(2)  # Poll every 2 seconds
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")

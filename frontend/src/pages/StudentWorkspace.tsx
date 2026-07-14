@@ -17,7 +17,9 @@ import {
 import { MentorChat } from "@/components/shared/MentorChat";
 import { StatusBadge, TrafficDot } from "@/components/shared/StatusBadge";
 import { Timeline } from "@/components/shared/Timeline";
-import { deriveStageAccess, isFlowRunning, useSessionPolling } from "@/hooks/useSessionPolling";
+import { deriveStageAccess, isFlowRunning, useSessionStream } from "@/hooks/useSessionStream";
+
+// ... [skipping middle code in the instruction, wait I need to replace the exact block]
 import { archiveSession as archiveSessionApi } from "@/services/authSessions";
 import { useAuth } from "@/context/AuthContext";
 import { downloadMarkdown, generateMarkdown } from "@/utils/exportMarkdown";
@@ -31,7 +33,7 @@ export function StudentWorkspace() {
   const firstName = user?.name.split(" ")[0] || "Student";
   const running = serverStatus ? isFlowRunning(serverStatus) : false;
 
-  useSessionPolling(sessionId, setSessionFromServer, Boolean(sessionId));
+  useSessionStream(sessionId, setSessionFromServer, Boolean(sessionId));
 
   const teammates = useMemo<Student[]>(() => {
     if (!user || !user.teamId) return [];

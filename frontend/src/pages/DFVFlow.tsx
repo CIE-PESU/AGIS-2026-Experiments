@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { ArrowLeft, ArrowRight, CheckCircle2, DollarSign, Heart, Loader2, ThumbsDown, ThumbsUp, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,13 +13,30 @@ import type { DFVResult, TIPSCResult } from "@/data/mockData";
 import { toast } from "sonner";
 
 export function DFVFlow() {
-  const { session, sessionId, results, saveResults, formData, setFormData, unlockNext, addEvent } = useAuth();
-  const [phase, setPhase] = useState<"form" | "processing" | "results">(results.dfv ? "results" : "form");
-  const [result, setResult] = useState<DFVResult | null>(results.dfv);
+  const { session, sessionId, serverStatus, results, saveResults, formData, setFormData, unlockNext, addEvent } = useAuth();
+  
+  const [phase, setPhase] = useState<"form" | "processing" | "results">(
+    results.dfv ? "results" : serverStatus === "dfv_running" ? "processing" : "form"
+  );
+  
+  const result = results.dfv;
   const [inputs, setInputs] = useState({ desirability_context: "", feasibility_context: "", viability_context: "" });
   if (session.dfv === "locked") return <Navigate to="/workspace" replace />;
 
   const passed = result?.decision === "GO";
+
+  useEffect(() => {
+    if (phase === "processing") {
+      if (serverStatus === "dfv_completed" && results.dfv) {
+        setPhase("results");
+        addEvent("DFV Analysis Completed");
+        unlockNext("dfv");
+      } else if (serverStatus === "dfv_failed") {
+        setPhase("form");
+        toast.error("DFV Analysis failed. Please try again.");
+      }
+    }
+  }, [phase, serverStatus, results.dfv, addEvent, unlockNext]);
 
   async function run() {
     const payload = {
@@ -36,26 +53,17 @@ export function DFVFlow() {
     try {
       if (sessionId) await triggerDfv(sessionId, payload);
     } catch {
-      if (!USE_MOCK_FLOWS) {
-        setPhase("form");
-        return;
-      }
+      toast.error("Failed to start DFV analysis. Check backend connection.");
+      setPhase("form");
     }
-    const data = await runDFVAnalysis();
-    setResult(data);
-    saveResults("dfv", data);
-    unlockNext("dfv");
-    addEvent("DFV Analysis Completed");
-    setPhase("results");
   }
 
   function repeatDFV() {
-    setResult(null);
     setInputs({ desirability_context: "", feasibility_context: "", viability_context: "" });
     try {
       saveResults("dfv", undefined as unknown as DFVResult);
     } catch {
-      // ignore if saveResults doesn't accept undefined — local reset still applies
+      // ignore
     }
     addEvent("DFV Restarted");
     setPhase("form");

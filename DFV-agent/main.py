@@ -122,7 +122,7 @@ llm = LLM(
 
 
 # Discover and activate local business framework guidelines from markdown packages
-skills = discover_skills(Path("./skills"))
+skills = discover_skills(Path(__file__).parent / "skills")
 activated = [activate_skill(s) for s in skills]
 
 # Define the Pydantic models for JSON output (Updated with Go/No-Go architecture)

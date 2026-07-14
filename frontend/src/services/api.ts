@@ -26,12 +26,3 @@ export async function submitFollowUp(round: number, _answer: string) {
   return { result: mockTIPSCFinal, followUp: null };
 }
 
-export async function runDFVAnalysis() {
-  await wait(4000);
-  return mockDFVResult;
-}
-
-export async function generateJTBD() {
-  await wait(3000);
-  return mockJTBDResult;
-}

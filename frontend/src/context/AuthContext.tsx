@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { clearTokens, getRefreshToken } from "@/services/apiClient";
 import { login as apiLogin, logout as apiLogout } from "@/services/authSessions";
-import { deriveStageAccess } from "@/hooks/useSessionPolling";
+import { deriveStageAccess } from "@/hooks/useSessionStream";
 import type { DFVResult, JTBDResult, StageStatus, TIPSCResult } from "@/data/mockData";
 import type { Role, SessionDocument, SessionStatus } from "@/types/api";
 import { registerStudentTeam, getStudents, initializeStorage } from "@/utils/adminData";
@@ -143,6 +143,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSessionIdState(doc.session_id);
     setServerStatus(doc.status);
     setSession(deriveStageAccess(doc.status));
+
+    // Also extract the actual data from the document's nested fields
+    if (doc.tipsc && doc.tipsc.output) {
+      setResults(prev => ({ ...prev, tips: doc.tipsc!.output as any }));
+    }
+    if (doc.dfv && doc.dfv.output) {
+      setResults(prev => ({ ...prev, dfv: doc.dfv!.output as any }));
+    }
+    if (doc.discovery && doc.discovery.output) {
+      setResults(prev => ({ ...prev, discovery: doc.discovery!.output as any }));
+    }
   }, []);
 
   const unlockNext = useCallback((completed: keyof SessionState) => {
