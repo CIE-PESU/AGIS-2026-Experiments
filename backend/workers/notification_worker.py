@@ -31,12 +31,25 @@ from models.schema import NotificationMessage
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("notification_worker")
 
-KAFKA_BOOTSTRAP_SERVERS = "127.0.0.1:9092"
-NOTIFICATIONS_TOPIC = "userSession.notifications"
+import os
+from dotenv import load_dotenv
+
+_env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
+load_dotenv(dotenv_path=_env_path)
+
+import sys
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if os.path.join(PROJECT_ROOT, "backend") not in sys.path:
+    sys.path.insert(0, os.path.join(PROJECT_ROOT, "backend"))
+
+from kafka.topics import KafkaTopic
+
+KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "127.0.0.1:9092")
+NOTIFICATIONS_TOPIC = KafkaTopic.USER_SESSION_NOTIFICATIONS
 CONSUMER_GROUP = "notification_worker_group"
 
-MONGO_URI = "mongodb://127.0.0.1:27017"
-DB_NAME = "agis"
+MONGO_URI = os.getenv("MONGODB_URI", "mongodb://127.0.0.1:27017")
+DB_NAME = os.getenv("MONGODB_DB_NAME", "agis")
 USER_SESSIONS_COLLECTION = "sessions"
 
 

@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { TrafficDot } from "@/components/shared/StatusBadge";
 import { DFV_CONTEXT_MIN, USE_MOCK_FLOWS } from "@/constants";
-import { runDFVAnalysis } from "@/services/api";
 import { triggerDfv } from "@/services/authSessions";
 import { useAuth } from "@/context/AuthContext";
 import type { DFVResult, TIPSCResult } from "@/data/mockData";

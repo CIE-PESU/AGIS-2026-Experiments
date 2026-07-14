@@ -20,7 +20,12 @@ export function useSessionStream(
     const connectStream = async () => {
       try {
         const token = getAccessToken();
-        const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/stream`, {
+        const streamUrl = token
+            ? `${API_BASE_URL}/sessions/${sessionId}/stream?token=${encodeURIComponent(token)}`
+            : `${API_BASE_URL}/sessions/${sessionId}/stream`;
+
+        const response = await fetch(streamUrl, {
+          // Keep the header too for non-EventSource usage:
           headers: token ? { Authorization: `Bearer ${token}` } : {},
           signal: abortController.signal,
         });

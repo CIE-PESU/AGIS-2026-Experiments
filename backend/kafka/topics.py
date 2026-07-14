@@ -23,3 +23,10 @@ class KafkaTopic:
 
     # Published by the backend for async user notifications.
     USER_SESSION_NOTIFICATIONS = "userSession.notifications"
+
+    USER_SESSION_FOLLOWUP = "userSession.followup"
+
+    # Dead-letter queues
+    USER_SESSION_DFV_DLQ = "userSession.dfv.dlq"
+    USER_SESSION_DISCOVERY_DLQ = "userSession.discovery.dlq"
+    USER_SESSION_TIPSC_DLQ = "userSession.tipsc.dlq"

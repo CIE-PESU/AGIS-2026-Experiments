@@ -39,6 +39,14 @@ class AsyncPipelineExecutor:
             await self._run_internal(session_id, preeval_input)
         except Exception as e:
             logger.exception(f"Pipeline failed for session {session_id}")
+            # Log-based DLQ entry for TIPSC failures
+            dlq_entry = {
+                "session_id": session_id,
+                "input": preeval_input,
+                "error": str(e),
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            logger.error(f"DLQ_ENTRY: {json.dumps(dlq_entry)}")
             await self._update(session_id, {
                 "state": PipelineState.FAILED,
                 "error": str(e),

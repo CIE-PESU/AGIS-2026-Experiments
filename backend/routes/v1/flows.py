@@ -231,7 +231,13 @@ async def submit_followup(
         from fastapi import HTTPException
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No active session waiting for founder.")
 
-    session_id = str(session["_id"])
+    # Defensive: try "_id" first (set by get_active_session_by_user), fall back to "id"
+    session_id = session.get("_id") or session.get("id")
+    if not session_id:
+        logger.error("Could not resolve session_id from get_active_session_by_user result: %s", session.keys())
+        from fastapi import HTTPException
+        raise HTTPException(500, "Internal error: could not resolve session ID.")
+    session_id = str(session_id)
     
     # Update DB with pending answer and set status to tipsc_running
     session_version = session.get("version", 0)

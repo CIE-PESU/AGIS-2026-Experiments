@@ -286,47 +286,71 @@ async def archive_session(
 @router.get(
     "/{session_id}/stream",
     summary="SSE stream for session updates",
-    description="Yields Server-Sent Events when the session status changes.",
+    description=(
+        "Yields Server-Sent Events whenever the session status changes. "
+        "Poll interval: 2 seconds. Client should reconnect on disconnect."
+    ),
 )
 async def stream_session(
     request: Request,
     session_id: str,
-    # Note: For real auth with EventSource, clients often pass token in query param 
-    # since browser EventSource doesn't support custom headers.
-    # We will skip strict auth here for the prototype SSE, or assume token in query.
+    token: Optional[str] = Query(default=None, description="Bearer token (query param for EventSource compatibility)"),
 ):
     import asyncio
     import json
     from fastapi.responses import StreamingResponse
     from repositories.session_repo import session_repo
+    from auth.jwt import decode_access_token
+    from exceptions.base import TokenInvalidError
 
     validate_object_id(session_id)
 
+    if token:
+        try:
+            current_user = decode_access_token(token)
+            # Verify the session belongs to this user
+            session_check = await session_repo.find_by_id_and_student(session_id, current_user.user_id)
+            if session_check is None:
+                from fastapi import HTTPException
+                raise HTTPException(403, "Session not found or access denied")
+        except TokenInvalidError:
+            from fastapi import HTTPException
+            raise HTTPException(401, "Invalid or expired token")
+    else:
+        # For development: allow unauthenticated streams with a warning
+        logger.warning("SSE stream accessed without token for session_id=%s", session_id)
+
     async def event_generator():
-        last_state_hash = None
-        
+        last_status = None
+
         while True:
             if await request.is_disconnected():
                 break
-                
-            # Fetch current session state
-            session_data = await session_repo.get_by_id(session_id)
-            if session_data:
-                # We only care about statuses of tipsc, dfv, discovery
-                current_state = {
-                    "tipsc": session_data.get("tipsc", {}).get("status"),
-                    "dfv": session_data.get("dfv", {}).get("status"),
-                    "discovery": session_data.get("discovery", {}).get("status"),
-                }
-                current_hash = hash(frozenset(current_state.items()))
-                
-                if current_hash != last_state_hash:
-                    last_state_hash = current_hash
-                    # Clean up the object ID for JSON serialization
-                    session_data["_id"] = str(session_data["_id"])
-                    
-                    yield f"data: {json.dumps(session_data)}\n\n"
-            
-            await asyncio.sleep(2)  # Poll every 2 seconds
+
+            # Use find_by_id (the correct method name — get_by_id does not exist)
+            session_obj = await session_repo.find_by_id(session_id)
+            if session_obj:
+                current_status = session_obj.status
+
+                # Only emit when status changes to avoid noise
+                if current_status != last_status:
+                    last_status = current_status
+
+                    # Serialize the session document to a JSON-safe dict
+                    session_dict = session_obj.model_dump(mode="json")
+                    session_dict["session_id"] = str(session_obj.id)
+                    session_dict["_id"] = str(session_obj.id)
+
+                    # Serialize nested Pydantic objects
+                    if session_obj.tipsc is not None:
+                        session_dict["tipsc"] = session_obj.tipsc.model_dump(mode="json")
+                    if session_obj.dfv is not None:
+                        session_dict["dfv"] = session_obj.dfv.model_dump(mode="json")
+                    if session_obj.discovery is not None:
+                        session_dict["discovery"] = session_obj.discovery.model_dump(mode="json")
+
+                    yield f"data: {json.dumps(session_dict)}\n\n"
+
+            await asyncio.sleep(2)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")

@@ -13,19 +13,51 @@ import sys
 import os
 from datetime import datetime, timezone
 
-# Add agent directories to sys.path so we can import them
+import importlib.util
+from dotenv import load_dotenv
+
+_env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
+load_dotenv(dotenv_path=_env_path)
+
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-dfv_path = os.path.join(PROJECT_ROOT, "DFV-agent")
-discovery_path = os.path.join(PROJECT_ROOT, "customer-interview-planner-agent")
 
-if dfv_path not in sys.path:
-    sys.path.append(dfv_path)
-if discovery_path not in sys.path:
-    sys.path.append(discovery_path)
+sys.path.insert(0, os.path.join(PROJECT_ROOT, "backend"))
+from kafka.topics import KafkaTopic
 
-# Now import the agents
-from main import run_analysis as run_dfv_analysis
-from customer_interview_planner import run_discovery_analysis
+def _load_module(module_name: str, file_path: str):
+    """Load a Python module from an explicit file path, bypassing sys.path resolution."""
+    spec = importlib.util.spec_from_file_location(module_name, file_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load module from {file_path}")
+    module = importlib.util.module_from_spec(spec)
+    # Pre-insert the module's directory into sys.path so its local imports work
+    module_dir = os.path.dirname(file_path)
+    if module_dir not in sys.path:
+        sys.path.insert(0, module_dir)
+    spec.loader.exec_module(module)
+    return module
+
+try:
+    _dfv_module = _load_module(
+        "dfv_agent_main",
+        os.path.join(PROJECT_ROOT, "DFV-agent", "main.py")
+    )
+    run_dfv_analysis = _dfv_module.run_analysis
+    logging.info("DFV agent loaded from %s", os.path.join(PROJECT_ROOT, "DFV-agent", "main.py"))
+except Exception as e:
+    run_dfv_analysis = None
+    logging.error("Failed to load DFV agent: %s", e)
+
+try:
+    _discovery_module = _load_module(
+        "discovery_agent_main",
+        os.path.join(PROJECT_ROOT, "customer-interview-planner-agent", "customer_interview_planner.py")
+    )
+    run_discovery_analysis = _discovery_module.run_discovery_analysis
+    logging.info("Discovery agent loaded from %s", os.path.join(PROJECT_ROOT, "customer-interview-planner-agent"))
+except Exception as e:
+    run_discovery_analysis = None
+    logging.error("Failed to load Discovery agent: %s", e)
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -39,24 +71,30 @@ from models.schema import (
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("combined_agent_worker")
 
-KAFKA_BOOTSTRAP_SERVERS = "127.0.0.1:9092"
-DFV_TOPIC = "userSession.dfv"
-DFV_DLQ_TOPIC = "userSession.dfv.dlq"
-DISCOVERY_TOPIC = "userSession.discovery"
-DISCOVERY_DLQ_TOPIC = "userSession.discovery.dlq"
-NOTIFICATIONS_TOPIC = "userSession.notifications"
+KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "127.0.0.1:9092")
+DFV_TOPIC           = KafkaTopic.USER_SESSION_DFV
+DFV_DLQ_TOPIC       = KafkaTopic.USER_SESSION_DFV_DLQ
+DISCOVERY_TOPIC     = KafkaTopic.USER_SESSION_DISCOVERY
+DISCOVERY_DLQ_TOPIC = KafkaTopic.USER_SESSION_DISCOVERY_DLQ
+NOTIFICATIONS_TOPIC = KafkaTopic.USER_SESSION_NOTIFICATIONS
 CONSUMER_GROUP = "combined_agent_worker_group"
 
-MAX_RETRIES = 3
-CREWAI_TIMEOUT_SECONDS = 600
+MAX_RETRIES = int(os.getenv("WORKER_MAX_RETRIES", "3"))
+CREWAI_TIMEOUT_SECONDS = int(os.getenv("CREWAI_TIMEOUT_SECONDS", "600"))
 
-MONGO_URI = "mongodb://127.0.0.1:27017"
-DB_NAME = "agis"
+MONGO_URI = os.getenv("MONGODB_URI", "mongodb://127.0.0.1:27017")
+DB_NAME = os.getenv("MONGODB_DB_NAME", "agis")
 USER_SESSIONS_COLLECTION = "sessions"
 
 
 def _log(correlation_id: str, msg: str, level: str = "info"):
     getattr(logger, level)(f"[correlation={correlation_id}] {msg}")
+
+async def _backoff_sleep(retry_count: int, base_delay: float = 2.0, max_delay: float = 60.0):
+    """Exponential backoff: 2s, 4s, 8s, ..., capped at 60s."""
+    delay = min(base_delay * (2 ** (retry_count - 1)), max_delay)
+    logger.info("Retry backoff: sleeping %.1fs before retry %d", delay, retry_count)
+    await asyncio.sleep(delay)
 
 
 class CombinedAgentWorker:
@@ -185,6 +223,8 @@ class CombinedAgentWorker:
 
         try:
             async with self._crew_lock:
+                if run_dfv_analysis is None:
+                    raise RuntimeError("DFV agent not loaded — check startup logs")
                 result = await asyncio.wait_for(
                     asyncio.to_thread(run_dfv_analysis, job.payload.model_dump()),
                     timeout=CREWAI_TIMEOUT_SECONDS,
@@ -237,6 +277,7 @@ class CombinedAgentWorker:
                 await self._publish_notification(job.userSession_id, job.correlation_id, "dfv", FlowStatus.FAILED, error=str(e))
             else:
                 _log(job.correlation_id, f"DFV Retry {job.retry_count}/{MAX_RETRIES} after error: {e}", level="warning")
+                await _backoff_sleep(job.retry_count)
                 await self.producer.send_and_wait(
                     DFV_TOPIC,
                     value=job.model_dump_json().encode("utf-8"),
@@ -256,6 +297,8 @@ class CombinedAgentWorker:
 
         try:
             async with self._crew_lock:
+                if run_discovery_analysis is None:
+                    raise RuntimeError("Discovery agent not loaded — check startup logs")
                 result = await asyncio.wait_for(
                     asyncio.to_thread(run_discovery_analysis, job.payload.model_dump()),
                     timeout=CREWAI_TIMEOUT_SECONDS,
@@ -307,6 +350,7 @@ class CombinedAgentWorker:
                 await self._publish_notification(job.userSession_id, job.correlation_id, "discovery", FlowStatus.FAILED, error=str(e))
             else:
                 _log(job.correlation_id, f"Discovery Retry {job.retry_count}/{MAX_RETRIES} after error: {e}", level="warning")
+                await _backoff_sleep(job.retry_count)
                 await self.producer.send_and_wait(
                     DISCOVERY_TOPIC,
                     value=job.model_dump_json().encode("utf-8"),
