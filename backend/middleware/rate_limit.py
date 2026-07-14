@@ -92,7 +92,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # ── General API rate limit (per user_id from JWT) ──────────────────────
         elif path.startswith("/api/"):
-            from app.auth.jwt import decode_token
+            from auth.jwt import decode_token
 
             user_id: str | None = None
             try:

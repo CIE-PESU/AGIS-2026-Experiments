@@ -8,7 +8,7 @@ backend_dir = os.path.abspath(os.path.join(current_dir, ".."))
 if backend_dir not in sys.path:
     sys.path.insert(0, backend_dir)
 
-from app.main import app
+from main import app
 
 def main():
     openapi_schema = app.openapi()

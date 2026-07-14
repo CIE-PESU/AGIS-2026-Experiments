@@ -17,8 +17,8 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 
-from app.auth.jwt import create_access_token, create_refresh_token, verify_refresh_token
-from app.auth.pes_client import pes_auth_client
+from auth.jwt import create_access_token, create_refresh_token, verify_refresh_token
+from auth.pes_client import pes_auth_client
 from core.config import settings
 from core.constants import AuditEvent
 from exceptions.base import RefreshTokenExpiredError, RefreshTokenInvalidError

@@ -18,7 +18,7 @@ from typing import Annotated
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from app.auth.jwt import decode_token
+from auth.jwt import decode_token
 from core.constants import UserRole
 from exceptions.base import InsufficientPermissionsError
 from schemas.auth import CurrentUser

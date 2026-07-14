@@ -129,40 +129,41 @@ def create_app() -> FastAPI:
         expose_headers=["X-Request-ID", "X-API-Version"],
     )
 
-    # ── Secure headers (added as response middleware) ─────────────────────────
-    @middleware("http")
-    async def add_secure_headers(request, call_next):
-        response = await call_next(request)
-        response.headers["X-API-Version"] = settings.APP_VERSION
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
-        if settings.is_production:
-            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-        return response
+    # ── Secure headers ────────────────────────────────────────────────────────
+    class SecureHeadersMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request, call_next):
+            response = await call_next(request)
+            response.headers["X-API-Version"] = settings.APP_VERSION
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            response.headers["X-Frame-Options"] = "DENY"
+            if settings.is_production:
+                response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+            return response
 
-    # ── Max request body size (reject bodies over 1MB) ───────────────────────
-    from starlette.middleware.trustedhost import TrustedHostMiddleware
-    # Body size enforcement via ContentSizeLimitMiddleware or similar
-    # Using a simple middleware approach:
-    @middleware("http")
-    async def limit_body_size(request, call_next):
-        content_length = request.headers.get("content-length")
-        if content_length and int(content_length) > settings.MAX_REQUEST_BODY_BYTES:
-            from fastapi.responses import JSONResponse
-            from datetime import datetime, timezone
-            return JSONResponse(
-                status_code=413,
-                content={
-                    "error": {
-                        "code": "PAYLOAD_TOO_LARGE",
-                        "message": f"Request body exceeds the maximum allowed size of {settings.MAX_REQUEST_BODY_BYTES} bytes.",
-                        "field": None,
-                        "request_id": getattr(request.state, "request_id", "unknown"),
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                    }
-                },
-            )
-        return await call_next(request)
+    app.add_middleware(SecureHeadersMiddleware)
+
+    # ── Max request body size (reject bodies over limit) ─────────────────────
+    class BodySizeLimitMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request, call_next):
+            content_length = request.headers.get("content-length")
+            if content_length and int(content_length) > settings.MAX_REQUEST_BODY_BYTES:
+                from fastapi.responses import JSONResponse
+                from datetime import datetime, timezone
+                return JSONResponse(
+                    status_code=413,
+                    content={
+                        "error": {
+                            "code": "PAYLOAD_TOO_LARGE",
+                            "message": f"Request body exceeds the maximum allowed size of {settings.MAX_REQUEST_BODY_BYTES} bytes.",
+                            "field": None,
+                            "request_id": getattr(request.state, "request_id", "unknown"),
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                        }
+                    },
+                )
+            return await call_next(request)
+
+    app.add_middleware(BodySizeLimitMiddleware)
 
     # ── Routers ────────────────────────────────────────────────────────────────
 
