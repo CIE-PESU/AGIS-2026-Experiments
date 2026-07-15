@@ -52,7 +52,7 @@ customer_discovery_planner = Agent(
         and gather evidence through interviews.
     """,
     llm=reasoning_llm,
-    verbose=True,
+    verbose=False,
     skills=activated  # Note that we are using the SKILL.md from the skills directory
 )
 
