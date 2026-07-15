@@ -1,38 +1,40 @@
 {
   "refined_idea": {
-    "customer_segment": "Urban pet owners aged 25-45 who travel for work or vacation 2-6 times per year",
-    "qualified_problem": "Pet owners struggle to find reliable, vetted pet sitters when they travel.",
-    "consequence": "Owners worry about their pets, resort to expensive kennels, or don't travel at all",
-    "proposed_solution": "A pet-sitting marketplace with verified sitters, GPS check-ins, and photo updates for pet owners"
+    "customer_segment": "University students in India",
+    "qualified_problem": "University students struggle to validate startup ideas before investing significant time and resources because they lack structured guidance, market validation frameworks, and access to expert feedback.",
+    "consequence": "idk",
+    "proposed_solution": "Maybe good"
   },
-  "solution_alignment": "GREEN",
+  "solution_alignment": "RED",
   "tips_validated_metrics": {
-    "timely_factor": "Active daily problem; travel seasons create recurring urgency.",
-    "importance_metric": "Direct measurable consequence: owner anxiety and financial loss from kennels or missed trips.",
-    "profitability_pivot": "Marketplace model implies transaction fees or subscription revenue, though specific pricing is not detailed.",
-    "solvability_constraint": "Technical capabilities (GPS, marketplace) exist; compliance requires hiring legal counsel for high-burden regulations."
+    "timely_factor": "India has extensive university entrepreneurship infrastructure (7,400+ IICs, 2,950+ incubators) but no evidence of \u22646-month urgency or active daily problem; consequence unknown.",
+    "importance_metric": "Problem acknowledged but consequence is 'idk'; existing campus incubators partially address the gap, so measurable impact unproven.",
+    "profitability_pivot": "No pricing, business model, or willingness-to-pay evidence; proposed solution described as 'Maybe good' with no monetization plan.",
+    "solvability_constraint": "HIGH-burden DPDP Act 2023 applies (student/minor data) with no compliance plan, legal counsel, or regulatory acquisition strategy mentioned."
   },
   "tips_rag_scores": {
-    "T": "GREEN",
-    "I": "GREEN",
-    "P": "YELLOW",
-    "S": "YELLOW",
-    "T_reason": "The problem involves active daily needs and recurring travel seasons creating immediate urgency.",
-    "I_reason": "The consequence is direct, measurable, and critical: owner anxiety leading to significant financial or lifestyle trade-offs.",
-    "P_reason": "While a marketplace model suggests monetization, no specific price point, revenue share, or B2B plan was explicitly provided in the evidence.",
-    "S_reason": "The team lacks stated internal expertise for high-burden compliance (gig worker classification), but a credible acquisition plan exists via hiring legal counsel and regulatory consultants."
+    "T": "YELLOW",
+    "I": "YELLOW",
+    "P": "RED",
+    "S": "RED",
+    "T_reason": "Urgency not evidenced; horizon unclear and consequence unknown.",
+    "I_reason": "Problem exists but consequence is 'idk' and existing incubators partially mitigate it.",
+    "P_reason": "No monetization plan, pricing, or B2B model mentioned; solution description is non-specific.",
+    "S_reason": "HIGH-burden DPDP Act compliance required with no plan, counsel, or acquisition strategy provided."
   },
-  "overall_readiness": "MODERATE",
-  "ready_for_dfv": true,
+  "overall_readiness": "WEAK",
+  "ready_for_dfv": false,
   "needs_followup": true,
   "missing_criteria": [
+    "T",
+    "I",
     "P",
     "S"
   ],
   "criteria_state": {
-    "T": "resolved",
-    "I": "resolved",
-    "P": "weak",
-    "S": "weak"
+    "T": "weak",
+    "I": "weak",
+    "P": "unclear",
+    "S": "unclear"
   }
 }

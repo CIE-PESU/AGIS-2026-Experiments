@@ -1,19 +1,7 @@
 
 import os
-from dotenv import load_dotenv
 
-# Load .env FIRST, before anything reads from it.
-load_dotenv()
 
-# LLM endpoint is now configurable via .env — no more editing this file
-# every time someone's IP changes. Falls back to your own local LM Studio
-# (127.0.0.1:1234) if LM_STUDIO_BASE_URL isn't set.
-LM_STUDIO_BASE_URL = os.getenv("LM_STUDIO_BASE_URL", "http://127.0.0.1:1234/v1")
-LM_STUDIO_MODEL = os.getenv("LM_STUDIO_MODEL", "openai/qwen3.5-9b")
-
-os.environ["OPENAI_API_KEY"] = "lm-studio"  # LM Studio ignores the key's value, but litellm requires something non-empty
-os.environ["OPENAI_API_BASE"] = LM_STUDIO_BASE_URL  # LM Studio's OpenAI-compatible endpoint
-os.environ["OPENAI_MODEL_NAME"] = LM_STUDIO_MODEL  # must match the model name shown in LM Studio
 import json
 from crewai import Agent, Task, Crew, Process, LLM
 from crewai_tools import SerperDevTool, ScrapeWebsiteTool
@@ -22,11 +10,13 @@ from pydantic import BaseModel, Field
 from typing import ClassVar
 from crewai.skills import discover_skills, activate_skill
 from datetime import datetime
+import os
+from pathlib import Path
+from dotenv import load_dotenv
 
-# LM Studio's OpenAI-compatible server doesn't support the object-style
-# tool_choice format CrewAI sends when forcing structured JSON output
-# (output_json=...). This tells LiteLLM to silently drop unsupported
-# params instead of raising a 400 error.
+ROOT_DIR = Path(__file__).resolve().parents[1]
+load_dotenv(ROOT_DIR / ".env")
+
 import litellm
 litellm.drop_params = True
 
@@ -86,8 +76,7 @@ def patched_supports_function_calling(self) -> bool:
 
 LLM.supports_function_calling = patched_supports_function_calling
 
-# Load local environment files
-load_dotenv()
+
 SERPER_API_KEY = os.getenv("SERPER_API_KEY")
 os.environ["SERPER_API_KEY"] = SERPER_API_KEY or ""
 
@@ -113,13 +102,14 @@ class TruncatedScrapeWebsiteTool(ScrapeWebsiteTool):
 
 scrape_tool = TruncatedScrapeWebsiteTool()
 
+
+
 llm = LLM(
-    model=LM_STUDIO_MODEL,  # must match the model name loaded in LM Studio
-    base_url=LM_STUDIO_BASE_URL,
-    api_key="lm-studio",
+    model=os.environ["OPENAI_MODEL_NAME"],
+    base_url=os.environ["LM_STUDIO_URL"],
+    api_key=os.environ["OPENAI_API_KEY"],
     temperature=0.1,
 )
-
 
 # Discover and activate local business framework guidelines from markdown packages
 skills = discover_skills(Path(__file__).parent / "skills")
@@ -436,28 +426,26 @@ def run_analysis(inputs: dict):
         process=Process.sequential,
         verbose=False
     )
+
+
     result = crew.kickoff(inputs=inputs)
 
-    # We no longer use CrewAI's output_json=DFAOutput (its forced tool-call
-    # validation path is incompatible with this local reasoning model's
-    # tool-call format under LM Studio -- see the "multiple tool calls"
-    # errors this used to throw on perfectly valid output).
-    # Instead we validate the plain-JSON output ourselves against the exact
-    # same DFAOutput schema. Any failure here (bad JSON, missing/wrong
-    # fields) raises, and dfv_consumer.py's existing retry logic
-    # (MAX_RETRIES) will re-run the whole job automatically -- same
-    # end-to-end guarantee as before, just enforced on our side instead of
-    # CrewAI's.
+
     cleaned = _extract_json_block(result.raw)
-    parsed = json.loads(cleaned)          # raises json.JSONDecodeError if malformed
-    DFAOutput.model_validate(parsed)      # raises pydantic.ValidationError if schema mismatched
-    result.raw = cleaned                  # store the cleaned version for downstream consumers
+
+    parsed = json.loads(cleaned)
+
+    validated = DFAOutput.model_validate(parsed)
+
+    result.raw = validated.model_dump_json(indent=2)
 
     return result
 
 if __name__ == "__main__":
-    result = run_analysis(blnkt)
-    print("\n--- FINAL DFA JSON OUTPUT WITH DECISION GATE --- \n")
+    result = run_analysis(ggls)
+
+    print("\n--- FINAL DFA JSON OUTPUT WITH DECISION GATE ---\n")
+
     try:
         print(json.dumps(json.loads(result.raw), indent=2))
     except Exception:

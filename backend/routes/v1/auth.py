@@ -59,7 +59,11 @@ async def login(request: Request, body: LoginRequest):
       503 PES_AUTH_UNAVAILABLE  — PES timed out
       429 RATE_LIMIT_EXCEEDED   — too many attempts
     """
-    result = await auth_service.login(srn=body.srn, password=body.password)
+    result = await auth_service.login(
+    srn=body.srn,
+    password=body.password,
+    team_id=body.team_id,
+    )
     return success_response(data=result.model_dump(), request=request)
 
 

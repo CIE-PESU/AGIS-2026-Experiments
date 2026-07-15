@@ -49,8 +49,18 @@ class KafkaProducerClient:
             raise KafkaPublishError("Kafka producer is not initialized.")
 
         # Force messages under the same session to lock to the same partition sequentially
-        partition_key = payload.session_id 
-        message_value = payload.model_dump(mode='json')
+        message_value = payload.model_dump(mode="json")
+
+        # Support both old and new Kafka schemas
+        partition_key = (
+            getattr(payload, "session_id", None)
+            or getattr(payload, "userSession_id", None)
+        )
+
+        if partition_key is None:
+            raise KafkaPublishError(
+                "Kafka payload has neither 'session_id' nor 'userSession_id'."
+            )
 
         retries = 3
         backoff_delays = [0.1, 0.3, 0.9]  # 100ms, 300ms, 900ms backoffs

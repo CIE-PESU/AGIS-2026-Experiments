@@ -1,6 +1,6 @@
 """Async MongoDB wrapper for pipeline state reads/writes."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from bson import ObjectId
 
 
@@ -18,7 +18,7 @@ class SessionStore:
         self._collection = collection
 
     async def update_session(self, session_id: str, patch: dict):
-        patch["updated_at"] = datetime.utcnow().isoformat()
+        patch["updated_at"] = datetime.now(timezone.utc)
         await self._collection.update_one(
             {"_id": _to_oid(session_id)},
             {"$set": patch},

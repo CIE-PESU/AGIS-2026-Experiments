@@ -50,14 +50,72 @@ logging.config.dictConfig({
         },
     },
     "root": {
-        "level": "DEBUG" if settings.DEBUG else "INFO",
-        "handlers": ["console"],
+    "level": settings.LOG_LEVEL,
+    "handlers": ["console"],
     },
     "loggers": {
-        "agis.access": {"level": "INFO", "propagate": True},
-        "uvicorn": {"level": "WARNING", "propagate": True},
-        "uvicorn.access": {"level": "WARNING", "propagate": True},
+    # Your application
+    "agis": {
+        "level": "INFO",
+        "propagate": True,
     },
+
+    # Uvicorn
+    "uvicorn": {
+        "level": "WARNING",
+        "propagate": False,
+    },
+    "uvicorn.error": {
+        "level": "INFO",
+        "propagate": False,
+    },
+    "uvicorn.access": {
+        "level": "WARNING",
+        "propagate": False,
+    },
+
+    # MongoDB / Motor
+    "pymongo": {
+        "level": "WARNING",
+        "propagate": False,
+    },
+    "motor": {
+        "level": "WARNING",
+        "propagate": False,
+    },
+
+    # Kafka
+    "aiokafka": {
+        "level": "WARNING",
+        "propagate": False,
+    },
+
+    # HTTP clients
+    "httpx": {
+        "level": "WARNING",
+        "propagate": False,
+    },
+    "httpcore": {
+        "level": "WARNING",
+        "propagate": False,
+    },
+
+    # LiteLLM / OpenAI
+    "litellm": {
+        "level": "WARNING",
+        "propagate": False,
+    },
+    "openai": {
+        "level": "WARNING",
+        "propagate": False,
+    },
+
+    # CrewAI
+    "crewai": {
+        "level": "WARNING",
+        "propagate": False,
+    },
+},
 })
 
 logger = logging.getLogger(__name__)

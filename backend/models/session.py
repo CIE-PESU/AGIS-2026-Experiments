@@ -1,84 +1,147 @@
 """
-Session Beanie ODM model — `sessions` collection.
-Core collection. Embeds TIPSC, DFV, and Discovery outputs.
+models/session.py — MongoDB session document.
+
+Source of truth for the complete AGIS session lifecycle.
 """
 
+from __future__ import annotations
+
 from datetime import datetime, timezone
-from typing import Optional, Any
-from beanie import Document
+from typing import Any, Optional
+
+from beanie import Document, Indexed
 from pydantic import BaseModel, Field
+from pymongo import ASCENDING, DESCENDING, IndexModel
 
 from state_machine.states import SessionStatus
+from models.schema import DiscoveryJobPayload
 
 
-# ── Embedded output models ────────────────────────────────────────────────────
+
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# State transition
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class StateTransition(BaseModel):
+    from_status: str = ""
+    to_status: str
+    timestamp: datetime = Field(default_factory=utc_now)
+    actor: str = "system"
+    trigger: str = "unknown"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TIPSC embedded models
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class TIPSCRefinedIdea(BaseModel):
+    customer_segment: str = ""
+    qualified_problem: str = ""
+    consequence: str = ""
+    proposed_solution: str = ""
+
+
+class TIPSValidatedMetrics(BaseModel):
+    timely_factor: str = ""
+    importance_metric: str = ""
+    profitability_pivot: str = ""
+    solvability_constraint: str = ""
+
 
 class TIPSCRAGScores(BaseModel):
-    """RAG (Red/Amber/Green) scores for each TIPS dimension."""
-    T: str = ""   # "GREEN" | "YELLOW" | "RED"
+    T: str = ""
     I: str = ""
     P: str = ""
     S: str = ""
+
     T_reason: str = ""
     I_reason: str = ""
     P_reason: str = ""
     S_reason: str = ""
 
 
-class TIPSCRefinedIdea(BaseModel):
-    customer_segment:   str = ""
-    qualified_problem:  str = ""
-    consequence:        str = ""
-    proposed_solution:  str = ""
-
-
 class TIPSCOutput(BaseModel):
     """
-    Shape produced by TIPSC-Agent/src/engine/async_pipeline_executor.py.
-    MUST match TIPSC-Agent/src/models.py:TIPSCOutput field-for-field.
+    Persisted TIPSC result.
+
+    Must remain compatible with:
+        TIPSC-Agent/src/models.py:TIPSCOutput
+
+    Backend-only metadata fields are also included.
     """
-    tips_rag_scores:     TIPSCRAGScores = TIPSCRAGScores()
-    refined_idea:        TIPSCRefinedIdea = TIPSCRefinedIdea()
-    solution_alignment:  str = ""   # "GREEN" | "YELLOW" | "RED"
-    overall_readiness:   str = ""   # "STRONG" | "MODERATE" | "WEAK"
-    ready_for_dfv:       bool = False
-    needs_followup:      bool = False
-    missing_criteria:    list[str] = Field(default_factory=list)
-    compliance_flag:     bool = False
-    reasoning:           str = ""   # populated from ethics/compliance context
-    followups_asked:     int = 0
-    completed_at:        datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    refined_idea: TIPSCRefinedIdea = Field(
+        default_factory=TIPSCRefinedIdea
+    )
+
+    solution_alignment: str = ""
+
+    tips_validated_metrics: TIPSValidatedMetrics = Field(
+        default_factory=TIPSValidatedMetrics
+    )
+
+    tips_rag_scores: TIPSCRAGScores = Field(
+        default_factory=TIPSCRAGScores
+    )
+
+    overall_readiness: str = ""
+
+    ready_for_dfv: bool = False
+
+    needs_followup: bool = False
+
+    missing_criteria: list[str] = Field(
+        default_factory=list
+    )
+
+    criteria_state: dict[str, Any] = Field(
+        default_factory=dict
+    )
+
+    # Backend enrichment fields
+
+    compliance_flag: bool = False
+
+    reasoning: str = ""
+
+    followups_asked: int = 0
+
+    completed_at: Optional[datetime] = None
 
 
-class DFVOutput(BaseModel):
+# ─────────────────────────────────────────────────────────────────────────────
+# Follow-up models
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class FollowupExchange(BaseModel):
     """
-    Shape written by combined_agent_worker.py to the session's `dfv` field.
-    The `output` sub-field contains the raw CrewAI crew output parsed from JSON.
+    One completed founder follow-up exchange.
+
+    pending_question is stored separately until answered.
+    Only answered questions appear in followup_history.
     """
-    correlation_id: str = ""
-    status:         str = ""   # FlowStatus value: "done" | "failed" | "running" | "timeout"
-    output:         Optional[dict[str, Any]] = None   # raw agent output dict
-    error:          Optional[str] = None
-    retry_count:    int = 0
-    started_at:     Optional[datetime] = None
-    completed_at:   Optional[datetime] = None
-    idea_name:      str = ""
+
+    question: str
+    answer: str
+
+    turn: int
+
+    answered_at: datetime = Field(
+        default_factory=utc_now
+    )
 
 
-class DiscoveryOutput(BaseModel):
-    """
-    Shape written by combined_agent_worker.py to the session's `discovery` field.
-    """
-    correlation_id: str = ""
-    status:         str = ""
-    output:         Optional[dict[str, Any]] = None
-    error:          Optional[str] = None
-    retry_count:    int = 0
-    started_at:     Optional[datetime] = None
-    completed_at:   Optional[datetime] = None
+# ─────────────────────────────────────────────────────────────────────────────
+# DFV models
+# ─────────────────────────────────────────────────────────────────────────────
 
-
-# ── DFV inputs (stored when student triggers DFV) ─────────────────────────────
 
 class DFVInputs(BaseModel):
     desirability_context: str
@@ -86,62 +149,213 @@ class DFVInputs(BaseModel):
     viability_context: str
 
 
-# ── Worker Failure Metadata ───────────────────────────────────────────────────
+class DFVOutput(BaseModel):
+    """
+    DFV worker output.
+
+    Kept flexible because the combined agent worker stores its raw
+    structured output inside `output`.
+    """
+
+    correlation_id: str = ""
+
+    status: str = ""
+
+    output: Optional[dict[str, Any]] = None
+
+    error: Optional[str] = None
+
+    retry_count: int = 0
+
+    started_at: Optional[datetime] = None
+
+    completed_at: Optional[datetime] = None
+
+    idea_name: str = ""
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Discovery models
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class DiscoveryOutput(BaseModel):
+    correlation_id: str = ""
+
+    status: str = ""
+
+    output: Optional[dict[str, Any]] = None
+
+    error: Optional[str] = None
+
+    retry_count: int = 0
+
+    started_at: Optional[datetime] = None
+
+    completed_at: Optional[datetime] = None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Worker failure metadata
+# ─────────────────────────────────────────────────────────────────────────────
+
 
 class WorkerFailureMetadata(BaseModel):
     flow: str
+
     error_code: str
+
     error_message: str
+
     retry_count: int = 0
-    failed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    failed_at: datetime = Field(
+        default_factory=utc_now
+    )
 
 
-# ── State transition audit trail ───────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# Session document
+# ─────────────────────────────────────────────────────────────────────────────
 
-class StateTransition(BaseModel):
-    """Records a single status transition for audit purposes."""
-    from_status: str
-    to_status: str
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    actor: str = "system"   # "student" | "worker" | "system"
-    trigger: str = ""       # e.g. "session_created", "tipsc_completed", "update_status"
-
-
-# ── Session document ──────────────────────────────────────────────────────────
 
 class Session(Document):
-    team_id: str
-    student_id: str  
+
+    # ── Ownership ──────────────────────────────────────────────────────────
+
+    student_id: Indexed(str)
+
+    team_id: Indexed(str)
+
+    # ── Founder input ──────────────────────────────────────────────────────
+
     problem_statement: str
+
+    # Compatibility field used by DFV / Discovery.
+    # Contains proposed_solution.
     idea: str
+
+    # Complete seven-field PreEval founder input.
+    preeval_input: Optional[dict[str, Any]] = None
+
+    # ── Pipeline state ─────────────────────────────────────────────────────
+
     status: SessionStatus = SessionStatus.CREATED
 
-    # Optimistic concurrency — incremented on every status change
     version: int = 0
 
-    # Embedded outputs (null until the corresponding flow completes)
+    # ── TIPSC intermediate state ───────────────────────────────────────────
+
+    preeval: Optional[dict[str, Any]] = None
+
+    validation: Optional[dict[str, Any]] = None
+
+    regulatory: Optional[dict[str, Any]] = None
+
+    ethics: Optional[dict[str, Any]] = None
+
+    compliance_context: Optional[str] = None
+
+    # ── Flow outputs ───────────────────────────────────────────────────────
+
     tipsc: Optional[TIPSCOutput] = None
+
     dfv: Optional[DFVOutput] = None
+
     discovery: Optional[DiscoveryOutput] = None
 
-    # Stored when student triggers DFV so the worker has the context
-    dfv_inputs: Optional[DFVInputs] = None
+    # ── DFV founder context ────────────────────────────────────────────────
 
-    # Correlation ID of the most recent Kafka event (used by workers to validate)
+    dfv_inputs: Optional[DFVInputs] = None
+    
+    # ── Discovery founder context ─────────────────────────────────────────
+
+    discovery_inputs: Optional[DiscoveryJobPayload] = None
+
+    # ── TIPSC founder follow-up state ──────────────────────────────────────
+
+    # Question currently visible to the frontend.
+    pending_question: Optional[str] = None
+
+    # Kept for compatibility.
+    # Answers should normally be written directly to followup_history.
+    pending_answer: Optional[str] = None
+
+    # Current question turn.
+    # 0 = no question generated.
+    # 1..3 = active follow-up turn.
+    followup_turn: Optional[int] = 0
+
+    # Only completed Q&A exchanges.
+    followup_history: list[FollowupExchange] = Field(
+        default_factory=list
+    )
+
+    # ── Execution metadata ─────────────────────────────────────────────────
+
     correlation_id: Optional[str] = None
 
-    # Populated if a worker fails to process the flow
-    failure_metadata: Optional[WorkerFailureMetadata] = None
+    failure_metadata: Optional[
+        WorkerFailureMetadata
+    ] = None
 
-    # Idempotency key for session creation (stored so duplicate POSTs are caught)
+    error: Optional[str] = None
+
+    rejection_reason: Optional[str] = None
+
+    # ── Idempotency / audit ────────────────────────────────────────────────
+
     idempotency_key: Optional[str] = None
 
-    # Full audit trail of every status transition
-    state_history: list[StateTransition] = Field(default_factory=list)
+    state_history: list[StateTransition] = Field(
+        default_factory=list
+    )
+
+    # ── Lifecycle timestamps ───────────────────────────────────────────────
 
     archived_at: Optional[datetime] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    created_at: datetime = Field(
+        default_factory=utc_now
+    )
+
+    updated_at: datetime = Field(
+        default_factory=utc_now
+    )
+
+    # ── MongoDB configuration ──────────────────────────────────────────────
 
     class Settings:
         name = "sessions"
+
+        indexes = [
+            IndexModel(
+                [("student_id", ASCENDING)],
+                name="ix_sessions_student_id",
+            ),
+            IndexModel(
+                [("team_id", ASCENDING)],
+                name="ix_sessions_team_id",
+            ),
+            IndexModel(
+                [("status", ASCENDING)],
+                name="ix_sessions_status",
+            ),
+            IndexModel(
+                [
+                    ("student_id", ASCENDING),
+                    ("status", ASCENDING),
+                ],
+                name="ix_sessions_student_status",
+            ),
+            IndexModel(
+                [("created_at", DESCENDING)],
+                name="ix_sessions_created_at_desc",
+            ),
+            IndexModel(
+                [("idempotency_key", ASCENDING)],
+                name="ix_sessions_idempotency_key",
+                unique=True,
+                sparse=True,
+            ),
+        ]

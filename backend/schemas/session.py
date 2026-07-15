@@ -1,11 +1,7 @@
 """
-schemas/session.py — Pydantic request/response schemas for the Sessions API.
+schemas/session.py — Session request/response schemas.
 
-Matches api-spec.md Section 3.2 exactly.
-
-These schemas are used by:
-  - api/v1/sessions.py  (route handlers — request body + response type hints)
-  - services/session_service.py  (return types)
+API contract for the complete AGIS session lifecycle.
 """
 
 from __future__ import annotations
@@ -17,16 +13,16 @@ from pydantic import BaseModel, Field, field_validator
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Embedded output sub-schemas (mirrors models/session.py embedded docs)
-# These are used in SessionResponse so the full shape is returned to clients.
+# TIPSC schemas
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TIPSCRAGScoresSchema(BaseModel):
-    """RAG (Red/Amber/Green) scores for each TIPS dimension. Mirrors models/session.py:TIPSCRAGScores."""
     T: str = ""
     I: str = ""
     P: str = ""
     S: str = ""
+
     T_reason: str = ""
     I_reason: str = ""
     P_reason: str = ""
@@ -34,7 +30,6 @@ class TIPSCRAGScoresSchema(BaseModel):
 
 
 class TIPSCRefinedIdeaSchema(BaseModel):
-    """Mirrors models/session.py:TIPSCRefinedIdea."""
     customer_segment: str = ""
     qualified_problem: str = ""
     consequence: str = ""
@@ -42,186 +37,367 @@ class TIPSCRefinedIdeaSchema(BaseModel):
 
 
 class TIPSCOutputSchema(BaseModel):
-    """
-    API response shape for TIPSC output.
-    MUST be kept in sync with models/session.py:TIPSCOutput field-for-field.
-    """
-    tips_rag_scores: TIPSCRAGScoresSchema = Field(default_factory=TIPSCRAGScoresSchema)
-    refined_idea: TIPSCRefinedIdeaSchema = Field(default_factory=TIPSCRefinedIdeaSchema)
+    tips_rag_scores: TIPSCRAGScoresSchema = Field(
+        default_factory=TIPSCRAGScoresSchema
+    )
+
+    refined_idea: TIPSCRefinedIdeaSchema = Field(
+        default_factory=TIPSCRefinedIdeaSchema
+    )
+
     solution_alignment: str = ""
     overall_readiness: str = ""
+
     ready_for_dfv: bool = False
+
     needs_followup: bool = False
-    missing_criteria: list[str] = Field(default_factory=list)
+
+    missing_criteria: list[str] = Field(
+        default_factory=list
+    )
+
+    criteria_state: dict[str, Any] = Field(
+        default_factory=dict
+    )
+
     compliance_flag: bool = False
+
     reasoning: str = ""
+
     followups_asked: int = 0
+
     completed_at: Optional[datetime] = None
 
 
-class DFVDimensionSchema(BaseModel):
-    score: int
-    report: str
-    recommendations: list[str] = Field(default_factory=list)
+# ─────────────────────────────────────────────────────────────────────────────
+# DFV schemas
+# ─────────────────────────────────────────────────────────────────────────────
 
 
 class DFVOutputSchema(BaseModel):
-    desirability: DFVDimensionSchema
-    feasibility: DFVDimensionSchema
-    viability: DFVDimensionSchema
-    overall_decision: str
-    summary: str
-    json_report: dict[str, Any] = Field(default_factory=dict)
-    completed_at: datetime
+    correlation_id: str = ""
+
+    status: str = ""
+
+    output: Optional[dict[str, Any]] = None
+
+    error: Optional[str] = None
+
+    retry_count: int = 0
+
+    started_at: Optional[datetime] = None
+
+    completed_at: Optional[datetime] = None
+
+    idea_name: str = ""
 
 
-class JTBDElementSchema(BaseModel):
-    job: str
-    outcome: str
-    pain: str
-
-
-class InterviewPlanSchema(BaseModel):
-    target_segment: str
-    interview_questions: list[str] = Field(default_factory=list)
-    hypothesis_to_validate: str
+# ─────────────────────────────────────────────────────────────────────────────
+# Discovery schemas
+# ─────────────────────────────────────────────────────────────────────────────
 
 
 class DiscoveryOutputSchema(BaseModel):
-    jtbd_elements: list[JTBDElementSchema] = Field(default_factory=list)
-    interview_plan: InterviewPlanSchema
-    completed_at: datetime
+    correlation_id: str = ""
+
+    status: str = ""
+
+    output: Optional[dict[str, Any]] = None
+
+    error: Optional[str] = None
+
+    retry_count: int = 0
+
+    started_at: Optional[datetime] = None
+
+    completed_at: Optional[datetime] = None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Request Schemas
+# Follow-up schemas
 # ─────────────────────────────────────────────────────────────────────────────
+
+
+class FollowupHistoryItemSchema(BaseModel):
+    question: str
+    answer: str
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Session creation
+# ─────────────────────────────────────────────────────────────────────────────
+
 
 class SessionCreateRequest(BaseModel):
     """
-    POST /sessions request body.
+    Initial pre-evaluation form.
 
-    The client must also supply an `Idempotency-Key` header (UUID4).
-    The route handler reads that from the request headers and passes it
-    to session_service.create_session().
+    These are the default founder questions shown before TIPSC starts.
     """
 
     problem_statement: str = Field(
         ...,
-        min_length=50,
+        min_length=20,
         max_length=5000,
-        description="Clear description of the problem the student's idea addresses (50–5000 chars).",
     )
-    idea: str = Field(
+
+    customer_segment: str = Field(
+        ...,
+        min_length=2,
+        max_length=2000,
+    )
+
+    consequence: str = Field(
+        ...,
+        min_length=2,
+        max_length=3000,
+    )
+
+    assumptions: list[str] = Field(
+        default_factory=list,
+    )
+
+    proposed_solution: str = Field(
         ...,
         min_length=10,
-        max_length=2000,
-        description="The business idea or proposed solution.",
+        max_length=3000,
     )
-    team_id: Optional[str] = Field(default=None, description="Override the JWT team_id if student is registering a new team")
 
-    @field_validator("problem_statement", "idea", mode="before")
+    target_geography: str = Field(
+        ...,
+        min_length=2,
+        max_length=1000,
+    )
+
+    industry_sector: str = Field(
+        ...,
+        min_length=2,
+        max_length=1000,
+    )
+
+    team_id: Optional[str] = None
+
+
+    @field_validator(
+        "problem_statement",
+        "customer_segment",
+        "consequence",
+        "proposed_solution",
+        "target_geography",
+        "industry_sector",
+        mode="before",
+    )
     @classmethod
-    def strip_whitespace(cls, v: str) -> str:
-        return str(v).strip()
+    def strip_strings(cls, value: Any) -> str:
+        return str(value).strip()
+
+
+    @field_validator(
+        "assumptions",
+        mode="before",
+    )
+    @classmethod
+    def normalize_assumptions(
+        cls,
+        value: Any,
+    ) -> list[str]:
+
+        if value is None:
+            return []
+
+        if isinstance(value, str):
+            return [value.strip()]
+
+        if isinstance(value, list):
+            return [
+                str(item).strip()
+                for item in value
+                if str(item).strip()
+            ]
+
+        return []
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Response Schemas
+# Session response
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class SessionResponse(BaseModel):
-    """
-    Full session shape returned by GET /sessions/{id}, POST /sessions, DELETE /sessions/{id}.
+    session_id: str
 
-    Matches api-spec.md Section 3.2 SessionObject shape exactly.
-    """
-
-    session_id: str = Field(description="MongoDB ObjectId as string.")
     student_id: str
     team_id: str
+
     problem_statement: str
     idea: str
-    status: str = Field(description="Current session state (see SessionStatus enum).")
-    version: int = Field(description="Optimistic concurrency version counter.")
 
-    # Embedded AI outputs — null until the corresponding flow completes.
+    preeval_input: Optional[dict[str, Any]] = None
+
+    status: str
+
+    version: int
+
+
+    # ── Pipeline intermediate state ───────────────────────────────────────
+
+    preeval: Optional[dict[str, Any]] = None
+
+    validation: Optional[dict[str, Any]] = None
+
+    regulatory: Optional[dict[str, Any]] = None
+
+    ethics: Optional[dict[str, Any]] = None
+
+    compliance_context: Optional[str] = None
+
+
+    # ── Outputs ───────────────────────────────────────────────────────────
+
     tipsc: Optional[TIPSCOutputSchema] = None
+
     dfv: Optional[DFVOutputSchema] = None
+
     discovery: Optional[DiscoveryOutputSchema] = None
 
-    # Timestamps
-    created_at: datetime
-    updated_at: datetime
-    archived_at: Optional[datetime] = None
 
-    # Correlation ID of the most recent Kafka event
+    # ── Follow-up state ───────────────────────────────────────────────────
+
+    pending_question: Optional[str] = None
+
+    followup_turn: int = 0
+
+    followup_history: list[
+        FollowupHistoryItemSchema
+    ] = Field(
+        default_factory=list
+    )
+
+
+    # ── Execution metadata ────────────────────────────────────────────────
+
     correlation_id: Optional[str] = None
 
-    @classmethod
-    def from_document(cls, session: Any) -> "SessionResponse":
-        """
-        Build a SessionResponse from a Session Beanie document.
+    error: Optional[str] = None
 
-        This helper avoids scattering `.model_dump()` calls across routes
-        and provides a single place to translate MongoDB `id` → `session_id`.
-        """
+    rejection_reason: Optional[str] = None
+
+
+    # ── Timestamps ────────────────────────────────────────────────────────
+
+    created_at: datetime
+
+    updated_at: datetime
+
+    archived_at: Optional[datetime] = None
+
+
+    @classmethod
+    def from_document(
+        cls,
+        session: Any,
+    ) -> "SessionResponse":
+        print("TIPSC TYPE:", type(session.tipsc))
+
+        if session.tipsc:
+            print("MODEL DUMP TYPE:", type(session.tipsc.model_dump()))
+            print("MODEL DUMP:", session.tipsc.model_dump())
+
         return cls(
             session_id=str(session.id),
+
             student_id=session.student_id,
+
             team_id=session.team_id,
+
             problem_statement=session.problem_statement,
+
             idea=session.idea,
-            status=session.status.value if hasattr(session.status, "value") else session.status,
+
+            preeval_input=session.preeval_input,
+
+            status=(
+                session.status.value
+                if hasattr(session.status, "value")
+                else session.status
+            ),
+
             version=session.version,
-            tipsc=session.tipsc.model_dump() if session.tipsc else None,
-            dfv=session.dfv.model_dump() if session.dfv else None,
-            discovery=session.discovery.model_dump() if session.discovery else None,
-            created_at=session.created_at,
-            updated_at=session.updated_at,
-            archived_at=session.archived_at,
+
+            preeval=session.preeval,
+
+            validation=session.validation,
+
+            regulatory=session.regulatory,
+
+            ethics=session.ethics,
+
+            compliance_context=session.compliance_context,
+
+            tipsc=(
+                TIPSCOutputSchema.model_validate(session.tipsc.model_dump())
+                if session.tipsc
+                else None
+            ),
+
+            dfv=(
+                DFVOutputSchema.model_validate(session.dfv.model_dump())
+                if session.dfv
+                else None
+            ),
+
+            discovery=(
+                DiscoveryOutputSchema.model_validate(session.discovery.model_dump())
+                if session.discovery
+                else None
+            ),
+
+            pending_question=session.pending_question,
+
+            followup_turn=session.followup_turn,
+
+            followup_history=[
+            FollowupHistoryItemSchema.model_validate(item.model_dump())
+            for item in (session.followup_history or [])
+            ],
+
             correlation_id=session.correlation_id,
+
+            error=session.error,
+
+            rejection_reason=session.rejection_reason,
+
+            created_at=session.created_at,
+
+            updated_at=session.updated_at,
+
+            archived_at=session.archived_at,
         )
 
 
-class SessionListResponse(BaseModel):
-    """
-    Paginated list item returned inside the `data` array of GET /sessions.
+# ─────────────────────────────────────────────────────────────────────────────
+# Session list response
+# ─────────────────────────────────────────────────────────────────────────────
 
-    Contains the full session shape — clients can pre-populate detail views
-    from the list response without an additional round-trip.
-    """
 
-    session_id: str
-    student_id: str
-    team_id: str
-    problem_statement: str
-    idea: str
-    status: str
-    version: int
-    tipsc: Optional[TIPSCOutputSchema] = None
-    dfv: Optional[DFVOutputSchema] = None
-    discovery: Optional[DiscoveryOutputSchema] = None
-    created_at: datetime
-    updated_at: datetime
-    archived_at: Optional[datetime] = None
-    correlation_id: Optional[str] = None
+class SessionListResponse(SessionResponse):
+    """
+    Same shape as SessionResponse.
+
+    Kept as a separate schema so the API contract can diverge later
+    without modifying the detail endpoint.
+    """
 
     @classmethod
-    def from_document(cls, session: Any) -> "SessionListResponse":
+    def from_document(
+        cls,
+        session: Any,
+    ) -> "SessionListResponse":
+
+        response = SessionResponse.from_document(
+            session
+        )
+
         return cls(
-            session_id=str(session.id),
-            student_id=session.student_id,
-            team_id=session.team_id,
-            problem_statement=session.problem_statement,
-            idea=session.idea,
-            status=session.status.value if hasattr(session.status, "value") else session.status,
-            version=session.version,
-            tipsc=session.tipsc.model_dump() if session.tipsc else None,
-            dfv=session.dfv.model_dump() if session.dfv else None,
-            discovery=session.discovery.model_dump() if session.discovery else None,
-            created_at=session.created_at,
-            updated_at=session.updated_at,
-            archived_at=session.archived_at,
-            correlation_id=session.correlation_id,
+            **response.model_dump()
         )

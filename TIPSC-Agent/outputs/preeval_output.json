@@ -1,13 +1,11 @@
 {
-  "problem_statement": "Landlords in the EU struggle to vet tenants reliably due to application fraud and missed rent costs.",
-  "customer_segment": "Property owners and property managers in Germany, France, and the Netherlands who rent out 10+ residential units",
-  "consequence": "They accept bad tenants who cause property damage, stop paying rent, and are expensive to evict through court",
+  "problem_statement": "University students struggle to validate startup ideas before investing significant time and resources because they lack structured guidance, market validation frameworks, and access to expert feedback.",
+  "customer_segment": "An AI-powered startup validation platform that evaluates student startup ideas using TIPSC, desirability, feasibility, and viability analysis.",
+  "consequence": "idk",
   "assumptions": [
-    "Landlords already collect social media handles from applicants informally.",
-    "Background check agencies are slow and expensive.",
-    "Tenants want faster approvals."
+    "idk"
   ],
-  "proposed_solution": "An AI-powered tenant screening platform that scrapes applicants' public social media profiles to build a behavioral risk score, with instant approval recommendations for landlords",
-  "target_geography": "EU (Germany, France, Netherlands)",
-  "industry_sector": "proptech / tenant screening"
+  "proposed_solution": "Maybe good",
+  "target_geography": "India",
+  "industry_sector": "education"
 }

@@ -4,6 +4,7 @@ from dependencies.worker_auth import verify_worker_secret
 from schemas.worker import WorkerOutputRequest, WorkerFailureRequest
 from services.worker_service import worker_service
 
+
 # Apply the worker authentication dependency globally to this router
 router = APIRouter(
     tags=["Internal Worker Tracking"],

@@ -66,7 +66,7 @@ class PipelineExecutor:
         )
         logger.info("TIPSC completed")
 
-        context.state = PipelineState.TIPSC_COMPLETE
+        context.state = PipelineState.TIPSC_COMPLETED
 
         return {
             "preeval": context.preeval,

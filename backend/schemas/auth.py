@@ -27,6 +27,7 @@ class LoginRequest(BaseModel):
 
     srn: str
     password: str
+    team_id: Optional[str] = None
 
     @field_validator("srn", mode="before")
     @classmethod

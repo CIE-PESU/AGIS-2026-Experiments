@@ -4,7 +4,8 @@ core/config.py — Application configuration via Pydantic Settings.
 Reads all values from environment variables (or .env file).
 Never hardcode secrets. Every field here must come from the environment.
 """
-
+from pathlib import Path
+ROOT_DIR = Path(__file__).resolve().parents[2]
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -12,7 +13,7 @@ class Settings(BaseSettings):
     """Central configuration class. All fields are read from environment variables."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=ROOT_DIR / ".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
@@ -51,12 +52,24 @@ class Settings(BaseSettings):
     # ── Internal Worker ────────────────────────────────────────────────────────
     WORKER_INTERNAL_SECRET: str
 
+
     # ── Rate Limiting ──────────────────────────────────────────────────────────
     RATE_LIMIT_LOGIN_PER_MINUTE: int = 5    # per IP
     RATE_LIMIT_API_PER_MINUTE: int = 60     # per user_id
 
     # ── Payload ────────────────────────────────────────────────────────────────
     MAX_REQUEST_BODY_BYTES: int = 10_485_760  # 10 MB (C4: returns 413 above this)
+    # ── Agent Worker ──────────────────────────────────────────────────────────────
+    WORKER_BACKEND_URL: str = "http://127.0.0.1:8000"
+    WORKER_ID: str = "combined-agent-worker-1"
+    AGENT_TIMEOUT_SECONDS: int = 1800
+    AGENT_MAX_RETRIES: int = 3
+    TAVILY_API_KEY: str
+    # ── LLM / CrewAI ───────────────────────────────────────────────────────────
+    OPENAI_MODEL_NAME: str
+    OPENAI_API_KEY: str
+    LM_STUDIO_URL: str
+    LOG_LEVEL: str = "INFO" # or DEBUG
 
     @property
     def cors_origins_list(self) -> list[str]:

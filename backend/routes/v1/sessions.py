@@ -98,17 +98,30 @@ async def create_session(
             field="Idempotency-Key",
         )
 
-    resolved_team_id = body.team_id or current_user.team_id or f"team_{current_user.user_id[-6:]}"
+    resolved_team_id = (
+        body.team_id
+        or current_user.team_id
+        or f"team_{current_user.user_id[-6:]}"
+    )
+    
     session = await session_service.create_session(
         student_id=current_user.user_id,
         team_id=resolved_team_id,
         problem_statement=body.problem_statement,
-        idea=body.idea,
+        customer_segment=body.customer_segment,
+        consequence=body.consequence,
+        assumptions=body.assumptions,
+        proposed_solution=body.proposed_solution,
+        target_geography=body.target_geography,
+        industry_sector=body.industry_sector,
         idempotency_key=idempotency_key,
         background_tasks=background_tasks,
     )
-
-    return success_response(data=session.model_dump(), request=request)
+    
+    return success_response(
+        data=session.model_dump(),
+        request=request,
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────

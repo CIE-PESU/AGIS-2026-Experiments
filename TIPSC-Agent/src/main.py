@@ -3,7 +3,7 @@
 
 import asyncio
 import os,re
-from utils.followup_context import FollowUpContext
+from tipsc_utils.followup_context import FollowUpContext
 from dotenv import load_dotenv
 load_dotenv()
 os.environ["OTEL_SDK_DISABLED"] = "true"

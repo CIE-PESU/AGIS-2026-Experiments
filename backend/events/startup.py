@@ -1,108 +1,263 @@
 """
-events/startup.py — Application startup event handler.
+events/startup.py
 
-Executed once when the FastAPI app starts. Initializes:
-  1. MongoDB connection + Beanie ODM
-  2. Kafka producer (Vijay's module — wired in on Day 1 merge)
-  3. Database indexes (Bhavesh's module — wired in on Day 1 merge)
+Application startup handler.
 
-Order matters: DB must be ready before indexes can be created.
+Initializes:
+    1. MongoDB + Beanie
+    2. Database indexes
+    3. Kafka producer
+    4. In-process TIPSC engine
 """
 
 from __future__ import annotations
 
 import logging
-import sys
 import os
+import sys
+from pathlib import Path
 
-# Add TIPSC-Agent/src to PYTHONPATH so backend can import engine modules
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../TIPSC-Agent/src")))
+import yaml
+
 
 logger = logging.getLogger(__name__)
 
-# Global instances to be used by shutdown.py and routes
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TIPSC source path
+# ─────────────────────────────────────────────────────────────────────────────
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+TIPSC_SRC_DIR = (
+    PROJECT_ROOT
+    / "TIPSC-Agent"
+    / "src"
+)
+
+TIPSC_SRC_PATH = str(TIPSC_SRC_DIR)
+
+
+# TIPSC uses absolute imports such as:
+#
+#     from models import PreEvalOutput
+#     from engine.dispatcher import WorkerDispatcher
+#
+# Therefore TIPSC/src must be resolved before backend modules.
+if TIPSC_SRC_PATH not in sys.path:
+    sys.path.insert(0, TIPSC_SRC_PATH)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Global engine instances
+# ─────────────────────────────────────────────────────────────────────────────
+
 tipsc_executor_instance = None
+
+
+def _load_yaml(relative_path: str) -> dict:
+    """
+    Load a TIPSC YAML configuration file.
+    """
+
+    path = TIPSC_SRC_DIR / relative_path
+
+    with path.open(
+        "r",
+        encoding="utf-8",
+    ) as file:
+        return yaml.safe_load(file)
+
+
+def _load_text(relative_path: str) -> str:
+    """
+    Load a TIPSC text/skill file.
+    """
+
+    path = TIPSC_SRC_DIR / relative_path
+
+    with path.open(
+        "r",
+        encoding="utf-8",
+    ) as file:
+        return file.read()
 
 
 async def on_startup() -> None:
     """
     FastAPI lifespan startup handler.
 
-    Called automatically by the lifespan context manager in main.py.
-    Raises on failure — FastAPI will not serve traffic if startup fails.
+    Startup order matters:
+
+        MongoDB
+        -> Indexes
+        -> Kafka
+        -> TIPSC Engine
     """
-    logger.info("=== AGIS Backend Starting Up ===")
 
-    # ── 1. MongoDB ─────────────────────────────────────────────────────────────
+    global tipsc_executor_instance
+
+    logger.info(
+        "=== AGIS Backend Starting Up ==="
+    )
+
+    # ──────────────────────────────────────────────────────────────────────
+    # 1. MongoDB
+    # ──────────────────────────────────────────────────────────────────────
+
     try:
+
         from database.mongodb import connect_db
+
         await connect_db()
-        logger.info("[startup] MongoDB ✓")
-    except Exception as exc:
-        logger.critical("[startup] MongoDB connection FAILED: %s", exc)
-        raise  # Hard fail — we cannot operate without the database
 
-    # ── 2. Database Indexes ────────────────────────────────────────────────────
-    # Bhavesh's indexes module — will be wired in when B-03 merges.
+        logger.info(
+            "[startup] MongoDB ✓"
+        )
+
+    except Exception as exc:
+
+        logger.critical(
+            "[startup] MongoDB connection FAILED: %s",
+            exc,
+        )
+
+        raise
+
+    # ──────────────────────────────────────────────────────────────────────
+    # 2. Database indexes
+    # ──────────────────────────────────────────────────────────────────────
+
     try:
+
         from database.indexes import create_indexes
+
         await create_indexes()
-        logger.info("[startup] Indexes ✓")
-    except Exception as exc:
-        logger.error("[startup] Index creation failed (non-fatal): %s", exc)
 
-    # ── 3. Kafka Producer ──────────────────────────────────────────────────────
+        logger.info(
+            "[startup] Indexes ✓"
+        )
+
+    except Exception as exc:
+
+        logger.error(
+            "[startup] Index creation failed "
+            "(non-fatal): %s",
+            exc,
+        )
+
+    # ──────────────────────────────────────────────────────────────────────
+    # 3. Kafka producer
+    # ──────────────────────────────────────────────────────────────────────
+
     try:
+
         from kafka.producer import kafka_producer
-        await kafka_producer.start()
-        logger.info("[startup] Kafka Producer ✓")
-    except Exception as exc:
-        logger.warning("[startup] Kafka Producer unavailable (non-fatal): %s", exc)
 
-    # ── 4. Setup TIPSC Engine (No Kafka for TIPSC) ───────────────────────────
+        await kafka_producer.start()
+
+        logger.info(
+            "[startup] Kafka Producer ✓"
+        )
+
+    except Exception as exc:
+
+        logger.warning(
+            "[startup] Kafka Producer unavailable "
+            "(non-fatal): %s",
+            exc,
+        )
+
+    # ──────────────────────────────────────────────────────────────────────
+    # 4. TIPSC engine
+    # ──────────────────────────────────────────────────────────────────────
+
     try:
+
+        from core.config import settings
         from database.mongodb import get_client
+
+        from engine.async_pipeline_executor import (
+            AsyncPipelineExecutor,
+        )
         from engine.db import SessionStore
         from engine.stages import PipelineStages
-        from engine.async_pipeline_executor import AsyncPipelineExecutor
-        from core.config import settings
+
+        # ── Mongo collection ───────────────────────────────────────────────
 
         client = get_client()
-        db = SessionStore(client[settings.MONGODB_DB_NAME]["sessions"])
-        
-        import json
-        import yaml
-        from pathlib import Path
 
-        tipsc_src_dir = Path(__file__).resolve().parent.parent.parent / "TIPSC-Agent" / "src"
-        
-        def _load_yaml(rel: str):
-            with open(tipsc_src_dir / rel, "r", encoding="utf-8") as f:
-                return yaml.safe_load(f)
-                
-        def _load_text(rel: str):
-            with open(tipsc_src_dir / rel, "r", encoding="utf-8") as f:
-                return f.read()
+        mongo_database = client[
+            settings.MONGODB_DB_NAME
+        ]
 
-        agents_cfg = _load_yaml("config/agents.yaml")
-        task_cfg = _load_yaml("config/tasks.yaml")
-        preeval_skill = _load_text("skills/preeval/SKILL.md")
-        tipsc_rubric = _load_text("skills/tipsc/SKILL.md")
-        ethics_rubric = _load_text("skills/ethics/SKILL.md")
-        
+        sessions_collection = mongo_database[
+            "sessions"
+        ]
+
+        session_store = SessionStore(
+            sessions_collection
+        )
+
+        # ── TIPSC configuration ────────────────────────────────────────────
+
+        agents_cfg = _load_yaml(
+            "config/agents.yaml"
+        )
+
+        task_cfg = _load_yaml(
+            "config/tasks.yaml"
+        )
+
+        preeval_skill = _load_text(
+            "skills/preeval/SKILL.md"
+        )
+
+        tipsc_rubric = _load_text(
+            "skills/tipsc/SKILL.md"
+        )
+
+        ethics_rubric = _load_text(
+            "skills/ethics/SKILL.md"
+        )
+
+        # ── LLM ───────────────────────────────────────────────────────────
+
         try:
-            from crewai import LLM
-            llm = LLM(
-                model=os.getenv("OPENAI_MODEL_NAME", "lmstudio-community/Meta-Llama-3-8B-Instruct-GGUF"),
-                base_url=os.getenv("LM_STUDIO_URL", "http://localhost:1234/v1"),
-                api_key=os.getenv("OPENAI_API_KEY", "lm-studio"),
-                temperature=0.2,
-            )
-        except Exception as e:
-            logger.warning("[startup] Failed to initialize LLM for TIPSC: %s", e)
-            llm = None
 
-        
+            from crewai import LLM
+
+            llm = LLM(
+            model=settings.OPENAI_MODEL_NAME,
+            base_url=settings.LM_STUDIO_URL,
+            api_key=settings.OPENAI_API_KEY,
+            temperature=0.2,
+            )  
+
+            logger.info(
+                "[startup] TIPSC LLM initialized | "
+                "model=%s",
+                os.getenv(
+                    "OPENAI_MODEL_NAME",
+                    (
+                        "lmstudio-community/"
+                        "Meta-Llama-3-8B-Instruct-GGUF"
+                    ),
+                ),
+            )
+
+        except Exception as exc:
+
+            logger.exception(
+                "[startup] Failed to initialize "
+                "TIPSC LLM: %s",
+                exc,
+            )
+
+            raise
+
+        # ── Pipeline stages ────────────────────────────────────────────────
+
         stages = PipelineStages(
             llm=llm,
             agents_cfg=agents_cfg,
@@ -111,14 +266,30 @@ async def on_startup() -> None:
             tipsc_rubric=tipsc_rubric,
             ethics_rubric=ethics_rubric,
         )
-        global tipsc_executor_instance
-        tipsc_executor_instance = AsyncPipelineExecutor(stages, db)
 
-        logger.info("[startup] TIPSC Engine initialized (Direct execution) ✓")
-        # Architecture note: TIPSC runs as an in-process BackgroundTask, not a Kafka consumer.
-        # DFV and Discovery are Kafka-driven (combined_agent_worker.py).
-        # Followup answers are handled by the /followup API endpoint, not a Kafka consumer.
+        # ── Executor ───────────────────────────────────────────────────────
+
+        tipsc_executor_instance = (
+            AsyncPipelineExecutor(
+                stages=stages,
+                db=session_store,
+            )
+        )
+
+        logger.info(
+            "[startup] TIPSC Engine initialized "
+            "(direct execution) ✓"
+        )
+
     except Exception as exc:
-        logger.error("[startup] TIPSC Engine startup failed: %s", exc)
 
-    logger.info("=== AGIS Backend Ready ===")
+        tipsc_executor_instance = None
+
+        logger.exception(
+            "[startup] TIPSC Engine startup failed: %s",
+            exc,
+        )
+
+    logger.info(
+        "=== AGIS Backend Ready ==="
+    )

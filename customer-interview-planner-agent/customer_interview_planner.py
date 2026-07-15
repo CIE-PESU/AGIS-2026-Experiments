@@ -1,5 +1,6 @@
 import os
 import json
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
 from crewai import Agent, Task, Crew, Process, LLM
@@ -8,35 +9,31 @@ from crewai.skills import discover_skills, activate_skill
 # Load .env FIRST, before anything reads from it.
 load_dotenv()
 
-# Set environment variables for testing and LLM configuration
-# Note that we may still see some logging errors that happen when the underlying LiteLLM tries to some clean up.
-# These can be ignored for now.
-os.environ["CREWAI_TESTING"] = "true"
-os.environ["LITELLM_TIMEOUT"] = "1800"
-os.environ["LITELLM_LOG"] = "ERROR"
-os.environ["LITELLM_TELEMETRY"] = "False"
-os.environ["OPENAI_API_KEY"] = "lm-studio"
 
-# LM Studio's OpenAI-compatible server doesn't support the object-style
-# tool_choice format CrewAI sends when forcing structured JSON output.
-# This tells LiteLLM to silently drop unsupported params instead of
-# raising a 400 error. Same fix applied in the DFV agent's main.py.
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+BACKEND_ENV = PROJECT_ROOT / "backend" / ".env"
+
+load_dotenv(dotenv_path=BACKEND_ENV)
+
+
 import litellm
 litellm.drop_params = True
 
 # LLM endpoint is configurable via .env — reuses the same LM_STUDIO_BASE_URL
 # and LM_STUDIO_MODEL variables as the DFV agent, so one .env controls both
 # flows. Falls back to your own local LM Studio if not set.
-LM_URL = os.getenv("LM_STUDIO_BASE_URL", "http://127.0.0.1:1234/v1")
-LM_MODEL = os.getenv("LM_STUDIO_MODEL", "openai/bonsai-8b")
+LM_URL = os.getenv("LM_STUDIO_URL", "http://127.0.0.1:1234/v1")
+LM_MODEL = os.getenv("OPENAI_MODEL_NAME", "openai/bonsai-8b")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # We are using Bonsai8B as the Local LLM for this Agent (or whatever
 # LM_STUDIO_MODEL is set to in .env)
 reasoning_llm = LLM(
     model=LM_MODEL,
     base_url=LM_URL,
+    api_key=OPENAI_API_KEY,
     temperature=0.2,
-    max_tokens=10000,
+    max_tokens=23000,
     timeout=1800
 )
 
@@ -255,7 +252,7 @@ The report should be practical, student-friendly, and focused on collecting evid
         agents=[customer_discovery_planner],
         tasks=[customer_discovery_task],
         process=Process.sequential,
-        verbose=True
+        verbose=False
     )
 
     return crew.kickoff()

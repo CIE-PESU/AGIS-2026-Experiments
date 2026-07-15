@@ -34,7 +34,7 @@ class AuthService:
 
     # ── Login ──────────────────────────────────────────────────────────────────
 
-    async def login(self, srn: str, password: str) -> LoginResponse:
+    async def login(self, srn: str, password: str, team_id: str | None = None,) -> LoginResponse:
         """
         Authenticate a user via PES Auth and return JWT tokens.
 
@@ -53,7 +53,10 @@ class AuthService:
         pes_data = await pes_auth_client.validate_credentials(srn=srn, password=password)
 
         # Step 2: Upsert user in MongoDB
-        user = await self._upsert_user(pes_data)
+        user = await self._upsert_user(
+        pes_data,
+        team_id=team_id,
+        )
 
         # Step 3: Generate tokens
         access_token = create_access_token(
@@ -188,37 +191,47 @@ class AuthService:
 
     # ── Private Helpers ────────────────────────────────────────────────────────
 
-    async def _upsert_user(self, pes_data: dict) -> User:
-        """
-        Upsert a user document from PES Auth response data.
-
-        Creates the user on first login; updates name/email/role on subsequent logins.
-        """
+    async def _upsert_user(
+        self,
+        pes_data: dict,
+        team_id: str | None = None,
+    ) -> User:
         srn = pes_data.get("srn", "").upper()
         existing = await User.find_one(User.srn == srn)
 
         if existing:
-            # Update mutable fields that PES might change
-            await existing.set({
+            updates = {
                 User.name: pes_data.get("name", existing.name),
                 User.email: pes_data.get("email", existing.email),
                 User.role: pes_data.get("role", existing.role),
-                User.team_id: pes_data.get("team_id", existing.team_id),
-                User.mentor_team_ids: pes_data.get("mentor_team_ids", existing.mentor_team_ids),
-            })
+                User.mentor_team_ids: pes_data.get(
+                    "mentor_team_ids",
+                    existing.mentor_team_ids,
+                ),
+            }
+
+            if team_id is not None:
+                updates[User.team_id] = team_id
+
+            await existing.set(updates)
             return existing
 
-        # First login — create new user document
         user = User(
             srn=srn,
             name=pes_data.get("name", srn),
-            email=pes_data.get("email", f"{srn.lower()}@pes.edu"),
+            email=pes_data.get("email"),
             role=pes_data.get("role", "student"),
-            team_id=pes_data.get("team_id"),
+            team_id=team_id,
             mentor_team_ids=pes_data.get("mentor_team_ids", []),
         )
+
         await user.insert()
-        logger.info("New user created from PES Auth: srn=%s role=%s", srn, user.role)
+        logger.info(
+            "New user created from PES Auth: srn=%s role=%s",
+            srn,
+            user.role,
+        )
+
         return user
 
     async def _find_refresh_token(self, raw_token: str) -> RefreshToken:
