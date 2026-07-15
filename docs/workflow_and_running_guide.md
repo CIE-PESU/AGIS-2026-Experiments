@@ -14,7 +14,7 @@ Before running the components, ensure the following services are running locally
 
 The backend is a FastAPI application that serves as the single source of truth. It manages sessions, enforces RBAC, handles MongoDB persistence for API routes, and publishes events to Kafka.
 
-**Setup Environment:**
+### Setup Environment
 
 ```bash
 cd backend
@@ -23,7 +23,7 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-**Run the Backend:**
+### Run the Backend
 
 ```bash
 uvicorn main:app --reload --port 8000
@@ -33,13 +33,24 @@ uvicorn main:app --reload --port 8000
 
 ## 3. Running the Kafka Workers (Agents)
 
-The system relies on asynchronous workers that listen to Kafka topics, execute CrewAI agentic pipelines, and update MongoDB directly.
+Run this command in backend folder (docker should be installed!!!)
 
-### A. The Combined Agent Worker (DFV & Discovery)
+```
+docker compose up
+```
 
-The backend features a unified worker script that consumes from both `userSession.dfv` and `userSession.discovery` topics. It dynamically imports and runs the agents from the `DFV-agent` and `customer-interview-planner-agent` folders.
+### A. TIPSC Worker
 
-**To run the combined worker:**
+For the TIPSC scoring phase, there is a dedicated consumer.
+
+```bash
+# cd backend
+# # python -m workers.tipsc_worker
+```
+
+### B. Combined Agent Worker (DFV & Discovery)
+
+The backend features a unified worker script that consumes from both `userSession.dfv` and `userSession.discovery` topics. It dynamically imports and runs the agents from the respective folders.
 
 ```bash
 cd backend
@@ -48,67 +59,126 @@ python -m workers.combined_agent_worker
 
 *Make sure you have installed the requirements for the agents as well, since `combined_agent_worker.py` imports their logic directly.*
 
-### B. The Preeval / TIPSC Consumer
-
-For the Pre-Evaluation and TIPSC scoring phase, there is a dedicated consumer.
-
-```bash
-cd backend
-python -m workers.preeval_consumer
-```
-
-### C. (Optional) Running Workers Standalone
-
-If you need to test the agents independently of Kafka (e.g., for local debugging), you can run them directly from their respective directories:
-
-**TIPSC-Agent:**
-
-```bash
-cd TIPSC-Agent
-uv run python -m src.main
-```
-
-**Customer Interview Planner (Discovery):**
-
-```bash
-cd customer-interview-planner-agent
-python main.py
-```
-
-## 4. The End-to-End Workflow
+### 4. The End-to-End Workflow
 
 Here is how data flows through the platform asynchronously during a complete lifecycle:
 
-### Phase 1: Session Creation (API -> Kafka)
+### Phase 1: Session Creation (API → Kafka)
 
 1. **User Action:** Student POSTs their initial idea via the frontend to `/api/v1/sessions`.
 2. **Backend Action:**
    - Validates input and authenticates the student.
-   - Writes a new session document to MongoDB with `status = CREATED`.
+   - Writes a new session document to MongoDB with `status = created`.
    - Publishes an event to the `userSession.tipsc` Kafka topic.
-   - Updates MongoDB `status = QUEUED` and returns `200 OK` to the frontend.
+   - Updates MongoDB `status = queued` and returns `201 Created` to the frontend.
 
 ### Phase 2: TIPSC Worker Execution
 
 1. **Worker Consumption:** The TIPSC Kafka consumer picks up the event.
-2. **Execution:** It triggers the CrewAI TIPSC pipeline (Pre-evaluation, Market Validation, Regulatory Mapping, Ethics Screen, TIPSC scoring).
-3. **Database Write:** The worker writes the final output directly to the session document in MongoDB and sets `status = TIPSC_COMPLETED`.
+2. **Execution:** It triggers the CrewAI TIPSC pipeline (Pre-evaluation, TIPSC scoring with potential follow-up questions).
+3. **Database Write:** The worker writes the final output directly to the session document in MongoDB and sets `status = tipsc_completed`.
 4. **Notification:** The worker publishes a completion event to `userSession.notifications`.
 
 ### Phase 3: DFV Flow
 
-1. **User Action:** Student triggers the DFV analysis.
-2. **Backend Action:** Publishes to `userSession.dfv` topic.
+1. **User Action:** Student triggers the DFV analysis via `POST /api/v1/sessions/{id}/trigger/dfv` with context inputs.
+2. **Backend Action:** Publishes to `userSession.dfv` topic with the DFV context.
 3. **Worker Consumption:** The `combined_agent_worker` consumes the DFV message.
 4. **Execution:** Evaluates Desirability, Feasibility, and Viability using CrewAI.
-5. **Database Write:** The worker updates the MongoDB session with the DFV output and sets `status = DFV_COMPLETED`.
+5. **Database Write:** The worker updates the MongoDB session with the DFV output and sets `status = dfv_completed`.
 
 ### Phase 4: Customer Discovery Planner Flow
 
-1. **User Action:** Student triggers the discovery planner.
+1. **User Action:** Student triggers the discovery planner via `POST /api/v1/sessions/{id}/trigger/discovery`.
 2. **Backend Action:** Publishes to `userSession.discovery` topic.
 3. **Worker Consumption:** The `combined_agent_worker` consumes the Discovery message.
 4. **Execution:** Generates a structured Jobs-To-Be-Done (JTBD) interview plan.
-5. **Database Write:** The worker updates MongoDB with the discovery plan and sets the session `status = COMPLETED`.
+5. **Database Write:** The worker updates MongoDB with the discovery plan and sets the session `status = completed`.
 
 Throughout this entire process, the **React frontend polls the backend** (`GET /api/v1/sessions/{id}`) every few seconds to reflect real-time status changes and unlock subsequent phases as the Kafka workers finish their tasks.
+
+## 5. Worker Communication Protocol
+
+### Internal API Endpoints
+
+Workers communicate completion/failure back to the backend via internal endpoints (protected by `X-Worker-Secret` header):
+
+- `POST /internal/sessions/{session_id}/output` — Worker submits successful flow output
+- `POST /internal/sessions/{session_id}/failure` — Worker reports flow failure after retries
+
+### MongoDB Direct Writes
+
+Workers also write status updates directly to MongoDB (using a separate service account with write-only access to `sessions.status` field) for low-latency status transitions like `tipsc_running`, `dfv_running`, etc.
+
+### Correlation IDs
+
+Every request chain is linked by a `correlation_id`:
+
+- Generated by backend on session creation
+- Passed to Kafka in event payload
+- Workers include it in all internal API calls
+- Enables end-to-end tracing from API request → Kafka → Worker → DB write
+
+## 6. Environment Variables
+
+### Backend (.env)
+
+```
+MONGODB_URI=mongodb://localhost:27017
+MONGODB_DB_NAME=agis
+KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+JWT_SECRET_KEY=your-secret-key
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=15
+REFRESH_TOKEN_EXPIRE_DAYS=7
+PES_AUTH_API_URL=https://auth.pes.edu/api
+PES_AUTH_API_KEY=your-pes-auth-key
+WORKER_SECRET=shared-internal-secret
+ENVIRONMENT=development
+```
+
+### Worker (.env)
+
+```
+MONGODB_URI=mongodb://localhost:27017
+MONGODB_DB_NAME=agis
+KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+KAFKA_GROUP_ID=tipsc-worker-group
+WORKER_SECRET=shared-internal-secret
+LM_STUDIO_URL=http://127.0.0.1:1234/v1
+LM_STUDIO_MODEL=bonsai-8b
+```
+
+## 7. Development Workflow
+
+1. Start MongoDB and Kafka (docker-compose up -d)
+2. Start LM Studio with model loaded
+3. Start backend: `uvicorn main:app --reload --port 8000`
+4. Start TIPSC worker: `python -m workers.tipsc_worker`
+5. Start combined worker: `python -m workers.combined_agent_worker`
+6. Start frontend: `cd frontend && npm run dev`
+7. Access frontend at `http://localhost:5173`
+
+## 8. Troubleshooting
+
+### Kafka Connection Issues
+
+- Verify Kafka is running: `kafka-topics --bootstrap-server localhost:9092 --list`
+- Check topics exist: `userSession.tipsc`, `userSession.dfv`, `userSession.discovery`, `userSession.notifications`
+
+### MongoDB Connection Issues
+
+- Verify MongoDB is running: `mongosh --eval "db.runCommand({ping: 1})"`
+- Check database exists: `use agis`
+
+### Worker Not Processing Messages
+
+- Check worker logs for connection errors
+- Verify `KAFKA_GROUP_ID` is unique per worker type
+- Check message format matches expected schema
+
+### Frontend Not Updating
+
+- Check polling interval in `useSessionPolling` hook (default 5s)
+- Verify backend returns updated status in `GET /sessions/{id}`
+- Check browser console for CORS or auth errors

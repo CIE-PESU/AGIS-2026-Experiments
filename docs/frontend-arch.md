@@ -4,6 +4,10 @@
 
 This frontend application is a React-based web platform for the AGIS (Agentic AI Entrepreneurship System) project. It provides a role-based interface for students, mentors, and admins to manage entrepreneurship evaluation workflows including TIPSC assessment, DFV analysis, and Customer Discovery.
 
+**Current Backend Alignment:** This document reflects the actual API contracts in `backend/routes/v1/` and `backend/schemas/`.
+
+---
+
 ## Tech Stack
 
 ### Core Framework
@@ -18,9 +22,9 @@ This frontend application is a React-based web platform for the AGIS (Agentic AI
 ### UI & Styling
 - **TailwindCSS 3.4.16** - Utility-first CSS framework
 - **Radix UI** - Accessible component primitives
-  - @radix-ui/react-dialog
-  - @radix-ui/react-alert-dialog
-  - @radix-ui/react-slot
+  - `@radix-ui/react-dialog`
+  - `@radix-ui/react-alert-dialog`
+  - `@radix-ui/react-slot`
 - **Lucide React 0.468.0** - Icon library
 - **Sonner 1.7.1** - Toast notifications
 - **class-variance-authority** - Component variant management
@@ -29,6 +33,8 @@ This frontend application is a React-based web platform for the AGIS (Agentic AI
 ### Development Tools
 - **PostCSS & Autoprefixer** - CSS processing
 - **ESLint & Prettier** - Code quality (configured via project standards)
+
+---
 
 ## Project Structure
 
@@ -76,6 +82,8 @@ frontend/
 └── tsconfig.json            # TypeScript configuration
 ```
 
+---
+
 ## Architecture Patterns
 
 ### 1. Component Architecture
@@ -87,9 +95,9 @@ App (Router + AuthProvider)
 ├── Login (Public)
 ├── WorkspaceLayout (Protected - Student)
 │   └── StudentWorkspace
-│   ├── TIPSCFlow
-│   ├── DFVFlow
-│   └── DiscoveryFlow
+│       ├── TIPSCFlow
+│       ├── DFVFlow
+│       └── DiscoveryFlow
 ├── MentorDashboard (Protected - Mentor)
 └── AdminDashboard (Protected - Admin)
 ```
@@ -116,7 +124,7 @@ interface AuthContextValue {
   setSessionFromServer(): void;   // Sync with backend
   unlockNext(): void;             // Progress to next stage
   saveResults(): void;            // Store flow results
-  archiveSession(): void;          // Archive current session
+  archiveSession(): void;         // Archive current session
 }
 ```
 
@@ -139,16 +147,18 @@ User Login → apiClient.login() → Backend API
 
 **Session Flow:**
 ```
-Create Session → Backend creates session document
-                    ↓
+Create Session → authSessions.createSession() → Backend API
+                     ↓
+              Store sessionId in AuthContext
+                     ↓
               Poll session status (useSessionPolling)
-                    ↓
+                     ↓
               Update UI based on status
-                    ↓
+                     ↓
               Trigger flows (TIPSC → DFV → Discovery)
-                    ↓
+                     ↓
               Store results in AuthContext
-                    ↓
+                     ↓
               Archive session when complete
 ```
 
@@ -166,6 +176,8 @@ Component → Service Function → apiClient.apiRequest()
                                     ↓
                             Return data to component
 ```
+
+---
 
 ## Routing Structure
 
@@ -185,9 +197,12 @@ Component → Service Function → apiClient.apiRequest()
 ```
 
 ### Route Protection
-- `WorkspaceLayout` checks for authenticated student role
-- `RequireRole` component (shared) for role-based access
-- AuthContext provides user state for route guards
+
+- **WorkspaceLayout**: Checks for authenticated student role
+- **RequireRole component**: Role-based component rendering
+- **AuthContext**: Provides user state for route guards
+
+---
 
 ## API Integration
 
@@ -227,7 +242,7 @@ apiRequest<T>(path, options): Promise<T>
 
 **Mentor Features:**
 - `getSessionComments(sessionId)` - Fetch mentor comments
-- `getMentorSessions(params)` - Fetch sessions for review
+- `getMentorSessions(params)` - Fetch sessions for mentor review
 
 ### Mock API (services/api.ts)
 
@@ -240,22 +255,7 @@ apiRequest<T>(path, options): Promise<T>
 - `runDFVAnalysis()` - Mock DFV analysis
 - `generateJTBD()` - Mock JTBD generation
 
-### Backend Integration
-
-**Proxy Configuration (vite.config.ts):**
-```typescript
-proxy: {
-  "/api/v1": {
-    target: process.env.VITE_BACKEND_URL ?? "http://localhost:8000",
-    changeOrigin: true
-  }
-}
-```
-
-**Environment Variables:**
-- `VITE_API_BASE_URL` - Backend API base URL (default: /api/v1)
-- `VITE_USE_MOCK_FLOWS` - Enable mock data (default: true for dev)
-- `VITE_BACKEND_URL` - Backend server URL for proxy
+---
 
 ## Type System
 
@@ -280,6 +280,7 @@ type SessionStatus =
   | "dfv_failed"
   | "discovery_waiting"
   | "discovery_running"
+  | "discovery_completed"
   | "discovery_failed"
   | "completed"
   | "archived";
@@ -358,6 +359,8 @@ type JTBDResult = {
 };
 ```
 
+---
+
 ## Key Workflows
 
 ### 1. Student Workflow
@@ -372,41 +375,40 @@ type JTBDResult = {
 **Step 2: Create Session**
 1. User fills problem statement and idea form
 2. `createSession()` called via authSessions
-3. Backend creates session document with status "created"
+3. Backend creates session document with `status: "created"`
 4. Session ID stored in AuthContext
 5. Session polling begins via `useSessionPolling`
 
 **Step 3: TIPSC Evaluation**
-1. User navigates to /workspace/tipsc
+1. User navigates to `/workspace/tipsc`
 2. Pre-evaluation questions collected
 3. `triggerTipsc()` called to start backend flow
-4. Session status updates to "tipsc_running"
-5. Polling detects completion → "tipsc_completed"
+4. Session status updates to `tipsc_running`
+5. Polling detects completion → `tipsc_completed`
 6. Results stored in AuthContext
 7. DFV stage unlocked
 
 **Step 4: DFV Analysis**
-1. User navigates to /workspace/dfv (unlocked after TIPSC)
+1. User navigates to `/workspace/dfv` (unlocked after TIPSC)
 2. User provides DFV context (desirability, feasibility, viability)
 3. `triggerDfv()` called with context payload
-4. Session status updates to "dfv_running"
-5. Polling detects completion → "dfv_completed"
+4. Session status updates to `dfv_running`
+5. Polling detects completion → `dfv_completed`
 6. Results stored in AuthContext
-7. Discovery stage unlocked
+7. Discovery stage unlocked (if GO decision)
 
 **Step 5: Customer Discovery**
-1. User navigates to /workspace/discovery (unlocked after DFV)
+1. User navigates to `/workspace/discovery` (unlocked after DFV)
 2. `triggerDiscovery()` called
-3. Session status updates to "discovery_running"
-4. Polling detects completion → "completed"
+3. Session status updates to `discovery_running`
+4. Polling detects completion → `completed`
 5. JTBD results stored in AuthContext
-6. Full workflow complete
 
 **Step 6: Archive & Export**
 1. User clicks "Archive Session"
 2. Report generated via `exportMarkdown()`
 3. `archiveSession()` called on backend
-4. Session status set to "archived"
+4. Session status set to `archived`
 5. Local state reset
 6. User can start new session
 
@@ -415,25 +417,25 @@ type JTBDResult = {
 **Dashboard Access:**
 1. Mentor logs in with mentor credentials
 2. Redirected to MentorDashboard
-3. Fetches assigned sessions via `getMentorSessions()`
 
 **Session Review:**
-1. View list of student sessions with filters (team_id, status, pagination)
-2. Click session to view details
-3. Add comments via `getSessionComments()` and comment UI
-4. Monitor progress through TIPSC → DFV → Discovery stages
+1. Fetches assigned sessions via `getMentorSessions()`
+2. View list with filters (team_id, status, pagination)
+3. Click session to view details
+4. Add comments via comment UI
 
 ### 3. Admin Workflow
 
 **Dashboard Access:**
 1. Admin logs in with admin credentials
 2. Redirected to AdminDashboard
-3. Full system visibility and management
 
-**Student Management:**
-1. View all registered students
-2. Manage team assignments
-3. Monitor overall progress
+**System Management:**
+1. View all sessions across platform
+2. View system-wide audit logs
+3. Monitor platform metrics
+
+---
 
 ## Session Polling
 
@@ -461,6 +463,8 @@ deriveStageAccess(status): SessionState {
 useSessionPolling(sessionId, setSessionFromServer, enabled);
 ```
 
+---
+
 ## Authentication & Authorization
 
 ### Token Management
@@ -472,7 +476,7 @@ useSessionPolling(sessionId, setSessionFromServer, enabled);
 **Token Refresh Flow:**
 1. API request returns 401
 2. `refreshAccessToken()` called automatically
-3. Refresh token sent to /auth/refresh
+3. Refresh token sent to `/auth/refresh`
 4. New access token received and stored
 5. Original request retried with new token
 6. If refresh fails, tokens cleared and user logged out
@@ -492,6 +496,9 @@ inferMockRole(srn): Role {
 - WorkspaceLayout: Requires student role
 - MentorDashboard: Requires mentor role
 - AdminDashboard: Requires admin role
+- RequireRole component: Conditional rendering by role
+
+---
 
 ## Development Mode Features
 
@@ -514,6 +521,8 @@ When backend is unavailable:
 **Comment System:**
 - `getComments(srn)` - Get student comments
 - `addComment(srn, comment)` - Add new comment
+
+---
 
 ## UI Components
 
@@ -544,6 +553,8 @@ const className = cn(baseClasses, variantClasses[variant], sizeClasses[size], pr
 - `Logos.tsx` - PES and CIE logos
 - `RequireRole.tsx` - Role-based component rendering
 
+---
+
 ## Utility Functions
 
 ### Class Merging (lib/utils.ts)
@@ -557,12 +568,14 @@ generateMarkdown(results, formData) - Generate markdown report
 downloadMarkdown(content, filename) - Trigger file download
 ```
 
+---
+
 ## Configuration Files
 
 ### Vite Configuration (vite.config.ts)
 - React plugin for JSX transformation
 - Path alias: `@` → `./src`
-- Proxy for /api/v1 routes to backend
+- Proxy for `/api/v1` routes to backend
 - Development server on 0.0.0.0
 
 ### TypeScript Configuration (tsconfig.json)
@@ -575,6 +588,8 @@ downloadMarkdown(content, filename) - Trigger file download
 - Custom color scheme (primary, secondary, accent)
 - Animation utilities
 - Content paths for component scanning
+
+---
 
 ## Environment Variables
 
@@ -592,6 +607,8 @@ VITE_API_BASE_URL=/api/v1
 VITE_BACKEND_URL=http://localhost:8000
 VITE_USE_MOCK_FLOWS=true
 ```
+
+---
 
 ## Build & Deployment
 
@@ -611,6 +628,8 @@ npm run preview      # Preview production build
 - `dist/index.html` - Entry HTML
 - `dist/assets/` - Bundled JS/CSS assets
 - Optimized and minified for production
+
+---
 
 ## Integration with Backend
 
@@ -671,6 +690,8 @@ npm run preview      # Preview production build
 }
 ```
 
+---
+
 ## Troubleshooting
 
 ### Common Issues
@@ -693,6 +714,8 @@ npm run preview      # Preview production build
 - Set VITE_USE_MOCK_FLOWS=true in .env
 - Check mockData.ts exports are correct
 - Verify api.ts functions are being called
+
+---
 
 ## Best Practices
 
@@ -721,6 +744,8 @@ npm run preview      # Preview production build
 - Keep utility functions in utils/ directory
 - Separate business logic from UI components
 
+---
+
 ## Future Enhancements
 
 ### Potential Improvements
@@ -728,7 +753,7 @@ npm run preview      # Preview production build
 - Implement error boundary for better error handling
 - Add loading skeletons for better UX
 - Implement comprehensive testing (Jest, React Testing Library)
-- Add storybook for component documentation
+- Add Storybook for component documentation
 - Implement internationalization (i18n)
 - Add analytics tracking
 - Implement offline support with service workers
@@ -739,6 +764,8 @@ npm run preview      # Preview production build
 - Image optimization and lazy loading
 - Bundle size optimization
 - Performance monitoring
+
+---
 
 ## Conclusion
 
