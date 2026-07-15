@@ -48,7 +48,7 @@ class AsyncPipelineExecutor:
             }
             logger.error(f"DLQ_ENTRY: {json.dumps(dlq_entry)}")
             await self._update(session_id, {
-                "state": PipelineState.FAILED,
+                "status": PipelineState.FAILED,
                 "error": str(e),
             })
 
@@ -60,7 +60,7 @@ class AsyncPipelineExecutor:
         student_id = preeval_input.pop("student_id", None)
 
         await self._update(session_id, {
-            "state": PipelineState.PRE_EVAL,
+            "status": PipelineState.PRE_EVAL,
             "team_id": team_id,
             "student_id": student_id,
         })
@@ -70,7 +70,7 @@ class AsyncPipelineExecutor:
             "preeval": context.preeval.model_dump(),
         })
 
-        await self._update(session_id, {"state": PipelineState.VALIDATION_RUNNING})
+        await self._update(session_id, {"status": PipelineState.VALIDATION_RUNNING})
 
         context.validation, context.regulatory = await asyncio.gather(
             self.dispatcher.dispatch_validation(context.preeval),
@@ -81,7 +81,7 @@ class AsyncPipelineExecutor:
         regulatory_context = context.regulatory.model_dump_json(indent=2)
 
         await self._update(session_id, {
-            "state": PipelineState.ETHICS_RUNNING,
+            "status": PipelineState.ETHICS_RUNNING,
             "validation": context.validation.model_dump(),
             "regulatory": context.regulatory.model_dump(),
         })
@@ -92,7 +92,7 @@ class AsyncPipelineExecutor:
 
         if not context.ethics.ethics_pass:
             await self._update(session_id, {
-                "state": PipelineState.FAILED,
+                "status": PipelineState.FAILED,
                 "ethics": context.ethics.model_dump(),
                 "rejection_reason": context.ethics.rejection_reason,
             })
@@ -107,7 +107,7 @@ class AsyncPipelineExecutor:
             "compliance_context": context.compliance_context,
         })
 
-        await self._update(session_id, {"state": PipelineState.TIPSC_RUNNING})
+        await self._update(session_id, {"status": PipelineState.TIPSC_RUNNING})
 
         context.tipsc = await self.dispatcher.dispatch_tipsc(
             context.preeval, validation_context, context.compliance_context,
@@ -119,7 +119,7 @@ class AsyncPipelineExecutor:
         await self._update(session_id, {"tipsc": tipsc_dump})
 
         if not context.tipsc.needs_followup:
-            await self._update(session_id, {"state": PipelineState.TIPSC_COMPLETE})
+            await self._update(session_id, {"status": PipelineState.TIPSC_COMPLETE})
             return
         
         # ── Followup: generate Q1 and park ───────────────────────────────────
@@ -158,7 +158,7 @@ class AsyncPipelineExecutor:
         except Exception as e:
             logger.exception(f"Followup resume failed for session {session_id}")
             await self._update(session_id, {
-                "state": PipelineState.FAILED,
+                "status": PipelineState.FAILED,
                 "error": str(e),
             })
 
@@ -170,10 +170,10 @@ class AsyncPipelineExecutor:
         if not session:
             raise ValueError(f"Session {session_id} not found in MongoDB")
  
-        if session.get("state") != PipelineState.WAITING_FOR_FOUNDER:
+        if session.get("status") != PipelineState.WAITING_FOR_FOUNDER:
             raise ValueError(
                 f"Session {session_id} is not waiting for a founder answer "
-                f"(current state={session.get('state')})"
+                f"(current status={session.get('status')})"
             )
         
         # ── Reconstruct context from MongoDB ──────────────────────────────────
@@ -198,7 +198,7 @@ class AsyncPipelineExecutor:
  
         # ── TIPSC Reeval ──────────────────────────────────────────────────────
         await self._update(session_id, {
-            "state": PipelineState.TIPSC_REEVALUATION,
+            "status": PipelineState.TIPSC_REEVALUATION,
             "followup_history": followup_history,
         })
  
@@ -223,7 +223,7 @@ class AsyncPipelineExecutor:
             )
         else:
             # Either all dimensions resolved, or we've hit the turn cap.
-            await self._update(session_id, {"state": PipelineState.TIPSC_COMPLETE})
+            await self._update(session_id, {"status": PipelineState.TIPSC_COMPLETE})
  
 
 
@@ -261,7 +261,7 @@ class AsyncPipelineExecutor:
  
         if not followup.needs_followup or not followup.questions:
             # Followup agent says no more questions needed.
-            await self._update(session_id, {"state": PipelineState.TIPSC_COMPLETE})
+            await self._update(session_id, {"status": PipelineState.TIPSC_COMPLETE})
             return
  
         question = followup.questions[0]
@@ -270,7 +270,7 @@ class AsyncPipelineExecutor:
         #   preeval, validation, regulatory, compliance_context,
         #   followup_history (answers so far), followup_turn, pending_question.
         await self._update(session_id, {
-            "state": PipelineState.WAITING_FOR_FOUNDER,
+            "status": PipelineState.WAITING_FOR_FOUNDER,
             "pending_question": question,
             "followup_turn": turn,
             "followup_history": followup_history,  # answers so far (pending Q not included)

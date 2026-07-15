@@ -86,28 +86,37 @@ def call_llm_for_json(llm: LLM, messages: list) -> str:
 
 def run_preeval(llm: LLM, skill_text: str, preeval_input: dict,) -> PreEvalOutput:
 
-    founder_context = f"""
-    Problem Statement:
-    {preeval_input["problem_statement"]}
+    if "idea" in preeval_input:
+        founder_context = f"""
+        Problem Statement & Customer Context:
+        {preeval_input.get("problem_statement", "")}
 
-    Customer Segment:
-    {preeval_input["customer_segment"]}
+        Proposed Solution & Market Assumptions:
+        {preeval_input.get("idea", "")}
+        """.strip()
+    else:
+        founder_context = f"""
+        Problem Statement:
+        {preeval_input.get("problem_statement", "")}
 
-    Consequence:
-    {preeval_input["consequence"]}
+        Customer Segment:
+        {preeval_input.get("customer_segment", "")}
 
-    Assumptions:
-    {preeval_input["assumptions"]}
+        Consequence:
+        {preeval_input.get("consequence", "")}
 
-    Proposed Solution:
-    {preeval_input["proposed_solution"]}
+        Assumptions:
+        {preeval_input.get("assumptions", "")}
 
-    Target Geography:
-    {preeval_input["target_geography"]}
+        Proposed Solution:
+        {preeval_input.get("proposed_solution", "")}
 
-    Industry Sector:
-    {preeval_input["industry_sector"]}
-    """.strip()
+        Target Geography:
+        {preeval_input.get("target_geography", "")}
+
+        Industry Sector:
+        {preeval_input.get("industry_sector", "")}
+        """.strip()
     messages = [
         {"role": "system", "content": skill_text},
         {

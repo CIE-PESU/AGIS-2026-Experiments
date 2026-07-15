@@ -15,6 +15,13 @@ from datetime import datetime, timezone
 
 import importlib.util
 from dotenv import load_dotenv
+from bson import ObjectId
+
+def _to_oid(session_id: str):
+    try:
+        return ObjectId(session_id)
+    except Exception:
+        return session_id
 
 _env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
 load_dotenv(dotenv_path=_env_path)
@@ -168,7 +175,7 @@ class CombinedAgentWorker:
     async def _already_done(self, user_session_id: str, correlation_id: str, flow_field: str) -> bool:
         existing = await self.db[USER_SESSIONS_COLLECTION].find_one(
             {
-                "_id": user_session_id,
+                "_id": _to_oid(user_session_id),
                 f"{flow_field}.correlation_id": correlation_id,
                 f"{flow_field}.status": FlowStatus.DONE.value,
             }
@@ -196,7 +203,7 @@ class CombinedAgentWorker:
             root_status = "completed"
 
         await self.db[USER_SESSIONS_COLLECTION].update_one(
-            {"_id": user_session_id},
+            {"_id": _to_oid(user_session_id)},
             {"$set": {
                 flow_field: update_data,
                 "status": root_status,
