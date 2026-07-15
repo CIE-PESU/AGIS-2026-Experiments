@@ -32,9 +32,15 @@ def _load_module(module_name: str, file_path: str):
     module = importlib.util.module_from_spec(spec)
     # Pre-insert the module's directory into sys.path so its local imports work
     module_dir = os.path.dirname(file_path)
+    added_to_path = False
     if module_dir not in sys.path:
         sys.path.insert(0, module_dir)
+        added_to_path = True
     spec.loader.exec_module(module)
+    
+    if added_to_path:
+        sys.path.remove(module_dir)
+        
     return module
 
 try:
@@ -57,7 +63,13 @@ try:
     logging.info("Discovery agent loaded from %s", os.path.join(PROJECT_ROOT, "customer-interview-planner-agent"))
 except Exception as e:
     run_discovery_analysis = None
+    run_discovery_analysis = None
     logging.error("Failed to load Discovery agent: %s", e)
+
+# Clear any cached 'models' modules so backend imports its own schema
+for key in list(sys.modules.keys()):
+    if key == "models" or key.startswith("models."):
+        del sys.modules[key]
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from motor.motor_asyncio import AsyncIOMotorClient

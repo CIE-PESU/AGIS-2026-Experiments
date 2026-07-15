@@ -70,8 +70,47 @@ async def on_startup() -> None:
         client = get_client()
         db = SessionStore(client[settings.MONGODB_DB_NAME]["sessions"])
         
-        stages = PipelineStages(config_dir=os.path.abspath(os.path.join(os.path.dirname(__file__), "../../TIPSC-Agent/config")))
+        import json
+        import yaml
+        from pathlib import Path
+
+        tipsc_src_dir = Path(__file__).resolve().parent.parent.parent / "TIPSC-Agent" / "src"
         
+        def _load_yaml(rel: str):
+            with open(tipsc_src_dir / rel, "r", encoding="utf-8") as f:
+                return yaml.safe_load(f)
+                
+        def _load_text(rel: str):
+            with open(tipsc_src_dir / rel, "r", encoding="utf-8") as f:
+                return f.read()
+
+        agents_cfg = _load_yaml("config/agents.yaml")
+        task_cfg = _load_yaml("config/tasks.yaml")
+        preeval_skill = _load_text("skills/preeval/SKILL.md")
+        tipsc_rubric = _load_text("skills/tipsc/SKILL.md")
+        ethics_rubric = _load_text("skills/ethics/SKILL.md")
+        
+        try:
+            from crewai import LLM
+            llm = LLM(
+                model=os.getenv("OPENAI_MODEL_NAME", "lmstudio-community/Meta-Llama-3-8B-Instruct-GGUF"),
+                base_url=os.getenv("LM_STUDIO_URL", "http://localhost:1234/v1"),
+                api_key=os.getenv("OPENAI_API_KEY", "lm-studio"),
+                temperature=0.2,
+            )
+        except Exception as e:
+            logger.warning("[startup] Failed to initialize LLM for TIPSC: %s", e)
+            llm = None
+
+        
+        stages = PipelineStages(
+            llm=llm,
+            agents_cfg=agents_cfg,
+            task_cfg=task_cfg,
+            preeval_skill=preeval_skill,
+            tipsc_rubric=tipsc_rubric,
+            ethics_rubric=ethics_rubric,
+        )
         global tipsc_executor_instance
         tipsc_executor_instance = AsyncPipelineExecutor(stages, db)
 
