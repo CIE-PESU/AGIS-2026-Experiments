@@ -70,7 +70,6 @@ try:
     logging.info("Discovery agent loaded from %s", os.path.join(PROJECT_ROOT, "customer-interview-planner-agent"))
 except Exception as e:
     run_discovery_analysis = None
-    run_discovery_analysis = None
     logging.error("Failed to load Discovery agent: %s", e)
 
 # Clear any cached 'models' modules so backend imports its own schema
@@ -127,19 +126,32 @@ class CombinedAgentWorker:
         self._crew_lock = asyncio.Lock()
 
     async def start(self):
-        # We need two consumers since they might have different deserialization needs,
-        # but here we can just use two consumer instances listening to different topics.
+        # 1. Add startup diagnostics
+        logger.info("BOOTSTRAP=%s", KAFKA_BOOTSTRAP_SERVERS)
+        logger.info("DFV_TOPIC=%s", repr(DFV_TOPIC))
+        logger.info("DISCOVERY_TOPIC=%s", repr(DISCOVERY_TOPIC))
+        logger.info("CONSUMER_GROUP=%s", CONSUMER_GROUP)
+
+        # 5. Log broker metadata before subscribing
+        try:
+            logger.info("Starting metadata pre-flight check...")
+            temp = AIOKafkaConsumer(
+                bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS
+            )
+            await temp.start()
+            logger.info("Kafka topics: %s", await temp.topics())
+            await temp.stop()
+            logger.info("Metadata pre-flight check completed successfully.")
+        except Exception:
+            logger.exception("Pre-flight metadata check failed")
+            raise
+
+        # 4. Simplify the DFV consumer temporarily
         self.consumer_dfv = AIOKafkaConsumer(
             DFV_TOPIC,
             bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
-            group_id=CONSUMER_GROUP + "_dfv",
-            auto_offset_reset="earliest",
-            enable_auto_commit=False,
-            value_deserializer=lambda m: json.loads(m.decode("utf-8")),
-            session_timeout_ms=120000,
-            heartbeat_interval_ms=20000,
-            max_poll_interval_ms=1800000,
         )
+        
         self.consumer_discovery = AIOKafkaConsumer(
             DISCOVERY_TOPIC,
             bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
@@ -155,9 +167,31 @@ class CombinedAgentWorker:
         self.mongo_client = AsyncIOMotorClient(MONGO_URI)
         self.db = self.mongo_client[DB_NAME]
 
-        await self.consumer_dfv.start()
-        await self.consumer_discovery.start()
-        await self.producer.start()
+        # 2 & 3. Add step-by-step consumer startup logging wrapped individually
+        logger.info("Starting DFV consumer...")
+        try:
+            await self.consumer_dfv.start()
+        except Exception:
+            logger.exception("Failed starting DFV consumer")
+            raise
+        logger.info("DFV consumer started.")
+
+        logger.info("Starting Discovery consumer...")
+        try:
+            await self.consumer_discovery.start()
+        except Exception:
+            logger.exception("Failed starting Discovery consumer")
+            raise
+        logger.info("Discovery consumer started.")
+
+        logger.info("Starting Kafka producer...")
+        try:
+            await self.producer.start()
+        except Exception:
+            logger.exception("Failed starting Producer")
+            raise
+        logger.info("Kafka producer started.")
+        
         logger.info("Combined worker listening on %s and %s", DFV_TOPIC, DISCOVERY_TOPIC)
 
     async def stop(self):
@@ -381,7 +415,11 @@ class CombinedAgentWorker:
     async def _consume_dfv(self):
         try:
             async for message in self.consumer_dfv:
-                await self._handle_dfv_message(message.value)
+                # If we're temporarily bypassing value_deserializer, parse manually here if needed
+                val = message.value
+                if isinstance(val, bytes):
+                    val = json.loads(val.decode("utf-8"))
+                await self._handle_dfv_message(val)
                 await self.consumer_dfv.commit()
         except asyncio.CancelledError:
             pass
