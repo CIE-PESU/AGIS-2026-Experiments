@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { clearTokens, getRefreshToken } from "@/services/apiClient";
 import { login as apiLogin, logout as apiLogout } from "@/services/authSessions";
-import { deriveStageAccess } from "@/hooks/useSessionPolling";
+import { deriveStageAccess } from "@/hooks/useSessionStream";
 import type { DFVResult, JTBDResult, StageStatus, TIPSCResult } from "@/data/mockData";
 import type { Role, SessionDocument, SessionStatus } from "@/types/api";
 import { registerStudentTeam, getStudents, initializeStorage } from "@/utils/adminData";
@@ -140,9 +140,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [resetWorkspace]);
 
   const setSessionFromServer = useCallback((doc: SessionDocument) => {
-    setSessionIdState(doc.session_id);
+    setSessionIdState(doc.session_id ?? (doc as any)._id ?? null);
     setServerStatus(doc.status);
     setSession(deriveStageAccess(doc.status));
+
+    // TIPSC result — the `tipsc` field IS the result object directly (no .output wrapper)
+    if (doc.tipsc) {
+      setResults(prev => ({ ...prev, tips: doc.tipsc as any }));
+    }
+
+    // DFV result — the `dfv` field may have .output nested or be the result directly
+    if (doc.dfv) {
+      const dfvResult = (doc.dfv as any).output ?? doc.dfv;
+      setResults(prev => ({ ...prev, dfv: dfvResult as any }));
+    }
+
+    // Discovery result — same shape as DFV
+    if (doc.discovery) {
+      const discoveryResult = (doc.discovery as any).output ?? doc.discovery;
+      setResults(prev => ({ ...prev, discovery: discoveryResult as any }));
+    }
   }, []);
 
   const unlockNext = useCallback((completed: keyof SessionState) => {

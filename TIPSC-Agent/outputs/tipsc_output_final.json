@@ -1,0 +1,37 @@
+{
+  "refined_idea": {
+    "customer_segment": "Urban pet owners aged 25-45 who travel for work or vacation 2-6 times per year",
+    "qualified_problem": "Pet owners struggle to find reliable, vetted pet sitters when they travel.",
+    "consequence": "Owners worry about their pets, resort to expensive kennels, or don't travel at all",
+    "proposed_solution": "A pet-sitting marketplace with verified sitters, GPS check-ins, and photo updates for pet owners"
+  },
+  "solution_alignment": "GREEN",
+  "tips_validated_metrics": {
+    "timely_factor": "Active daily problem with immediate need for trust in pet care.",
+    "importance_metric": "Direct measurable consequence of owner worry and financial loss.",
+    "profitability_pivot": "Marketplace model implies transaction fees or subscription revenue.",
+    "solvability_constraint": "Missing specific vendor contracts for high-burden compliance (gig worker classification, data privacy) within the 7-month timeline."
+  },
+  "tips_rag_scores": {
+    "T": "GREEN",
+    "I": "GREEN",
+    "P": "YELLOW",
+    "S": "RED",
+    "T_reason": "The problem is active and daily with a clear urgency to solve trust issues before owners travel.",
+    "I_reason": "The consequence involves direct financial loss (expensive kennels) and emotional distress, making it critical.",
+    "P_reason": "Monetization is implied by the marketplace model but no specific pricing or revenue strategy was provided.",
+    "S_reason": "The founder lacks executed vendor contracts for high-burden regulations (gig worker classification, data privacy) required to launch within the stated 7-month timeline."
+  },
+  "overall_readiness": "WEAK",
+  "ready_for_dfv": false,
+  "needs_followup": true,
+  "missing_criteria": [
+    "S"
+  ],
+  "criteria_state": {
+    "T": "resolved",
+    "I": "resolved",
+    "P": "weak",
+    "S": "unclear"
+  }
+}

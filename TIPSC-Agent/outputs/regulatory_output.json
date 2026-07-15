@@ -1,0 +1,38 @@
+{
+  "target_geography": "India",
+  "industry_sector": "education",
+  "applicable_regulations": [
+    {
+      "name": "India Digital Personal Data Protection Act 2023 (DPDP Act)",
+      "jurisdiction": "India",
+      "compliance_burden": "HIGH",
+      "brief_requirement": "Obtain verifiable parental consent for processing children's data, implement data security safeguards, appoint a Data Protection Officer, enable data principal rights (access, correction, erasure), and report breaches within 72 hours."
+    },
+    {
+      "name": "Information Technology (Intermediary Guidelines and Digital Media Ethics Code) Amendment Rules 2026 (MeitY AI/Synthetic Content Rules)",
+      "jurisdiction": "India",
+      "compliance_burden": "MEDIUM",
+      "brief_requirement": "Label all AI-generated outputs (text, analysis, feedback) as synthetically generated, maintain metadata for traceability, and implement due diligence obligations for intermediary liability safe harbor."
+    },
+    {
+      "name": "Consumer Protection Act 2019 and EdTech Advertising Guidelines (CCPA/ASCI)",
+      "jurisdiction": "India",
+      "compliance_burden": "MEDIUM",
+      "brief_requirement": "Ensure transparent pricing, no misleading claims about validation accuracy, honor refund/cancellation policies, and comply with ASCI advertising code for edtech services."
+    },
+    {
+      "name": "CERT-In Cyber Security Directions 2022 (Incident Reporting)",
+      "jurisdiction": "India",
+      "compliance_burden": "LOW",
+      "brief_requirement": "Report cybersecurity incidents to CERT-In within 6 hours, maintain logs for 180 days, and synchronize system clocks with NTP."
+    }
+  ],
+  "regulatory_summary": "This AI-powered student startup validation platform operating in India faces a HIGH overall regulatory burden primarily driven by the DPDP Act 2023 due to processing of student (potentially minor) personal data and children's data provisions. The 2026 MeitY IT Rules Amendment adds MEDIUM burden for AI-generated content labeling and intermediary obligations. Consumer protection and CERT-In requirements are standard but mandatory. Specialist legal review is essential for DPDP compliance architecture and AI content labeling implementation.",
+  "requires_specialist_review": true,
+  "key_compliance_risks": [
+    "Processing student data without verifiable parental consent for users under 18 violates DPDP Act Section 9 and Rules 10-11",
+    "AI-generated validation reports and feedback must be continuously labeled as synthetic content per 2026 IT Rules Amendment",
+    "Misleading claims about validation accuracy or success rates could trigger CCPA enforcement under Consumer Protection Act",
+    "Failure to report data breaches within 72 hours (DPDP) or cyber incidents within 6 hours (CERT-In) attracts penalties"
+  ]
+}

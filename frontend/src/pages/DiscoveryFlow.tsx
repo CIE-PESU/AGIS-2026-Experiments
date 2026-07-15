@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, Navigate } from "react-router-dom";
 import {
   CheckCircle2,
@@ -26,6 +26,7 @@ import { USE_MOCK_FLOWS } from "@/constants";
 import { useAuth } from "@/context/AuthContext";
 import type { JTBDResult } from "@/data/mockData";
 import { downloadMarkdown, generateDiscoveryMarkdown } from "@/utils/exportMarkdown";
+import { toast } from "sonner";
 
 /* ═══════════════════════════════════════════════════════════════════
    DISCOVERY QUESTIONS FORM — founder's own thinking, captured before
@@ -165,36 +166,38 @@ function DiscoveryGuideBit({ icon, label, text, italic }: { icon: React.ReactNod
 }
 
 export function DiscoveryFlow() {
-  const { session, sessionId, results, saveResults, unlockNext, addEvent } = useAuth();
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<JTBDResult | null>(results.discovery);
+  const { session, sessionId, serverStatus, results, saveResults, unlockNext, addEvent } = useAuth();
+  
+  const [loading, setLoading] = useState(serverStatus === "discovery_running");
+  const result = results.discovery;
   const [discoveryInputs, setDiscoveryInputs] = useState<Record<string, string> | null>(null);
   const [checklistState, setChecklistState] = useState<Record<number, boolean>>({});
   const [activeGuideTab, setActiveGuideTab] = useState<"before" | "during" | "after">("before");
 
   if (session.discovery === "locked") return <Navigate to="/workspace" replace />;
 
+  useEffect(() => {
+    if (loading) {
+      if (serverStatus === "completed" && results.discovery) {
+        setLoading(false);
+        addEvent("Discovery Completed");
+        unlockNext("discovery");
+      } else if (serverStatus === "discovery_failed") {
+        setLoading(false);
+        toast.error("Discovery Analysis failed. Please try again.");
+      }
+    }
+  }, [loading, serverStatus, results.discovery, addEvent, unlockNext]);
+
   async function startDiscovery() {
     setLoading(true);
     addEvent("Discovery Triggered");
     try {
-      // NOTE: pass `discoveryInputs` along to your backend once triggerDiscovery/generateJTBD
-      // are updated to accept the founder's problem/customer/JTBD answers.
-      // e.g. await triggerDiscovery(sessionId, discoveryInputs);
       if (sessionId) await triggerDiscovery(sessionId);
     } catch {
-      if (!USE_MOCK_FLOWS) {
-        setLoading(false);
-        return;
-      }
+      toast.error("Failed to start Discovery analysis. Check backend connection.");
+      setLoading(false);
     }
-    // e.g. const data = await generateJTBD(discoveryInputs);
-    const data = await generateJTBD();
-    setResult(data);
-    saveResults("discovery", data);
-    unlockNext("discovery");
-    addEvent("Discovery Completed");
-    setLoading(false);
   }
 
   function handleFormSubmit(data: Record<string, string>) {
