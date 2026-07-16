@@ -29,6 +29,7 @@ type AuthContextValue = {
   setFormData: (data: FormDataMap) => void;
   setSessionId: (id: string | null) => void;
   archiveSession: () => void;
+  sessionDoc: SessionDocument | null;
 };
 
 const defaultSession: SessionState = { tipsc: "available", dfv: "locked", discovery: "locked" };
@@ -53,6 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [results, setResults] = useState<SessionResults>(defaultResults);
   const [formDataState, updateFormData] = useState<FormDataMap>({});
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
+  const [sessionDoc, setSessionDoc] = useState<SessionDocument | null>(null);
 
   const addEvent = useCallback((label: string) => {
     setTimeline((events) => [...events, { label, timestamp: timestamp() }]);
@@ -65,6 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setResults(defaultResults);
     updateFormData({});
     setTimeline([]);
+    setSessionDoc(null);
   }, []);
 
   const login = useCallback(async (srn: string, password: string, teamName?: string): Promise<Role> => {
@@ -143,10 +146,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSessionIdState(doc.session_id ?? (doc as any)._id ?? null);
     setServerStatus(doc.status);
     setSession(deriveStageAccess(doc.status));
+    setSessionDoc(doc);
 
     // TIPSC result — the `tipsc` field IS the result object directly (no .output wrapper)
     if (doc.tipsc) {
-      setResults(prev => ({ ...prev, tips: doc.tipsc as any }));
+      const tipsOutput = doc.tipsc as any;
+      const tipsRag = tipsOutput.tips_rag_scores || {};
+      const mappedTips = {
+        scores: {
+          timely: {
+            status: (tipsRag.T || tipsOutput.scores?.timely?.status || "green").toLowerCase() as any,
+            explanation: tipsRag.T_reason || tipsOutput.scores?.timely?.explanation || ""
+          },
+          importance: {
+            status: (tipsRag.I || tipsOutput.scores?.importance?.status || "green").toLowerCase() as any,
+            explanation: tipsRag.I_reason || tipsOutput.scores?.importance?.explanation || ""
+          },
+          profitable: {
+            status: (tipsRag.P || tipsOutput.scores?.profitable?.status || "green").toLowerCase() as any,
+            explanation: tipsRag.P_reason || tipsOutput.scores?.profitable?.explanation || ""
+          },
+          solvable: {
+            status: (tipsRag.S || tipsOutput.scores?.solvable?.status || "green").toLowerCase() as any,
+            explanation: tipsRag.S_reason || tipsOutput.scores?.solvable?.explanation || ""
+          }
+        },
+        readyForDFV: tipsOutput.ready_for_dfv ?? tipsOutput.readyForDFV ?? false,
+        explanation: tipsOutput.reasoning || tipsOutput.explanation || "",
+        followUps: (doc.followup_history || []).map((h: any) => ({
+          question: h.question,
+          answer: h.answer
+        }))
+      };
+      setResults(prev => ({ ...prev, tips: mappedTips }));
     }
 
     // DFV result — the `dfv` field may have .output nested or be the result directly
@@ -184,6 +216,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setResults(defaultResults);
     updateFormData({});
     setTimeline([{ label: "Session Archived", timestamp: timestamp() }]);
+    setSessionDoc(null);
   }, []);
 
   const value = useMemo(
@@ -203,9 +236,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       addEvent,
       setFormData,
       setSessionId,
-      archiveSession
+      archiveSession,
+      sessionDoc
     }),
-    [user, sessionId, serverStatus, session, results, formDataState, timeline, login, logout, setSessionFromServer, unlockNext, saveResults, addEvent, setFormData, setSessionId, archiveSession]
+    [user, sessionId, serverStatus, session, results, formDataState, timeline, login, logout, setSessionFromServer, unlockNext, saveResults, addEvent, setFormData, setSessionId, archiveSession, sessionDoc]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

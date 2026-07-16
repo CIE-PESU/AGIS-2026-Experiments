@@ -36,17 +36,54 @@ export function useSessionPolling(
 
 /** Map backend session status to UI stage unlock state */
 export function deriveStageAccess(status: SessionDocument["status"]) {
-  const tipscDone = ["tipsc_completed", "dfv_waiting", "dfv_running", "dfv_completed", "dfv_failed", "discovery_waiting", "discovery_running", "discovery_failed", "completed"].includes(status);
-  const dfvDone = ["dfv_completed", "discovery_waiting", "discovery_running", "discovery_failed", "completed"].includes(status);
+  const tipscDone = [
+    "tipsc_completed",
+    "dfv_waiting",
+    "dfv_running",
+    "dfv_completed",
+    "dfv_failed",
+    "discovery_waiting",
+    "discovery_running",
+    "discovery_failed",
+    "completed",
+    "failed"
+  ].includes(status);
+
+  const dfvDone = [
+    "dfv_completed",
+    "discovery_waiting",
+    "discovery_running",
+    "discovery_failed",
+    "completed"
+  ].includes(status);
+
   const discoveryDone = status === "completed";
 
+  const tipscInProgress = [
+    "created",
+    "queued",
+    "pre_eval",
+    "validation_running",
+    "ethics_running",
+    "tipsc_running",
+    "waiting_for_founder",
+    "tipsc_reevaluation"
+  ].includes(status);
+
   return {
-    tipsc: tipscDone ? "completed" as const : status.includes("tipsc") || status === "queued" || status === "created" ? "in_progress" as const : "available" as const,
-    dfv: !tipscDone ? "locked" as const : dfvDone ? "completed" as const : status.includes("dfv") ? "in_progress" as const : "available" as const,
-    discovery: !dfvDone ? "locked" as const : discoveryDone ? "completed" as const : status.includes("discovery") ? "in_progress" as const : "available" as const
+    tipsc: tipscDone ? ("completed" as const) : tipscInProgress ? ("in_progress" as const) : ("available" as const),
+    dfv: !tipscDone ? ("locked" as const) : dfvDone ? ("completed" as const) : status.includes("dfv") || status === "dfv_waiting" ? ("in_progress" as const) : ("available" as const),
+    discovery: !dfvDone ? ("locked" as const) : discoveryDone ? ("completed" as const) : status.includes("discovery") || status === "discovery_waiting" ? ("in_progress" as const) : ("available" as const)
   };
 }
 
 export function isFlowRunning(status: SessionDocument["status"]) {
-  return status.endsWith("_running") || status === "queued";
+  return (
+    status.endsWith("_running") ||
+    status === "queued" ||
+    status === "pre_eval" ||
+    status === "tipsc_reevaluation" ||
+    status === "dfv_waiting" ||
+    status === "discovery_waiting"
+  );
 }

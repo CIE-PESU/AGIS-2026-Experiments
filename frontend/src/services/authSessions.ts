@@ -63,8 +63,12 @@ export async function triggerDfv(sessionId: string, payload: TriggerDfvRequest) 
   return apiRequest(`/sessions/${sessionId}/trigger/dfv`, { method: "POST", body: payload });
 }
 
-export async function triggerDiscovery(sessionId: string) {
-  return apiRequest(`/sessions/${sessionId}/trigger/discovery`, { method: "POST" });
+export async function triggerDiscovery(sessionId: string, payload: any) {
+  return apiRequest(`/sessions/${sessionId}/trigger/discovery`, { method: "POST", body: payload });
+}
+
+export async function submitFollowup(sessionId: string, answer: string): Promise<any> {
+  return apiRequest(`/sessions/${sessionId}/followup`, { method: "POST", body: { answer } });
 }
 
 export async function getSessionComments(sessionId: string): Promise<MentorComment[]> {

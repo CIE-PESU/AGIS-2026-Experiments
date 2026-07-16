@@ -5,7 +5,12 @@ export type Role = "student" | "mentor" | "admin";
 export type SessionStatus =
   | "created"
   | "queued"
+  | "pre_eval"
+  | "validation_running"
+  | "ethics_running"
   | "tipsc_running"
+  | "waiting_for_founder"
+  | "tipsc_reevaluation"
   | "tipsc_completed"
   | "tipsc_failed"
   | "dfv_waiting"
@@ -16,6 +21,7 @@ export type SessionStatus =
   | "discovery_running"
   | "discovery_failed"
   | "completed"
+  | "failed"
   | "archived";
 
 export type ApiMeta = {
@@ -72,7 +78,13 @@ export type RefreshResponse = {
 
 export type CreateSessionRequest = {
   problem_statement: string;
-  idea: string;
+  customer_segment: string;
+  consequence: string;
+  assumptions?: string[];
+  proposed_solution: string;
+  target_geography: string;
+  industry_sector: string;
+  team_id?: string | null;
 };
 
 export type CreateSessionResponse = {
@@ -92,11 +104,29 @@ export type SessionDocument = {
   team_id: string;
   student_id: string;
   problem_statement: string;
+  customer_segment?: string;
+  consequence?: string;
+  assumptions?: string[];
+  proposed_solution?: string;
+  target_geography?: string;
+  industry_sector?: string;
   idea: string;
   status: SessionStatus;
+  
+  preeval?: Record<string, unknown> | null;
+  validation?: Record<string, unknown> | null;
+  regulatory?: Record<string, unknown> | null;
+  ethics?: Record<string, unknown> | null;
+  compliance_context?: string | null;
+
   tipsc: Record<string, unknown> | null;
   dfv: Record<string, unknown> | null;
   discovery: Record<string, unknown> | null;
+
+  pending_question?: string | null;
+  followup_turn?: number;
+  followup_history?: Array<{ question: string; answer: string; turn: number; answered_at: string }>;
+
   created_at: string;
   updated_at: string;
 };
