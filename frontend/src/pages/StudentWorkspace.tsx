@@ -17,21 +17,24 @@ import {
 import { MentorChat } from "@/components/shared/MentorChat";
 import { StatusBadge, TrafficDot } from "@/components/shared/StatusBadge";
 import { Timeline } from "@/components/shared/Timeline";
-import { deriveStageAccess, isFlowRunning, useSessionPolling } from "@/hooks/useSessionPolling";
+import { isFlowRunning } from "@/hooks/useSessionPolling";
 import { archiveSession as archiveSessionApi } from "@/services/authSessions";
 import { useAuth } from "@/context/AuthContext";
 import { downloadMarkdown, generateMarkdown } from "@/utils/exportMarkdown";
 import { toast } from "sonner";
+// NOTE: no backend endpoint exists yet for "list my teammates' progress".
+// This section stays on local mock data until that route is added.
 import { getStudents, Student } from "@/utils/adminData";
 import { DetailedProgressView } from "@/components/shared/DetailedProgressView";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export function StudentWorkspace() {
-  const { user, sessionId, serverStatus, session, results, formData, timeline, archiveSession, setSessionFromServer } = useAuth();
+  const { user, sessionId, serverStatus, session, results, formData, timeline, archiveSession } = useAuth();
   const firstName = user?.name.split(" ")[0] || "Student";
   const running = serverStatus ? isFlowRunning(serverStatus) : false;
 
-  useSessionPolling(sessionId, setSessionFromServer, Boolean(sessionId));
+  // Polling for this session is already handled globally in WorkspaceLayout.tsx —
+  // no need to poll again here.
 
   const teammates = useMemo<Student[]>(() => {
     if (!user || !user.teamId) return [];
@@ -121,7 +124,7 @@ export function StudentWorkspace() {
         Sequential Evaluation: TIPSC unlocks DFV, and DFV unlocks Customer Discovery.
       </div>
 
-      {/* Team Progress Monitor (Matches Mentor Progress Monitor Layout Exactly, without comments) */}
+      {/* Team Progress Monitor — mock data until a real "my team" endpoint exists */}
       {user?.teamId && teammates.length > 0 && (
         <Card className="mt-8 overflow-hidden">
           <CardHeader>

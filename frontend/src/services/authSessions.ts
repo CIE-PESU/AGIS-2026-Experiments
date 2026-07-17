@@ -10,10 +10,10 @@ import type {
   TriggerDfvRequest
 } from "@/types/api";
 
-export async function login(srn: string, password: string): Promise<LoginResponse> {
+export async function login(srn: string, password: string, team_id?: string): Promise<LoginResponse> {
   const data = await apiRequest<LoginResponse>("/auth/login", {
     method: "POST",
-    body: { srn, password },
+    body: { srn, password, team_id },
     auth: false
   });
   setTokens(data.access_token, data.refresh_token);
@@ -75,6 +75,21 @@ export async function getSessionComments(sessionId: string): Promise<MentorComme
   return apiRequest<MentorComment[]>(`/sessions/${sessionId}/comments`);
 }
 
+export async function addComment(sessionId: string, comment: string): Promise<MentorComment> {
+  return apiRequest<MentorComment>(`/sessions/${sessionId}/comments`, {
+    method: "POST",
+    body: { comment }
+  });
+}
+
+export async function deleteComment(commentId: string): Promise<void> {
+  return apiRequest<void>(`/comments/${commentId}`, { method: "DELETE" });
+}
+
+export async function getSessionHistory(sessionId: string, page = 1, limit = 20) {
+  return apiRequest(`/sessions/${sessionId}/history?page=${page}&limit=${limit}`);
+}
+
 export async function getMentorSessions(params?: { team_id?: string; status?: string; page?: number; limit?: number }) {
   const query = new URLSearchParams();
   if (params?.team_id) query.set("team_id", params.team_id);
@@ -83,6 +98,14 @@ export async function getMentorSessions(params?: { team_id?: string; status?: st
   if (params?.limit) query.set("limit", String(params.limit));
   const suffix = query.toString() ? `?${query.toString()}` : "";
   return apiRequest(`/mentor/sessions${suffix}`);
+}
+
+export async function getMentorSessionDetail(sessionId: string): Promise<SessionDocument> {
+  return apiRequest<SessionDocument>(`/mentor/sessions/${sessionId}`);
+}
+
+export async function getMentorTeams() {
+  return apiRequest(`/mentor/teams`);
 }
 
 export type { RefreshResponse };

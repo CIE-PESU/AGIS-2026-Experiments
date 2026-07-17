@@ -7,7 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Logos } from "@/components/shared/Logos";
 import { getRoleHome } from "@/components/shared/RequireRole";
 import { useAuth } from "@/context/AuthContext";
-import { getComments, addComment, Comment } from "@/utils/adminData";
+import { getSessionComments, addComment as addCommentApi } from "@/services/authSessions";
+import type { MentorComment } from "@/types/api";
+import { useSessionPolling } from "@/hooks/useSessionPolling";
 
 const names: Record<string, string> = {
   "/workspace": "Workspace",
@@ -17,18 +19,24 @@ const names: Record<string, string> = {
 };
 
 export function WorkspaceLayout() {
-  const { user, logout } = useAuth();
+  const { user, logout, sessionId, setSessionFromServer } = useAuth();
   const location = useLocation();
 
+  useSessionPolling(sessionId, setSessionFromServer, Boolean(sessionId));
+
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const [chatComments, setChatComments] = useState<Comment[]>([]);
+  const [chatComments, setChatComments] = useState<MentorComment[]>([]);
   const [newComment, setNewComment] = useState("");
 
-  const loadComments = useCallback(() => {
-    if (user) {
-      setChatComments(getComments(user.srn));
+  const loadComments = useCallback(async () => {
+    if (!sessionId) return;
+    try {
+      const comments = await getSessionComments(sessionId);
+      setChatComments(comments);
+    } catch {
+      // ignore
     }
-  }, [user]);
+  }, [sessionId]);
 
   useEffect(() => {
     if (isChatOpen) {
@@ -38,17 +46,16 @@ export function WorkspaceLayout() {
     }
   }, [isChatOpen, loadComments]);
 
-  const handleSendComment = () => {
-    if (!newComment.trim() || !user) return;
-    const comment: Comment = {
-      sender: `Student (${user.name})`,
-      message: newComment.trim(),
-      timestamp: new Date().toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })
-    };
-    addComment(user.srn, comment);
-    setNewComment("");
-    loadComments();
-    toast.success("Message sent");
+  const handleSendComment = async () => {
+    if (!newComment.trim() || !sessionId) return;
+    try {
+      await addCommentApi(sessionId, newComment.trim());
+      setNewComment("");
+      await loadComments();
+      toast.success("Message sent");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to send message.");
+    }
   };
 
   if (!user) return <Navigate to="/login" replace />;
@@ -72,8 +79,6 @@ export function WorkspaceLayout() {
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary font-bold text-white">
               {user.name.charAt(0)}
             </div>
-            
-            {/* Toggle Messaging Window */}
             <Button
               variant="outline"
               size="icon"
@@ -83,20 +88,17 @@ export function WorkspaceLayout() {
             >
               <MessageSquare className="h-4 w-4" />
             </Button>
-
             <Button variant="ghost" size="icon" onClick={() => void logout()} title="Logout">
               <LogOut className="h-4 w-4" />
             </Button>
           </div>
         </div>
       </header>
-      
+
       <Outlet />
 
-      {/* Slide-over chat panel */}
       {isChatOpen && (
         <div className="fixed inset-y-0 right-0 z-50 w-80 md:w-96 bg-white shadow-2xl border-l flex flex-col transition-all duration-300 animate-in slide-in-from-right">
-          {/* Header */}
           <div className="p-4 border-b flex justify-between items-center bg-slate-50">
             <div>
               <h3 className="font-bold text-primary text-sm">Feedback & Remarks</h3>
@@ -106,38 +108,43 @@ export function WorkspaceLayout() {
               <X className="h-4 w-4" />
             </Button>
           </div>
-          
-          {/* Messages list */}
+
           <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-50/50">
-            {chatComments.length === 0 ? (
+            {!sessionId ? (
+              <div className="text-center py-10">
+                <div className="inline-flex p-3 rounded-full bg-slate-100 text-slate-400 mb-2">
+                  <MessageSquare className="h-5 w-5" />
+                </div>
+                <p className="text-xs font-semibold text-slate-700">No active session</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Start a session to see mentor comments here.</p>
+              </div>
+            ) : chatComments.length === 0 ? (
               <div className="text-center py-10">
                 <div className="inline-flex p-3 rounded-full bg-slate-100 text-slate-400 mb-2">
                   <MessageSquare className="h-5 w-5" />
                 </div>
                 <p className="text-xs font-semibold text-slate-700">No remarks yet</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">Your mentor's comments and replies will show up here.</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Your mentor's comments will show up here.</p>
               </div>
             ) : (
-              chatComments.map((c, i) => {
-                const isMe = c.sender.toLowerCase().includes("student") || c.sender.includes(user.name);
-                return (
-                  <div key={i} className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}>
-                    <span className="text-[9px] text-muted-foreground mb-0.5">{c.sender} • {c.timestamp}</span>
-                    <div className={`p-3 rounded-lg max-w-[85%] text-xs leading-relaxed ${isMe ? "bg-primary text-white" : "bg-slate-200 text-slate-800"}`}>
-                      {c.message}
-                    </div>
+              chatComments.map((c) => (
+                <div key={c.comment_id} className="flex flex-col items-start">
+                  <span className="text-[9px] text-muted-foreground mb-0.5">
+                    {c.mentor_name} • {new Date(c.created_at).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}
+                  </span>
+                  <div className="p-3 rounded-lg max-w-[85%] text-xs leading-relaxed bg-slate-200 text-slate-800">
+                    {c.comment}
                   </div>
-                );
-              })
+                </div>
+              ))
             )}
           </div>
-          
-          {/* Input form */}
+
           <div className="p-3 border-t bg-white flex gap-2">
-            <Input 
-              value={newComment} 
-              onChange={e => setNewComment(e.target.value)} 
-              placeholder="Type your reply..." 
+            <Input
+              value={newComment}
+              onChange={e => setNewComment(e.target.value)}
+              placeholder="Type your reply..."
               onKeyDown={e => { if (e.key === "Enter") handleSendComment(); }}
               className="text-xs h-9"
             />

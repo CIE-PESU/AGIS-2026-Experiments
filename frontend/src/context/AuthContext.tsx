@@ -1,10 +1,11 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { clearTokens, getRefreshToken } from "@/services/apiClient";
 import { login as apiLogin, logout as apiLogout } from "@/services/authSessions";
-import { deriveStageAccess } from "@/hooks/useSessionStream";
+import { deriveStageAccess } from "@/hooks/useSessionPolling";
 import type { DFVResult, JTBDResult, StageStatus, TIPSCResult } from "@/data/mockData";
 import type { Role, SessionDocument, SessionStatus } from "@/types/api";
 import { registerStudentTeam, getStudents, initializeStorage } from "@/utils/adminData";
+import { mapTipscOutput, mapDfvOutput, mapDiscoveryOutput } from "@/utils/mapSessionResults";
 
 export type AppUser = { userId: string; srn: string; name: string; role: Role; teamId: string | null };
 export type SessionState = { tipsc: StageStatus; dfv: StageStatus; discovery: StageStatus };
@@ -16,10 +17,12 @@ type AuthContextValue = {
   user: AppUser | null;
   sessionId: string | null;
   serverStatus: SessionStatus | null;
+  pendingQuestion: string | null;
   session: SessionState;
   results: SessionResults;
   formData: FormDataMap;
   timeline: TimelineEvent[];
+  sessionDoc: SessionDocument | null;
   login: (srn: string, password: string, teamName?: string) => Promise<Role>;
   logout: () => Promise<void>;
   setSessionFromServer: (doc: SessionDocument) => void;
@@ -29,7 +32,6 @@ type AuthContextValue = {
   setFormData: (data: FormDataMap) => void;
   setSessionId: (id: string | null) => void;
   archiveSession: () => void;
-  sessionDoc: SessionDocument | null;
 };
 
 const defaultSession: SessionState = { tipsc: "available", dfv: "locked", discovery: "locked" };
@@ -50,6 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [sessionId, setSessionIdState] = useState<string | null>(null);
   const [serverStatus, setServerStatus] = useState<SessionStatus | null>(null);
+  const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
   const [session, setSession] = useState<SessionState>(defaultSession);
   const [results, setResults] = useState<SessionResults>(defaultResults);
   const [formDataState, updateFormData] = useState<FormDataMap>({});
@@ -63,6 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const resetWorkspace = useCallback(() => {
     setSessionIdState(null);
     setServerStatus(null);
+    setPendingQuestion(null);
     setSession(defaultSession);
     setResults(defaultResults);
     updateFormData({});
@@ -72,7 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (srn: string, password: string, teamName?: string): Promise<Role> => {
     try {
-      const data = await apiLogin(srn, password);
+      const data = await apiLogin(srn, password, teamName);
       let resolvedTeamId = data.user.team_id ?? null;
       if (data.role === "student") {
         if (teamName) {
@@ -98,7 +102,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       return data.role;
     } catch {
-      // Dev fallback when backend is unavailable — role is inferred, not user-selected (rbac.md §3)
       await new Promise((resolve) => setTimeout(resolve, 400));
       const role = inferMockRole(srn);
       const cleanId = srn.trim() || "PES2UG22CS001";
@@ -145,52 +148,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const setSessionFromServer = useCallback((doc: SessionDocument) => {
     setSessionIdState(doc.session_id ?? (doc as any)._id ?? null);
     setServerStatus(doc.status);
+    setPendingQuestion(doc.pending_question ?? null);
     setSession(deriveStageAccess(doc.status));
     setSessionDoc(doc);
 
-    // TIPSC result — the `tipsc` field IS the result object directly (no .output wrapper)
     if (doc.tipsc) {
-      const tipsOutput = doc.tipsc as any;
-      const tipsRag = tipsOutput.tips_rag_scores || {};
-      const mappedTips = {
-        scores: {
-          timely: {
-            status: (tipsRag.T || tipsOutput.scores?.timely?.status || "green").toLowerCase() as any,
-            explanation: tipsRag.T_reason || tipsOutput.scores?.timely?.explanation || ""
-          },
-          importance: {
-            status: (tipsRag.I || tipsOutput.scores?.importance?.status || "green").toLowerCase() as any,
-            explanation: tipsRag.I_reason || tipsOutput.scores?.importance?.explanation || ""
-          },
-          profitable: {
-            status: (tipsRag.P || tipsOutput.scores?.profitable?.status || "green").toLowerCase() as any,
-            explanation: tipsRag.P_reason || tipsOutput.scores?.profitable?.explanation || ""
-          },
-          solvable: {
-            status: (tipsRag.S || tipsOutput.scores?.solvable?.status || "green").toLowerCase() as any,
-            explanation: tipsRag.S_reason || tipsOutput.scores?.solvable?.explanation || ""
-          }
-        },
-        readyForDFV: tipsOutput.ready_for_dfv ?? tipsOutput.readyForDFV ?? false,
-        explanation: tipsOutput.reasoning || tipsOutput.explanation || "",
-        followUps: (doc.followup_history || []).map((h: any) => ({
-          question: h.question,
-          answer: h.answer
-        }))
-      };
-      setResults(prev => ({ ...prev, tips: mappedTips }));
+      const tipscData = doc.tipsc;
+      setResults(prev => ({ ...prev, tips: mapTipscOutput(tipscData) }));
     }
-
-    // DFV result — the `dfv` field may have .output nested or be the result directly
     if (doc.dfv) {
-      const dfvResult = (doc.dfv as any).output ?? doc.dfv;
-      setResults(prev => ({ ...prev, dfv: dfvResult as any }));
+      const dfvData = doc.dfv;
+      setResults(prev => ({ ...prev, dfv: mapDfvOutput(dfvData) }));
     }
-
-    // Discovery result — same shape as DFV
     if (doc.discovery) {
-      const discoveryResult = (doc.discovery as any).output ?? doc.discovery;
-      setResults(prev => ({ ...prev, discovery: discoveryResult as any }));
+      const discoveryData = doc.discovery;
+      setResults(prev => ({ ...prev, discovery: mapDiscoveryOutput(discoveryData) }));
     }
   }, []);
 
@@ -212,6 +184,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const archiveSession = useCallback(() => {
     setSessionIdState(null);
     setServerStatus("archived");
+    setPendingQuestion(null);
     setSession(defaultSession);
     setResults(defaultResults);
     updateFormData({});
@@ -221,25 +194,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo(
     () => ({
-      user,
-      sessionId,
-      serverStatus,
-      session,
-      results,
-      formData: formDataState,
-      timeline,
-      login,
-      logout,
-      setSessionFromServer,
-      unlockNext,
-      saveResults,
-      addEvent,
-      setFormData,
-      setSessionId,
-      archiveSession,
-      sessionDoc
+      user, sessionId, serverStatus, pendingQuestion, session, results,
+      formData: formDataState, timeline, sessionDoc,
+      login, logout, setSessionFromServer, unlockNext, saveResults,
+      addEvent, setFormData, setSessionId, archiveSession
     }),
-    [user, sessionId, serverStatus, session, results, formDataState, timeline, login, logout, setSessionFromServer, unlockNext, saveResults, addEvent, setFormData, setSessionId, archiveSession, sessionDoc]
+    [user, sessionId, serverStatus, pendingQuestion, session, results, formDataState, timeline, sessionDoc, login, logout, setSessionFromServer, unlockNext, saveResults, addEvent, setFormData, setSessionId, archiveSession]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
