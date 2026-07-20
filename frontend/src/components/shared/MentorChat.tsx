@@ -14,7 +14,7 @@ export function MentorChat({ sessionId }: { sessionId: string | null }) {
       return;
     }
     getSessionComments(sessionId)
-      .then(setComments)
+      .then((res) => setComments(res || []))
       .catch(() => {
         if (USE_MOCK_FLOWS) {
           setComments(
