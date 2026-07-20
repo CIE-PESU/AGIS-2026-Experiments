@@ -16,7 +16,7 @@ type Phase = "form" | "processing" | "followup" | "final";
 export function TIPSCFlow() {
   const {
     session, results, formData, setFormData, addEvent,
-    sessionId, setSessionId, serverStatus, pendingQuestion, unlockNext
+    sessionId, setSessionId, serverStatus, pendingQuestion, unlockNext, archiveSession
   } = useAuth();
 
   const [local, setLocal] = useState<Record<string, string>>(formData);
@@ -107,11 +107,23 @@ export function TIPSCFlow() {
     }
   }
 
-  function repeatTIPSC() {
+  async function repeatTIPSC() {
+    if (sessionId) {
+      setSubmitting(true);
+      try {
+        const { archiveSession: archiveSessionApi } = await import("@/services/authSessions");
+        await archiveSessionApi(sessionId);
+      } catch (err) {
+        toast.error("Failed to archive the old session on the server.");
+        setSubmitting(false);
+        return;
+      }
+      setSubmitting(false);
+    }
+    archiveSession();
     setLocal({});
     setFormData({});
     setAnswer("");
-    setSessionId(null);
     addEvent("TIPSC Restarted");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }

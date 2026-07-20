@@ -192,7 +192,9 @@ async def get_active_session_by_user(
         from fastapi import HTTPException
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No active session found for user.")
 
-    return success_response(data=session.model_dump(), request=request)
+    from schemas.session import SessionResponse
+    response_obj = SessionResponse.from_document(session)
+    return success_response(data=response_obj.model_dump(), request=request)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
