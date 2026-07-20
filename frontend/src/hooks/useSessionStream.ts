@@ -105,6 +105,7 @@ export function deriveStageAccess(status: SessionDocument["status"]) {
     "queued",
     "pre_eval",
     "validation_running",
+    "regulatory_running",
     "ethics_running",
     "tipsc_running",
     "waiting_for_founder",

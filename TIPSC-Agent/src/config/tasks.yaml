@@ -125,19 +125,23 @@ ethics_task:
  
     Block only if a gate is structurally RED.
  
-    Return ONLY valid JSON. No markdown. No explanations. No text outside the JSON.
-    Every field must be present.
- 
+    Return ONLY valid JSON.
+
+    Rules:
+    - harm_vector must be exactly one of: "GREEN", "YELLOW", "RED"
+    - legal_risk must be exactly one of: "GREEN", "YELLOW", "RED"
+    - problem_solution_integrity must be exactly one of: "GREEN", "RED"
+
     {{
-      "harm_vector": "GREEN|YELLOW|RED",
-      "harm_reason": "one sentence explaining the harm verdict",
-      "legal_risk": "GREEN|YELLOW|RED",
-      "legal_reason": "one sentence explaining the legal verdict (may reference regulatory findings)",
-      "problem_solution_integrity": "GREEN|RED",
-      "integrity_reason": "one sentence explaining the integrity verdict",
-      "ethics_pass": true or false,
-      "compliance_flag": true or false,
-      "rejection_reason": "one sentence if ethics_pass is false, else empty string"
+      "harm_vector": "GREEN",
+      "harm_reason": "...",
+      "legal_risk": "GREEN",
+      "legal_reason": "...",
+      "problem_solution_integrity": "GREEN",
+      "integrity_reason": "...",
+      "ethics_pass": true,
+      "compliance_flag": false,
+      "rejection_reason": ""
     }}
  
   expected_output: "Valid JSON matching the EthicsOutput schema exactly. No markdown, no extra keys."

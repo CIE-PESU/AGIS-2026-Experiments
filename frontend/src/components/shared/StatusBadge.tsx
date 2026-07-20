@@ -28,11 +28,25 @@ export function StatusBadge({ type, label }: { type: keyof typeof map; label?: s
   );
 }
 
-export function TrafficDot({ status }: { status: "green" | "yellow" | "red" }) {
+export function TrafficDot({
+  status,
+}: {
+  status: "green" | "yellow" | "red" | "GREEN" | "YELLOW" | "RED";
+}) {
+  const normalized = status.toLowerCase() as "green" | "yellow" | "red";
+
   const cls = {
     green: "bg-emerald-500 ring-emerald-200",
     yellow: "bg-amber-400 ring-amber-200",
-    red: "bg-red-500 ring-red-200"
-  }[status];
-  return <span className={cn("inline-block h-5 w-5 rounded-full ring-2 ring-offset-1", cls)} />;
+    red: "bg-red-500 ring-red-200",
+  }[normalized];
+
+  return (
+    <span
+      className={cn(
+        "inline-block h-5 w-5 rounded-full ring-2 ring-offset-1",
+        cls
+      )}
+    />
+  );
 }

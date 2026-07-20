@@ -18,6 +18,7 @@ type AuthContextValue = {
   sessionId: string | null;
   serverStatus: SessionStatus | null;
   pendingQuestion: string | null;
+  
   session: SessionState;
   results: SessionResults;
   formData: FormDataMap;
@@ -145,6 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [resetWorkspace]);
 
   const setSessionFromServer = useCallback((doc: SessionDocument) => {
+    console.log("Incoming session update:", doc.status);
     setSessionIdState(doc.session_id ?? (doc as any)._id ?? null);
     setServerStatus(doc.status);
     setPendingQuestion(doc.pending_question ?? null);
