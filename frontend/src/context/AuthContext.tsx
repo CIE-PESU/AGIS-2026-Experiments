@@ -1,6 +1,6 @@
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { clearTokens, getRefreshToken } from "@/services/apiClient";
-import { login as apiLogin, logout as apiLogout } from "@/services/authSessions";
+import { login as apiLogin, logout as apiLogout, getActiveSession } from "@/services/authSessions";
 import { deriveStageAccess } from "@/hooks/useSessionPolling";
 import type { DFVResult, JTBDResult, StageStatus, TIPSCResult } from "@/data/mockData";
 import type { Role, SessionDocument, SessionStatus } from "@/types/api";
@@ -49,8 +49,22 @@ function inferMockRole(srn: string): Role {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AppUser | null>(null);
-  const [sessionId, setSessionIdState] = useState<string | null>(null);
+  const [user, setUser] = useState<AppUser | null>(() => {
+    const saved = localStorage.getItem("appUser");
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [sessionId, setSessionIdState] = useState<string | null>(() => localStorage.getItem("appSessionId"));
+
+  useEffect(() => {
+    if (user) localStorage.setItem("appUser", JSON.stringify(user));
+    else localStorage.removeItem("appUser");
+  }, [user]);
+
+  useEffect(() => {
+    if (sessionId) localStorage.setItem("appSessionId", sessionId);
+    else localStorage.removeItem("appSessionId");
+  }, [sessionId]);
+
   const [serverStatus, setServerStatus] = useState<SessionStatus | null>(null);
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
   const [session, setSession] = useState<SessionState>(defaultSession);
@@ -97,36 +111,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         teamId: resolvedTeamId
       });
       resetWorkspace();
+
       if (data.role === "student") {
+        try {
+          const activeSession = await getActiveSession(data.user.user_id);
+          if (activeSession) {
+            setSessionFromServer(activeSession);
+          }
+        } catch {
+          // Ignore, no active session or network error
+        }
         setTimeline([{ label: "Session Started", timestamp: timestamp() }]);
       }
       return data.role;
-    } catch {
-      await new Promise((resolve) => setTimeout(resolve, 400));
-      const role = inferMockRole(srn);
-      const cleanId = srn.trim() || "PES2UG22CS001";
-      let resolvedTeamId: string | null = null;
-      if (role === "student") {
-        if (teamName) {
-          resolvedTeamId = registerStudentTeam(cleanId, teamName);
-        } else {
-          initializeStorage();
-          const existingStudent = getStudents().find(s => s.srn === cleanId);
-          resolvedTeamId = existingStudent ? existingStudent.teamId : `team_${cleanId.slice(-3)}`;
-        }
-      }
-      setUser({
-        userId: `usr_mock_${cleanId}`,
-        srn: cleanId,
-        name: role === "student" ? `Student (${cleanId})` : role === "mentor" ? `Mentor (${cleanId})` : `Admin (${cleanId})`,
-        role,
-        teamId: resolvedTeamId
-      });
-      resetWorkspace();
-      if (role === "student") {
-        setTimeline([{ label: "Session Started", timestamp: timestamp() }]);
-      }
-      return role;
+    } catch (error) {
+      throw error;
     }
   }, [resetWorkspace]);
 

@@ -51,6 +51,10 @@ export async function getSession(sessionId: string): Promise<SessionDocument> {
   return apiRequest<SessionDocument>(`/sessions/${sessionId}`);
 }
 
+export async function getActiveSession(studentId: string): Promise<SessionDocument> {
+  return apiRequest<SessionDocument>(`/sessions/user/${studentId}/session`);
+}
+
 export async function archiveSession(sessionId: string): Promise<{ session_id: string; status: string; archived_at: string }> {
   return apiRequest(`/sessions/${sessionId}`, { method: "DELETE" });
 }

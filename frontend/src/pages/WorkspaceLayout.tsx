@@ -24,6 +24,16 @@ export function WorkspaceLayout() {
 
   useSessionPolling(sessionId, setSessionFromServer, Boolean(sessionId));
 
+  useEffect(() => {
+    if (user && user.role === "student" && !sessionId) {
+      import("@/services/authSessions").then(({ getActiveSession }) => {
+        getActiveSession(user.userId).then((doc) => {
+          if (doc) setSessionFromServer(doc);
+        }).catch(() => {});
+      });
+    }
+  }, [user, sessionId, setSessionFromServer]);
+
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatComments, setChatComments] = useState<MentorComment[]>([]);
   const [newComment, setNewComment] = useState("");

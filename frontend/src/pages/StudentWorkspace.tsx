@@ -57,8 +57,9 @@ export function StudentWorkspace() {
     if (sessionId) {
       try {
         await archiveSessionApi(sessionId);
-      } catch {
-        toast.message("Archive saved locally — backend unavailable.");
+      } catch (error) {
+        toast.error("Failed to archive session on the server.");
+        return;
       }
     }
     archiveSession();
