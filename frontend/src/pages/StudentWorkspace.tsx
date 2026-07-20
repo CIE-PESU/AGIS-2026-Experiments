@@ -156,7 +156,7 @@ export function StudentWorkspace() {
                       </td>
                       <td className="p-4">
                         <div className="flex gap-2">
-                          {Object.values(student.tips).map((score, i) => (
+                          {Object.values(student.tips || {}).map((score, i) => (
                             <TrafficDot key={i} status={score.status} />
                           ))}
                         </div>

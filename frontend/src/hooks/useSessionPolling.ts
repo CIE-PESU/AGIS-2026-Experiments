@@ -36,6 +36,10 @@ export function useSessionPolling(
 
 /** Map backend session status to UI stage unlock state */
 export function deriveStageAccess(status: SessionDocument["status"]) {
+  if (!status) {
+    return { tipsc: "available" as const, dfv: "locked" as const, discovery: "locked" as const };
+  }
+
   const tipscDone = [
     "tipsc_completed",
     "dfv_waiting",
@@ -78,6 +82,7 @@ export function deriveStageAccess(status: SessionDocument["status"]) {
 }
 
 export function isFlowRunning(status: SessionDocument["status"]) {
+  if (!status) return false;
   return (
     status.endsWith("_running") ||
     status === "queued" ||
