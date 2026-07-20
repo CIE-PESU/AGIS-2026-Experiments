@@ -17,22 +17,47 @@ const names: Record<string, string> = {
   "/workspace/dfv": "DFV Analysis",
   "/workspace/discovery": "Customer Discovery"
 };
-
+console.count("WorkspaceLayout mounted");
 export function WorkspaceLayout() {
-  const { user, logout, sessionId, setSessionFromServer } = useAuth();
+  const {
+  user,
+  logout,
+  sessionId,
+  setSessionFromServer,
+  archiveSession
+} = useAuth();
   const location = useLocation();
 
-  useSessionPolling(sessionId, setSessionFromServer, Boolean(sessionId));
+  useSessionPolling(
+    sessionId,
+    setSessionFromServer,
+    archiveSession
+);
 
   useEffect(() => {
-    if (user && user.role === "student" && !sessionId) {
-      import("@/services/authSessions").then(({ getActiveSession }) => {
-        getActiveSession(user.userId).then((doc) => {
-          if (doc) setSessionFromServer(doc);
-        }).catch(() => {});
-      });
+  if (!user || user.role !== "student" || sessionId) return;
+
+  let mounted = true;
+
+  const loadSession = async () => {
+    try {
+      const { getActiveSession } = await import("@/services/authSessions");
+      const doc = await getActiveSession(user.userId);
+
+      if (mounted && doc) {
+        setSessionFromServer(doc);
+      }
+    } catch {
+      // No active session
     }
-  }, [user, sessionId, setSessionFromServer]);
+  };
+
+  loadSession();
+
+  return () => {
+    mounted = false;
+  };
+}, [user?.userId, user?.role, sessionId, setSessionFromServer]);
 
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatComments, setChatComments] = useState<MentorComment[]>([]);

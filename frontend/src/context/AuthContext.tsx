@@ -33,6 +33,7 @@ type AuthContextValue = {
   setFormData: (data: FormDataMap) => void;
   setSessionId: (id: string | null) => void;
   archiveSession: () => void;
+
 };
 
 const defaultSession: SessionState = { tipsc: "available", dfv: "locked", discovery: "locked" };
@@ -182,16 +183,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const setFormData = useCallback((data: FormDataMap) => updateFormData(data), []);
   const setSessionId = useCallback((id: string | null) => setSessionIdState(id), []);
 
-  const archiveSession = useCallback(() => {
-    setSessionIdState(null);
-    setServerStatus("archived");
-    setPendingQuestion(null);
-    setSession(defaultSession);
-    setResults(defaultResults);
-    updateFormData({});
-    setTimeline([{ label: "Session Archived", timestamp: timestamp() }]);
-    setSessionDoc(null);
-  }, []);
+const archiveSession = useCallback(() => {
+  localStorage.removeItem("appSessionId");
+
+  setSessionIdState(null);
+  setServerStatus(null);
+  setPendingQuestion(null);
+  setSession(defaultSession);
+  setResults(defaultResults);
+  updateFormData({});
+  setTimeline([]);
+  setSessionDoc(null);
+}, []);
 
   const value = useMemo(
     () => ({

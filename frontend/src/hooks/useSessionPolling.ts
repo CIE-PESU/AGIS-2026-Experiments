@@ -2,10 +2,11 @@ import { useEffect, useRef } from "react";
 import { SESSION_POLL_INTERVAL_MS } from "@/constants";
 import { getSession } from "@/services/authSessions";
 import type { SessionDocument } from "@/types/api";
-
+console.count("Session polling effect");
 export function useSessionPolling(
   sessionId: string | null,
   onUpdate: (session: SessionDocument) => void,
+  onNotFound: () => void,
   enabled = true
 ) {
   const onUpdateRef = useRef(onUpdate);
@@ -19,9 +20,22 @@ export function useSessionPolling(
     const poll = async () => {
       try {
         const session = await getSession(sessionId);
-        if (active) onUpdateRef.current(session);
-      } catch {
-        // Polling errors are handled by the caller / auth layer
+
+        if (active) {
+          onUpdateRef.current(session);
+        }
+      } catch (err: any) {
+        if (err?.response?.status === 404) {
+          console.warn("Session no longer exists.");
+
+          if (active) {
+            onNotFound();
+          }
+
+          return;
+        }
+
+        console.error("Polling failed:", err);
       }
     };
 
@@ -31,7 +45,7 @@ export function useSessionPolling(
       active = false;
       window.clearInterval(timer);
     };
-  }, [sessionId, enabled]);
+  }, [sessionId, enabled, onNotFound]);
 }
 
 /** Map backend session status to UI stage unlock state */

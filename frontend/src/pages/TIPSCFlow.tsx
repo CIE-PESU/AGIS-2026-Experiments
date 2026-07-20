@@ -30,14 +30,14 @@ const STEPS = [
 ];
 
 const PROCESSING_STATUSES = new Set([
-    "created",
-    "queued",
-    "pre_eval",
-    "validation_running",
-    "regulatory_running",
-    "ethics_running",
-    "tipsc_running",
-    "tipsc_reevaluation"
+  "created",
+  "queued",
+  "pre_eval",
+  "validation_running",
+  "regulatory_running",
+  "ethics_running",
+  "tipsc_running",
+  "tipsc_reevaluation"
 ]);
 
 const FINAL_STATUSES = new Set([
@@ -130,6 +130,7 @@ export function TIPSCFlow() {
   const isProcessing = activeSessionExists && Boolean(serverStatus && PROCESSING_STATUSES.has(serverStatus));
   const isFollowup = serverStatus === "waiting_for_founder";
   const isFinal = activeSessionExists && Boolean(serverStatus && FINAL_STATUSES.has(serverStatus));
+  const isFailed = serverStatus === "tipsc_failed";
 
   const readyForDFV =
     serverStatus === "tipsc_completed" ||
@@ -235,6 +236,28 @@ export function TIPSCFlow() {
     addEvent("TIPSC Restarted");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
+  async function retryTIPSC() {
+    if (!sessionId) return;
+
+    setSubmitting(true);
+
+    try {
+      await triggerTipsc(sessionId);
+
+      addEvent("TIPSC Retry Triggered");
+
+      toast.success("TIPSC restarted.");
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : "Failed to restart TIPSC.";
+
+      toast.error(errorMessage);
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
@@ -254,11 +277,10 @@ export function TIPSCFlow() {
         {STEPS.map((step, index) => (
           <div
             key={step}
-            className={`rounded-full px-2 py-2 text-center text-xs font-semibold ${
-              index <= currentStep
-                ? "bg-secondary text-white"
-                : "bg-white text-muted-foreground"
-            }`}
+            className={`rounded-full px-2 py-2 text-center text-xs font-semibold ${index <= currentStep
+              ? "bg-secondary text-white"
+              : "bg-white text-muted-foreground"
+              }`}
           >
             {step}
           </div>
@@ -310,7 +332,34 @@ export function TIPSCFlow() {
           {sessionDoc.ethics && <EthicsCard data={sessionDoc.ethics} />}
         </div>
       )}
+      {isFailed && (
+        <Card className="border-red-200">
+          <CardHeader>
+            <CardTitle className="text-red-600">
+              TIPSC Evaluation Failed
+            </CardTitle>
+          </CardHeader>
 
+          <CardContent className="space-y-4">
+            <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">
+              {sessionDoc?.error ??
+                "The evaluation could not be completed."}
+            </div>
+
+            <Button
+              variant="secondary"
+              onClick={retryTIPSC}
+              disabled={submitting}
+            >
+              {submitting && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+
+              Retry TIPSC Evaluation
+            </Button>
+          </CardContent>
+        </Card>
+      )}
       {(isFollowup || isFinal) && tips && (
         <Card>
           <CardHeader>
@@ -340,20 +389,29 @@ export function TIPSCFlow() {
             )}
             {isFinal && (
               <div
-                className={`mt-6 rounded-lg p-4 ${
-                  readyForDFV ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"
-                }`}
+                className={`mt-6 rounded-lg p-4 ${readyForDFV ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"
+                  }`}
               >
                 <div className="flex items-center gap-2 font-bold">
                   {readyForDFV ? <CheckCircle2 /> : <XCircle />}{" "}
                   {readyForDFV ? "Ready for DFV" : "Not Yet Ready"}
                 </div>
                 <p className="mt-2 text-sm">
-    {tips.reasoning}
-</p>
+                  {tips.reasoning}
+                </p>
                 <div className="mt-4 flex items-center justify-between gap-3">
                   <Button variant="outline" onClick={repeatTIPSC} className="inline-flex items-center gap-2">
                     <ArrowLeft className="h-4 w-4" /> Repeat
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={retryTIPSC}
+                    disabled={submitting}
+                  >
+                    {submitting && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    Retry TIPSC Evaluation
                   </Button>
                   {readyForDFV ? (
                     <Button asChild variant="secondary">

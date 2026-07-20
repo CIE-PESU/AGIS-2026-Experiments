@@ -88,6 +88,7 @@ ALLOWED_TRANSITIONS: dict[
     }),
 
     SessionStatus.TIPSC_FAILED: frozenset({
+        SessionStatus.QUEUED,
         SessionStatus.ARCHIVED,
     }),
 
@@ -114,9 +115,6 @@ ALLOWED_TRANSITIONS: dict[
         SessionStatus.ARCHIVED,
     }),
 
-    SessionStatus.DFV_FAILED: frozenset({
-        SessionStatus.ARCHIVED,
-    }),
     SessionStatus.DFV_FAILED: frozenset({
     SessionStatus.DFV_WAITING,
     SessionStatus.ARCHIVED,
