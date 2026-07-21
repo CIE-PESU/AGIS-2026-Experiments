@@ -151,7 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSessionIdState(doc.session_id ?? (doc as any)._id ?? null);
     setServerStatus(doc.status);
     setPendingQuestion(doc.pending_question ?? null);
-    setSession(deriveStageAccess(doc.status));
+    setSession(deriveStageAccess(doc));
     setSessionDoc(doc);
 
     if (doc.tipsc) {

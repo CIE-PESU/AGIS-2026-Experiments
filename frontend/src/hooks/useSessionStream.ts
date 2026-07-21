@@ -76,7 +76,11 @@ export function useSessionStream(
 }
 
 /** Map backend session status to UI stage unlock state */
-export function deriveStageAccess(status: SessionDocument["status"]) {
+export function deriveStageAccess(doc: SessionDocument | null) {
+  if (!doc || !doc.status) {
+    return { tipsc: "available" as const, dfv: "locked" as const, discovery: "locked" as const };
+  }
+  const status = doc.status;
   const tipscDone = [
     "tipsc_completed",
     "dfv_waiting",
@@ -112,10 +116,17 @@ export function deriveStageAccess(status: SessionDocument["status"]) {
     "tipsc_reevaluation"
   ].includes(status);
 
+  let dfvPassed = false;
+  if (dfvDone && doc.dfv) {
+    const dfvResult = (doc.dfv as any).output || doc.dfv;
+    const decision = dfvResult?.decision ?? dfvResult?.final_decision?.status ?? "NO-GO";
+    dfvPassed = decision === "GO";
+  }
+
   return {
     tipsc: tipscDone ? ("completed" as const) : tipscInProgress ? ("in_progress" as const) : ("available" as const),
     dfv: !tipscDone ? ("locked" as const) : dfvDone ? ("completed" as const) : status.includes("dfv") || status === "dfv_waiting" ? ("in_progress" as const) : ("available" as const),
-    discovery: !dfvDone ? ("locked" as const) : discoveryDone ? ("completed" as const) : status.includes("discovery") || status === "discovery_waiting" ? ("in_progress" as const) : ("available" as const)
+    discovery: (!dfvDone || (dfvDone && !dfvPassed)) ? ("locked" as const) : discoveryDone ? ("completed" as const) : status.includes("discovery") || status === "discovery_waiting" ? ("in_progress" as const) : ("available" as const)
   };
 }
 
