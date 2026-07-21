@@ -315,6 +315,11 @@ class SessionService:
                 )
             )
 
+            if session is None and current_user.team_id:
+                raw = await session_repo.find_by_id(session_id)
+                if raw and raw.team_id == current_user.team_id:
+                    session = raw
+
         elif current_user.is_mentor:
 
             raw = await session_repo.find_by_id(

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Archive, Download, Target, TrendingUp, Users, Clock, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,28 +18,44 @@ import { MentorChat } from "@/components/shared/MentorChat";
 import { StatusBadge, TrafficDot } from "@/components/shared/StatusBadge";
 import { Timeline } from "@/components/shared/Timeline";
 import { isFlowRunning } from "@/hooks/useSessionPolling";
-import { archiveSession as archiveSessionApi } from "@/services/authSessions";
+import { archiveSession as archiveSessionApi, getTeamProgress } from "@/services/authSessions";
 import { useAuth } from "@/context/AuthContext";
 import { downloadMarkdown, generateMarkdown } from "@/utils/exportMarkdown";
 import { toast } from "sonner";
-// NOTE: no backend endpoint exists yet for "list my teammates' progress".
-// This section stays on local mock data until that route is added.
-import { getStudents, Student } from "@/utils/adminData";
+import { Student } from "@/utils/adminData";
 import { DetailedProgressView } from "@/components/shared/DetailedProgressView";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export function StudentWorkspace() {
-  const { user, sessionId, serverStatus, session, results, formData, timeline, archiveSession } = useAuth();
+  const { user, sessionId, serverStatus, session, results, formData, timeline, archiveSession, sessionDoc } = useAuth();
   const firstName = user?.name.split(" ")[0] || "Student";
   const running = serverStatus ? isFlowRunning(serverStatus) : false;
 
   // Polling for this session is already handled globally in WorkspaceLayout.tsx —
   // no need to poll again here.
 
-  const teammates = useMemo<Student[]>(() => {
-    if (!user || !user.teamId) return [];
-    return getStudents().filter((s) => s.teamId === user.teamId);
-  }, [user]);
+  const [teammates, setTeammates] = useState<Student[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    async function loadTeammates() {
+      if (!user?.teamId) return;
+      try {
+        const data = await getTeamProgress();
+        if (active) {
+          setTeammates(data);
+        }
+      } catch (err) {
+        console.error("Failed to load teammate progress:", err);
+      }
+    }
+    void loadTeammates();
+    const interval = setInterval(loadTeammates, 10000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [user?.teamId]);
 
   const modules = [
     { key: "tipsc" as const, title: "TIPSC Evaluation", icon: Target, color: "text-secondary", path: "/workspace/tipsc", description: "Assess timely, importance, profitable, and solvable strength." },
@@ -47,7 +63,11 @@ export function StudentWorkspace() {
     { key: "discovery" as const, title: "Customer Discovery", icon: Users, color: "text-accent", path: "/workspace/discovery", description: "Generate customer jobs, interview plans, and discovery recommendations." }
   ];
 
-  const exportReport = () => downloadMarkdown(generateMarkdown(results, formData), `agentic-ai-report-${Date.now()}.md`);
+  const exportReport = () =>
+    downloadMarkdown(
+      generateMarkdown({ results, formData, sessionDoc, timeline }),
+      `agentic-ai-report-${Date.now()}.md`
+    );
 
   async function handleArchive() {
     if (running) {
@@ -155,14 +175,20 @@ export function StudentWorkspace() {
                         </p>
                       </td>
                       <td className="p-4">
-                        <div className="flex gap-2">
-                          {Object.values(student.tips || {}).map((score, i) => (
-                            <TrafficDot key={i} status={score.status} />
-                          ))}
-                        </div>
+                        {!student.sessionId || Object.keys(student.tips || {}).length === 0 ? (
+                          <span className="text-xs text-muted-foreground">Not Started</span>
+                        ) : (
+                          <div className="flex gap-2">
+                            {Object.values(student.tips || {}).map((score, i) => (
+                              <TrafficDot key={i} status={score.status} />
+                            ))}
+                          </div>
+                        )}
                       </td>
                       <td className="p-4">
-                        {student.dfv === "Pending" ? (
+                        {!student.sessionId || student.dfv === "Not Started" ? (
+                          <span className="text-xs text-muted-foreground">Not Started</span>
+                        ) : student.dfv === "Pending" ? (
                           <StatusBadge type="available" label="Pending" />
                         ) : (
                           <span className={student.dfv === "GO" ? "font-bold text-emerald-700" : "font-bold text-red-700"}>
@@ -171,7 +197,13 @@ export function StudentWorkspace() {
                         )}
                       </td>
                       <td className="p-4">
-                        {student.jtbd ? <StatusBadge type="completed" /> : <StatusBadge type="locked" label="Pending" />}
+                        {!student.sessionId ? (
+                          <span className="text-xs text-muted-foreground">Not Started</span>
+                        ) : student.jtbd ? (
+                          <StatusBadge type="completed" />
+                        ) : (
+                          <StatusBadge type="locked" label="Pending" />
+                        )}
                       </td>
                       <td className="p-4 text-muted-foreground">
                         <span className="flex items-center gap-1 text-xs">

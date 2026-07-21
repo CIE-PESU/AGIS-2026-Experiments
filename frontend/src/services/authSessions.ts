@@ -112,4 +112,8 @@ export async function getMentorTeams() {
   return apiRequest(`/mentor/teams`);
 }
 
+export async function getTeamProgress(): Promise<any[]> {
+  return apiRequest<any[]>("/sessions/team/progress");
+}
+
 export type { RefreshResponse };

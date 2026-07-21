@@ -198,6 +198,134 @@ async def get_active_session_by_user(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# GET /sessions/team/progress — Get progress of all team members
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get(
+    "/team/progress",
+    status_code=status.HTTP_200_OK,
+    summary="Get progress of all team members",
+    description="Returns the progress of all teammates for the student's team.",
+)
+async def get_team_progress(
+    request: Request,
+    current_user: Annotated[CurrentUser, Depends(get_current_user)],
+):
+    from models.user import User
+    from models.session import Session
+    from state_machine.states import SessionStatus
+    from datetime import datetime, timezone
+
+    team_id = current_user.team_id
+    if not team_id:
+        return success_response(data=[], request=request)
+
+    # 1. Find all student users in the same team
+    teammates = await User.find(User.team_id == team_id, User.role == "student").to_list()
+
+    # 2. For each teammate, fetch their active/latest session
+    results = []
+    now = datetime.now(timezone.utc)
+    for teammate in teammates:
+        # Get teammate's active or latest session (non-archived preferred)
+        session = await Session.find(
+            Session.student_id == str(teammate.id),
+            Session.status != SessionStatus.ARCHIVED
+        ).sort(-Session.updated_at).first_or_none()
+
+        if not session:
+            # Fallback to check if they have any session at all
+            session = await Session.find(
+                Session.student_id == str(teammate.id)
+            ).sort(-Session.updated_at).first_or_none()
+
+        # Parse TIPSC scores
+        tips_scores = {}
+        if session and session.tipsc and session.tipsc.tips_rag_scores:
+            tips_rag = session.tipsc.tips_rag_scores
+            tips_scores = {
+                "timely": {
+                    "status": tips_rag.T.lower() if tips_rag.T else "green",
+                    "explanation": tips_rag.T_reason or "No explanation provided"
+                },
+                "importance": {
+                    "status": tips_rag.I.lower() if tips_rag.I else "green",
+                    "explanation": tips_rag.I_reason or "No explanation provided"
+                },
+                "profitable": {
+                    "status": tips_rag.P.lower() if tips_rag.P else "green",
+                    "explanation": tips_rag.P_reason or "No explanation provided"
+                },
+                "solvable": {
+                    "status": tips_rag.S.lower() if tips_rag.S else "green",
+                    "explanation": tips_rag.S_reason or "No explanation provided"
+                }
+            }
+
+        # Parse DFV status: GO, NO-GO, Pending, Not Started
+        if not session:
+            dfv_status = "Not Started"
+        else:
+            dfv_status = "Pending"
+            if session.dfv:
+                # Check decision or status
+                if isinstance(session.dfv, dict):
+                    dfv_status = session.dfv.get("decision", "Pending")
+                    if not dfv_status or dfv_status == "Pending":
+                        final_dec = session.dfv.get("final_decision", {})
+                        if final_dec:
+                            dfv_status = final_dec.get("status", "Pending")
+                else:
+                    dfv_status = getattr(session.dfv, "decision", "Pending")
+                    if not dfv_status or dfv_status == "Pending":
+                        final_dec = getattr(session.dfv, "final_decision", None)
+                        if final_dec:
+                            if isinstance(final_dec, dict):
+                                dfv_status = final_dec.get("status", "Pending")
+                            else:
+                                dfv_status = getattr(final_dec, "status", "Pending")
+            elif session.status == SessionStatus.DFV_RUNNING:
+                dfv_status = "Pending"
+
+        # Parse JTBD (Discovery) completed status
+        jtbd_completed = False
+        if session and (session.discovery or session.status == SessionStatus.COMPLETED):
+            jtbd_completed = True
+
+        # Parse last active
+        last_active = "Never"
+        if session:
+            session_time = session.updated_at
+            if session_time.tzinfo is not None:
+                session_time = session_time.astimezone(timezone.utc).replace(tzinfo=None)
+            
+            now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+            delta = now_naive - session_time
+
+            if delta.days > 0:
+                last_active = f"{delta.days} days ago"
+            elif delta.seconds >= 3600:
+                last_active = f"{delta.seconds // 3600} hrs ago"
+            elif delta.seconds >= 60:
+                last_active = f"{delta.seconds // 60} min ago"
+            else:
+                last_active = "Just now"
+
+        results.append({
+            "srn": teammate.srn,
+            "name": teammate.name,
+            "tips": tips_scores,
+            "dfv": dfv_status,
+            "jtbd": jtbd_completed,
+            "lastActive": last_active,
+            "teamId": team_id,
+            "sessionId": str(session.id) if session else None
+        })
+
+    return success_response(data=results, request=request)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # GET /sessions — List sessions (paginated)
 # ─────────────────────────────────────────────────────────────────────────────
 

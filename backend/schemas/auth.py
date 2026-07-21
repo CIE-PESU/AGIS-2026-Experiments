@@ -33,6 +33,8 @@ class LoginRequest(BaseModel):
     @classmethod
     def validate_srn(cls, v: str) -> str:
         v = str(v).upper().strip()
+        if v.startswith("MENTOR_") or v.startswith("ADMIN_"):
+            return v
         if not _SRN_PATTERN.match(v):
             raise ValueError(
                 "SRN must match the format PES<digit>UG<2 digits><2 uppercase letters><3 digits> "

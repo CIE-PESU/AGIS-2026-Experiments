@@ -50,6 +50,14 @@ export function DFVFlow() {
       toast.error(`Each DFV context field must be at least ${DFV_CONTEXT_MIN} characters.`);
       return;
     }
+    // Persist DFV context inputs into shared session formData (namespaced) so
+    // they are not lost on navigation and can be included in the exported report.
+    setFormData({
+      ...formData,
+      dfv_desirability_context: payload.desirability_context,
+      dfv_feasibility_context: payload.feasibility_context,
+      dfv_viability_context: payload.viability_context
+    });
     setPhase("processing");
     addEvent("DFV Triggered");
     try {

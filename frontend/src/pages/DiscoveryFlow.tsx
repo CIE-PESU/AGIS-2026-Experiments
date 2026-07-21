@@ -162,7 +162,7 @@ function DiscoveryGuideBit({ icon, label, text, italic }: { icon: React.ReactNod
 }
 
 export function DiscoveryFlow() {
-  const { session, sessionId, serverStatus, results, unlockNext, addEvent } = useAuth();
+  const { session, sessionId, serverStatus, results, unlockNext, addEvent, formData, setFormData } = useAuth();
   
   const [loading, setLoading] = useState(serverStatus === "discovery_running" || serverStatus === "discovery_waiting");
   const result = results.discovery;
@@ -221,6 +221,18 @@ export function DiscoveryFlow() {
 
   function handleFormSubmit(data: Record<string, string>) {
     setDiscoveryInputs(data);
+    // Persist discovery questionnaire inputs into shared session formData
+    // (namespaced) so they are not lost on navigation and can be included
+    // in the exported report.
+    setFormData({
+      ...formData,
+      discovery_problem: data.problem || "",
+      discovery_targetCustomer: data.targetCustomer || "",
+      discovery_importance: data.importance || "",
+      discovery_assumptions: data.assumptions || "",
+      discovery_learningObjectives: data.learningObjectives || "",
+      discovery_additionalNotes: data.additionalNotes || ""
+    });
   }
 
   const exportDiscoveryPlan = () => {
