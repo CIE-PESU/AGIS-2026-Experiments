@@ -467,6 +467,9 @@ class SessionRepository(BaseRepository[Session]):
                 "$set": {
                     "dfv_inputs": dfv_inputs,
                     "updated_at": utc_now(),
+                },
+                "$unset": {
+                    "dfv": ""
                 }
             }
         )
@@ -492,6 +495,9 @@ class SessionRepository(BaseRepository[Session]):
                 "$set": {
                     "discovery_inputs": discovery_inputs,
                     "updated_at": utc_now(),
+                },
+                "$unset": {
+                    "discovery": ""
                 }
             }
         )

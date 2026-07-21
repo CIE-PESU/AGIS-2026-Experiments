@@ -29,17 +29,21 @@ Reconciliation needed at merge time:
 from __future__ import annotations
 
 
-class FlowServiceError(Exception):
-    """Base class for this module's exceptions. Not part of the shared
-    AppException tree yet — see module docstring."""
+from exceptions.base import AppException
+
+class FlowServiceError(AppException):
+    """Base class for this module's exceptions. Now inherits from AppException."""
 
     error_code: str = "FLOW_SERVICE_ERROR"
-    status_code: int = 500
+    http_status: int = 500
+    
+    def __init__(self, message: str):
+        super().__init__(message)
 
 
 class SessionNotFoundError(FlowServiceError):
     error_code = "SESSION_NOT_FOUND"
-    status_code = 404
+    http_status = 404
 
     def __init__(self, session_id: str):
         self.session_id = session_id
@@ -48,7 +52,7 @@ class SessionNotFoundError(FlowServiceError):
 
 class FlowAlreadyRunningError(FlowServiceError):
     error_code = "FLOW_ALREADY_RUNNING"
-    status_code = 409
+    http_status = 409
 
     def __init__(self, session_id: str, current_status: str):
         self.session_id = session_id
@@ -61,7 +65,7 @@ class FlowAlreadyRunningError(FlowServiceError):
 
 class InvalidStateTransitionError(FlowServiceError):
     error_code = "INVALID_STATE_TRANSITION"
-    status_code = 409
+    http_status = 409
 
     def __init__(self, current_status, target_status):
         self.current_status = current_status
@@ -73,7 +77,7 @@ class InvalidStateTransitionError(FlowServiceError):
 
 class DFVNotUnlockedError(FlowServiceError):
     error_code = "DFV_NOT_UNLOCKED"
-    status_code = 409
+    http_status = 409
 
     def __init__(self, session_id: str):
         self.session_id = session_id
@@ -84,7 +88,7 @@ class DFVNotUnlockedError(FlowServiceError):
 
 class KafkaUnavailableError(FlowServiceError):
     error_code = "KAFKA_UNAVAILABLE"
-    status_code = 503
+    http_status = 503
 
     def __init__(self, flow: str):
         self.flow = flow
@@ -93,7 +97,7 @@ class KafkaUnavailableError(FlowServiceError):
 
 class SessionUpdateConflictError(FlowServiceError):
     error_code = "SESSION_VERSION_CONFLICT"  # placeholder — not yet in error catalog
-    status_code = 409
+    http_status = 409
 
     def __init__(self, session_id: str):
         self.session_id = session_id

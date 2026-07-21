@@ -112,7 +112,7 @@ async def on_startup() -> None:
         await connect_db()
 
         logger.info(
-            "[startup] MongoDB ✓"
+            "[startup] MongoDB"
         )
 
     except Exception as exc:
@@ -135,7 +135,7 @@ async def on_startup() -> None:
         await create_indexes()
 
         logger.info(
-            "[startup] Indexes ✓"
+            "[startup] Indexes"
         )
 
     except Exception as exc:
@@ -157,7 +157,7 @@ async def on_startup() -> None:
         await kafka_producer.start()
 
         logger.info(
-            "[startup] Kafka Producer ✓"
+            "[startup] Kafka Producer"
         )
 
     except Exception as exc:
@@ -278,7 +278,7 @@ async def on_startup() -> None:
 
         logger.info(
             "[startup] TIPSC Engine initialized "
-            "(direct execution) ✓"
+            "(direct execution)"
         )
 
     except Exception as exc:

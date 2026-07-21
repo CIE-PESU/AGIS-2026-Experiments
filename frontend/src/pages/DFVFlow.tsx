@@ -15,7 +15,7 @@ export function DFVFlow() {
   const { session, sessionId, serverStatus, results, saveResults, formData, setFormData, unlockNext, addEvent } = useAuth();
   
   const [phase, setPhase] = useState<"form" | "processing" | "results">(
-    results.dfv ? "results" : serverStatus === "dfv_running" ? "processing" : "form"
+    (serverStatus === "dfv_running" || serverStatus === "dfv_waiting") ? "processing" : results.dfv ? "results" : "form"
   );
   
   const result = results.dfv;

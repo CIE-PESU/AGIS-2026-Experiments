@@ -164,7 +164,7 @@ function DiscoveryGuideBit({ icon, label, text, italic }: { icon: React.ReactNod
 export function DiscoveryFlow() {
   const { session, sessionId, serverStatus, results, unlockNext, addEvent } = useAuth();
   
-  const [loading, setLoading] = useState(serverStatus === "discovery_running");
+  const [loading, setLoading] = useState(serverStatus === "discovery_running" || serverStatus === "discovery_waiting");
   const result = results.discovery;
   const [discoveryInputs, setDiscoveryInputs] = useState<Record<string, string> | null>(null);
   const [checklistState, setChecklistState] = useState<Record<number, boolean>>({});

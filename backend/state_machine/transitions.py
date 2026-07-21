@@ -97,6 +97,7 @@ ALLOWED_TRANSITIONS: dict[
     # ──────────────────────────────────────────────────────────────────────
 
     SessionStatus.DFV_WAITING: frozenset({
+        SessionStatus.DFV_WAITING,
         SessionStatus.DFV_RUNNING,
         SessionStatus.DFV_COMPLETED,
         SessionStatus.DFV_FAILED,

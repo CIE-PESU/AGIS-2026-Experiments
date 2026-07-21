@@ -48,10 +48,15 @@ logging.config.dictConfig({
             "formatter": "default",
             "stream": "ext://sys.stdout",
         },
+        "file": {
+            "class": "logging.FileHandler",
+            "formatter": "default",
+            "filename": "backend.log",
+        },
     },
     "root": {
     "level": settings.LOG_LEVEL,
-    "handlers": ["console"],
+    "handlers": ["console", "file"],
     },
     "loggers": {
     # Your application
