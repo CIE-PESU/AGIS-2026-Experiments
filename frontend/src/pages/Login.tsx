@@ -10,7 +10,7 @@ import { useAuth } from "@/context/AuthContext";
 export function Login() {
   const { user, login } = useAuth();
   const navigate = useNavigate();
-  const [srn, setSrn] = useState("PES2UG22CS001");
+  const [srn, setSrn] = useState("");
   const [password, setPassword] = useState("");
   const [teamName, setTeamName] = useState("");
   const [error, setError] = useState("");
