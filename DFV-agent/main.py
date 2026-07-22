@@ -1,7 +1,6 @@
 
+from dataclasses import dataclass
 import os
-
-
 import json
 from crewai import Agent, Task, Crew, Process, LLM
 from crewai_tools import SerperDevTool, ScrapeWebsiteTool
@@ -13,6 +12,7 @@ from datetime import datetime
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+import re
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT_DIR / ".env")
@@ -422,7 +422,9 @@ def create_dfv_crew():
         context=[desirability_task, feasibility_task, viability_task],
         agent=dfv_risk_decision_agent,
     )
-
+    print(llm.model)
+    print(llm.base_url)
+    print(llm.api_key)
     return Crew(
         agents=[desirability_agent, feasibility_agent, viability_agent, dfv_risk_decision_agent],
         tasks=[desirability_task, feasibility_task, viability_task, dfv_decision_task],
@@ -542,40 +544,77 @@ def _extract_json_block(raw: str) -> str:
     """Models sometimes wrap JSON in markdown code fences despite instructions
     not to. Strip that off before parsing, and fall back to grabbing the first
     {...} block if there's stray text around the JSON."""
+    if not raw:
+        return ""
     cleaned = raw.strip()
-    if cleaned.startswith("```"):
-        cleaned = cleaned.strip("`").strip()
-        if cleaned.lower().startswith("json"):
-            cleaned = cleaned[4:].strip()
+    cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.MULTILINE | re.IGNORECASE)
+    cleaned = re.sub(r"\s*```$", "", cleaned, flags=re.MULTILINE)
+    cleaned = cleaned.strip()
+
     if not cleaned.startswith("{"):
         start = cleaned.find("{")
         end = cleaned.rfind("}")
-        if start != -1 and end != -1:
+        if start != -1 and end != -1 and start < end:
             cleaned = cleaned[start : end + 1]
     return cleaned
 
 
-def run_analysis(inputs: dict):
+@dataclass
+class AnalysisResult:
+    raw: str
+    validated: DFAOutput
+
+    @property
+    def pydantic(self) -> DFAOutput:
+        return self.validated
+
+
+def run_analysis(inputs: dict) -> AnalysisResult:
     crew = create_dfv_crew()
     result = crew.kickoff(inputs=inputs)
 
+    raw_val = getattr(result, "raw", "") or ""
+    cleaned = _extract_json_block(raw_val)
 
-    cleaned = _extract_json_block(result.raw)
+    print("\n===== DFV PARSING DIAGNOSTICS =====")
+    print(f"repr(result.raw): {repr(raw_val)}")
+    print(f"len(result.raw):  {len(raw_val)}")
+    print(f"repr(cleaned):    {repr(cleaned)}")
+    print(f"len(cleaned):     {len(cleaned)}")
 
-    parsed = json.loads(cleaned)
+    if not cleaned or not (cleaned.startswith("{") or cleaned.startswith("[")):
+        raise ValueError(
+            f"Final Evaluator returned empty or non-JSON output.\n"
+            f"repr(raw): {repr(raw_val)}\n"
+            f"len(raw): {len(raw_val)}\n"
+            f"repr(cleaned): {repr(cleaned)}\n"
+            f"len(cleaned): {len(cleaned)}\n"
+            f"First 200 chars (raw): {repr(raw_val[:200])}\n"
+            f"Last 200 chars (raw): {repr(raw_val[-200:]) if len(raw_val) > 200 else repr(raw_val)}\n"
+            f"First 200 chars (cleaned): {repr(cleaned[:200])}\n"
+            f"Last 200 chars (cleaned): {repr(cleaned[-200:]) if len(cleaned) > 200 else repr(cleaned)}"
+        )
+
+    try:
+        parsed = json.loads(cleaned)
+    except Exception as exc:
+        print("\n===== PARSER FAILURE DIAGNOSTICS =====")
+        print(f"Raw Output (first 200 chars): {repr(raw_val[:200])}")
+        print(f"Raw Output (last 200 chars):  {repr(raw_val[-200:]) if len(raw_val) > 200 else repr(raw_val)}")
+        print(f"Cleaned Output (first 200 chars): {repr(cleaned[:200])}")
+        print(f"Cleaned Output (last 200 chars):  {repr(cleaned[-200:]) if len(cleaned) > 200 else repr(cleaned)}")
+        print(f"JSONDecodeError: {exc}")
+        raise exc
 
     validated = DFAOutput.model_validate(parsed)
-
-    result.raw = validated.model_dump_json(indent=2)
-
-    return result
+    return AnalysisResult(raw=raw_val, validated=validated)
 
 if __name__ == "__main__":
-    result = run_analysis(ggls)
+    res = run_analysis(ggls)
 
     print("\n--- FINAL DFA JSON OUTPUT WITH DECISION GATE ---\n")
 
     try:
-        print(json.dumps(json.loads(result.raw), indent=2))
+        print(json.dumps(res.validated.model_dump(), indent=2))
     except Exception:
-        print(result.raw)
+        print(res.raw)
