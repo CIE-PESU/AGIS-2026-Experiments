@@ -15,6 +15,7 @@ import { ValidationCard } from "@/components/shared/ValidationCard";
 import { RegulatoryCard } from "@/components/shared/RegulatoryCard";
 import { EthicsCard } from "@/components/shared/EthicsCard";
 import { toast } from "sonner";
+import { generateUUID } from "@/lib/utils";
 
 type TabKey = "preeval" | "validation" | "regulatory" | "ethics" | "tipsc" | "founder";
 
@@ -210,7 +211,7 @@ export function TIPSCFlow() {
           target_geography: local.geography,
           industry_sector: local.sector
         },
-        crypto.randomUUID()
+        generateUUID()
       );
       setSessionId(created.session_id);
       addEvent("Session Created");
