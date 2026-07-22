@@ -25,7 +25,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "regulatory", label: "Regulatory" },
   { key: "ethics", label: "Ethics" },
   { key: "tipsc", label: "TIPSC" },
-  { key: "founder", label: "Founder" }
+  { key: "founder", label: "Follow-up" }
 ];
 
 const PROCESSING_STATUSES = new Set([
@@ -480,42 +480,50 @@ export function TIPSCFlow() {
           </CardHeader>
           <CardContent>
             <ScoreGrid tips={tips} />
-            {isFinal && (
-              <div
-                className={`mt-6 rounded-lg p-4 ${readyForDFV ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"
-                  }`}
-              >
-                <div className="flex items-center gap-2 font-bold">
-                  {readyForDFV ? <CheckCircle2 /> : <XCircle />}{" "}
-                  {readyForDFV ? "Ready for DFV" : "Not Yet Ready"}
-                </div>
-                <p className="mt-2 text-sm">
-                  {tips.reasoning}
-                </p>
-                <div className="mt-4 flex items-center justify-end gap-3">
-                  {readyForDFV ? (
-                    <Button asChild variant="secondary">
-                      <Link to="/workspace/dfv" className="inline-flex items-center gap-2">
-                        Proceed to DFV <ArrowRight className="h-4 w-4" />
-                      </Link>
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="secondary"
-                      onClick={retryTIPSC}
-                      disabled={submitting}
-                    >
-                      {submitting && (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      )}
-                      Retry TIPSC Evaluation
-                    </Button>
-                  )}
-                </div>
-              </div>
-            )}
           </CardContent>
         </Card>
+      )}
+
+      {/* Ready-for-DFV banner + actions — shown under EVERY tab once TIPSC is final, not just the TIPSC tab */}
+      {isFinal && tips && (
+        <div
+          className={`mt-4 rounded-lg p-4 ${readyForDFV ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"
+            }`}
+        >
+          <div className="flex items-center gap-2 font-bold">
+            {readyForDFV ? <CheckCircle2 /> : <XCircle />}{" "}
+            {readyForDFV ? "Ready for DFV" : "Not Yet Ready"}
+          </div>
+          <p className="mt-2 text-sm">
+            {tips.reasoning}
+          </p>
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <Button variant="outline" onClick={repeatTIPSC} className="inline-flex items-center gap-2">
+              <ArrowLeft className="h-4 w-4" /> Repeat
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={retryTIPSC}
+              disabled={submitting}
+            >
+              {submitting && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Retry TIPSC Evaluation
+            </Button>
+            {readyForDFV ? (
+              <Button asChild variant="secondary">
+                <Link to="/workspace/dfv" className="inline-flex items-center gap-2">
+                  Proceed to DFV <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            ) : (
+              <Button variant="secondary" disabled className="opacity-50 cursor-not-allowed">
+                Proceed to DFV <ArrowRight className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </div>
       )}
     </main>
   );
