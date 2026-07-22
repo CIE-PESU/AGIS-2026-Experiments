@@ -287,31 +287,53 @@ export function TIPSCFlow() {
       {/* ── Follow-up question — pinned banner, no scrolling required ── */}
       {isFollowup && pendingQuestion && (
   <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
-    <div className="w-[560px] max-w-[calc(100vw-2rem)] rounded-xl border border-[#34305E]/20 bg-white shadow-2xl overflow-hidden animate-in zoom-in-95 fade-in duration-300">
-      {/* Header bar - teal from CIE brand */}
-      <div className="bg-[#3B8FA6] px-5 py-3.5 flex items-center gap-2">
-        <MessageCircleQuestion className="h-5 w-5 text-white" />
-        <p className="text-base font-bold text-white">TIPSC needs more information</p>
+    <div className="w-[560px] max-w-[calc(100vw-2rem)] animate-in zoom-in-95 fade-in duration-300">
+
+      {/* Navy tab shape - clean arcs, #2673A6 */}
+      <div className="relative z-10 h-24">
+        <svg
+          className="absolute inset-0 h-full w-full"
+          viewBox="0 0 560 100"
+          preserveAspectRatio="none"
+        >
+          <path
+            d="M0,20 A20,20 0 0 1 20,0 L320,0 A20,20 0 0 1 340,20 L340,36 A20,20 0 0 0 360,56 L540,56 A20,20 0 0 1 560,76 L560,100 L0,100 Z"
+            fill="#2673A6"
+          />
+        </svg>
+        <div className="absolute left-5 top-4 flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 shrink-0">
+            <MessageCircleQuestion className="h-4 w-4 text-white" />
+          </div>
+          <p className="text-sm font-semibold text-white whitespace-nowrap">TIPSC needs more information</p>
+        </div>
       </div>
-      <div className="p-6">
-        <p className="text-base text-[#2D2A6E]">{pendingQuestion}</p>
+
+      {/* White - front, covers most of navy, only the top step peeks */}
+      <div className="relative z-20 -mt-8 rounded-[28px] bg-white shadow-2xl px-6 pt-10 pb-8">
+        <p className="text-base text-[#34305E]">{pendingQuestion}</p>
         <Textarea
-          className="mt-4 bg-slate-50 text-base border-slate-200 focus-visible:ring-[#3B8FA6]"
+          className="mt-4 bg-slate-50 text-base border-slate-200 rounded-2xl focus-visible:ring-[#34305E]"
           rows={4}
           value={answer}
           onChange={(e) => setAnswer(e.target.value)}
           placeholder="Type your answer here..."
           autoFocus
         />
-        <Button
-          disabled={!answer.trim() || submitting}
-          className="mt-4 w-full bg-[#E8622C] hover:bg-[#d1541f] text-white"
-          onClick={sendFollowUp}
-        >
-          {submitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-          Submit & Re-evaluate
-        </Button>
       </div>
+
+      {/* Orange - behind, peeks below the white card */}
+      <div className="relative z-10 -mt-6 rounded-[28px] bg-[#E75A2D] pt-6">
+        <button
+          disabled={!answer.trim() || submitting}
+          onClick={sendFollowUp}
+          className="w-full h-14 flex items-center justify-center gap-2 text-white font-semibold text-base disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+          Submit & Re-evaluate
+        </button>
+      </div>
+
     </div>
   </div>
 )}
