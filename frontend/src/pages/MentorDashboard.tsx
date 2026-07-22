@@ -11,13 +11,25 @@ import { DetailedProgressView } from "@/components/shared/DetailedProgressView";
 import { Logos } from "@/components/shared/Logos";
 import { StatusBadge, TrafficDot } from "@/components/shared/StatusBadge";
 import { useAuth } from "@/context/AuthContext";
-import { getTeamsWithMembers, getComments, addComment, Comment } from "@/utils/adminData";
+import { getTeamsWithMembers, getComments, addComment, Comment, getMentors } from "@/utils/adminData";
 
 import { deriveStageAccess } from "@/hooks/useSessionPolling";
 
 export function MentorDashboard() {
   const { user, logout } = useAuth();
-  const loadedTeams = useMemo(() => getTeamsWithMembers(), []);
+  const loadedTeams = useMemo(() => {
+    if (!user || user.role !== "mentor") return [];
+    
+    // The user.srn stores the email for mentors
+    const allMentors = getMentors();
+    const currentMentor = allMentors.find(m => m.email.toLowerCase() === user.srn.toLowerCase());
+    
+    if (!currentMentor) return [];
+    
+    const allTeams = getTeamsWithMembers();
+    return allTeams.filter(t => t.mentorId === currentMentor.id);
+  }, [user]);
+
   const [team, setTeam] = useState(() => {
     return loadedTeams[0]?.name || "";
   });
@@ -94,10 +106,18 @@ export function MentorDashboard() {
             <Card key={label}><CardContent className="p-5"><p className="text-sm text-muted-foreground">{label}</p><p className="mt-2 text-3xl font-bold text-primary">{value}</p></CardContent></Card>
           ))}
         </div>
-        <SegmentedTabs className="mt-8 max-w-md" value={team} onValueChange={setTeam} options={loadedTeams.map((item) => ({ value: item.name, label: item.name }))} />
-        <Card className="mt-6 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px] text-left text-sm">
+
+        {loadedTeams.length === 0 ? (
+          <div className="mt-12 text-center text-muted-foreground">
+            <h2 className="text-xl font-semibold text-slate-800">No teams assigned yet</h2>
+            <p className="mt-2">When an admin assigns teams to you, their progress will appear here.</p>
+          </div>
+        ) : (
+          <>
+            <SegmentedTabs className="mt-8 max-w-md" value={team} onValueChange={setTeam} options={loadedTeams.map((item) => ({ value: item.name, label: item.name }))} />
+            <Card className="mt-6 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[860px] text-left text-sm">
               <thead className="bg-muted text-xs uppercase text-muted-foreground">
                 <tr><th className="p-4">Student</th><th className="p-4">TIPSC</th><th className="p-4">DFV</th><th className="p-4">JTBD</th><th className="p-4">Last Active</th><th className="p-4">Actions</th></tr>
               </thead>
@@ -172,6 +192,8 @@ export function MentorDashboard() {
             </table>
           </div>
         </Card>
+        </>
+        )}
       </main>
     </div>
   );
