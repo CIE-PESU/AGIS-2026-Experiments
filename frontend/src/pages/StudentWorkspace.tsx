@@ -17,7 +17,7 @@ import {
 import { MentorChat } from "@/components/shared/MentorChat";
 import { StatusBadge, TrafficDot } from "@/components/shared/StatusBadge";
 import { Timeline } from "@/components/shared/Timeline";
-import { isFlowRunning } from "@/hooks/useSessionPolling";
+import { deriveStageAccess, isFlowRunning } from "@/hooks/useSessionPolling";
 import { archiveSession as archiveSessionApi, getTeamProgress } from "@/services/authSessions";
 import { useAuth } from "@/context/AuthContext";
 import { downloadMarkdown, generateMarkdown } from "@/utils/exportMarkdown";
@@ -132,8 +132,8 @@ export function StudentWorkspace() {
                 {status === "locked" ? (
                   <p className="mt-4 rounded-lg bg-muted p-3 text-sm font-semibold text-muted-foreground">Complete the prior framework to unlock.</p>
                 ) : (
-                  <Button asChild className="mt-4 w-full" variant={status === "completed" ? "outline" : "secondary"}>
-                    <Link to={path}>{status === "completed" ? "View Results" : status === "in_progress" ? "Continue" : "Start"}</Link>
+                  <Button asChild className="mt-4 w-full" variant={status === "completed" ? "outline" : status === "failed" ? "destructive" : "secondary"}>
+                    <Link to={path}>{status === "completed" ? "View Results" : status === "failed" ? "Retry" : status === "in_progress" ? "Continue" : "Start"}</Link>
                   </Button>
                 )}
               </CardContent>
@@ -145,7 +145,7 @@ export function StudentWorkspace() {
         Sequential Evaluation: TIPSC unlocks DFV, and DFV unlocks Customer Discovery.
       </div>
 
-      {/* Team Progress Monitor — mock data until a real "my team" endpoint exists */}
+      {/* Team Progress Monitor — powered by live team session progress API */}
       {user?.teamId && teammates.length > 0 && (
         <Card className="mt-8 overflow-hidden">
           <CardHeader>
@@ -166,45 +166,53 @@ export function StudentWorkspace() {
                   </tr>
                 </thead>
                 <tbody>
-                  {teammates.map((student) => (
-                    <tr key={student.srn} className="border-t bg-white">
-                      <td className="p-4">
-                        <p className="font-semibold">{student.name}</p>
-                        <p className="text-muted-foreground text-xs">
-                          {student.srn} {student.srn === user.srn && <span className="ml-1 text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">You</span>}
-                        </p>
-                      </td>
-                      <td className="p-4">
-                        {!student.sessionId || Object.keys(student.tips || {}).length === 0 ? (
-                          <span className="text-xs text-muted-foreground">Not Started</span>
-                        ) : (
-                          <div className="flex gap-2">
-                            {Object.values(student.tips || {}).map((score, i) => (
-                              <TrafficDot key={i} status={score.status} />
-                            ))}
-                          </div>
-                        )}
-                      </td>
-                      <td className="p-4">
-                        {!student.sessionId || student.dfv === "Not Started" ? (
-                          <span className="text-xs text-muted-foreground">Not Started</span>
-                        ) : student.dfv === "Pending" ? (
-                          <StatusBadge type="available" label="Pending" />
-                        ) : (
-                          <span className={student.dfv === "GO" ? "font-bold text-emerald-700" : "font-bold text-red-700"}>
-                            {student.dfv}
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-4">
-                        {!student.sessionId ? (
-                          <span className="text-xs text-muted-foreground">Not Started</span>
-                        ) : student.jtbd ? (
-                          <StatusBadge type="completed" />
-                        ) : (
-                          <StatusBadge type="locked" label="Pending" />
-                        )}
-                      </td>
+                  {teammates.map((student) => {
+                    const access = deriveStageAccess(student);
+                    return (
+                      <tr key={student.srn} className="border-t bg-white">
+                        <td className="p-4">
+                          <p className="font-semibold">{student.name}</p>
+                          <p className="text-muted-foreground text-xs">
+                            {student.srn} {student.srn === user.srn && <span className="ml-1 text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">You</span>}
+                          </p>
+                        </td>
+                        <td className="p-4">
+                          {!student.sessionId || access.tipsc === "available" ? (
+                            <span className="text-xs text-muted-foreground">Not Started</span>
+                          ) : access.tipsc === "in_progress" ? (
+                            <StatusBadge type="in_progress" />
+                          ) : (
+                            <div className="flex gap-2">
+                              {Object.values(student.tips || {}).map((score, i) => (
+                                <TrafficDot key={i} status={score.status} />
+                              ))}
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-4">
+                          {access.dfv === "locked" ? (
+                            <StatusBadge type="locked" />
+                          ) : access.dfv === "in_progress" ? (
+                            <StatusBadge type="processing" label="Running" />
+                          ) : access.dfv === "available" ? (
+                            <StatusBadge type="available" label="Pending" />
+                          ) : (
+                            <span className={student.dfv === "GO" ? "font-bold text-emerald-700" : student.dfv === "NO-GO" ? "font-bold text-red-700" : "font-semibold text-slate-700"}>
+                              {student.dfv}
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-4">
+                          {access.discovery === "locked" ? (
+                            <StatusBadge type="locked" />
+                          ) : access.discovery === "in_progress" ? (
+                            <StatusBadge type="processing" label="Running" />
+                          ) : access.discovery === "completed" ? (
+                            <StatusBadge type="completed" />
+                          ) : (
+                            <StatusBadge type="available" label="Pending" />
+                          )}
+                        </td>
                       <td className="p-4 text-muted-foreground">
                         <span className="flex items-center gap-1 text-xs">
                           <Clock className="h-4 w-4" />
@@ -229,7 +237,8 @@ export function StudentWorkspace() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  );
+                  })}
                 </tbody>
               </table>
             </div>

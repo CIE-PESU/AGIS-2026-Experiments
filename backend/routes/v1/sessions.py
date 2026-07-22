@@ -262,30 +262,62 @@ async def get_team_progress(
                 }
             }
 
-        # Parse DFV status: GO, NO-GO, Pending, Not Started
+        # Parse DFV status: GO, NO-GO, Running, Pending, Failed, Not Started, Completed
         if not session:
             dfv_status = "Not Started"
+        elif session.status in (
+            SessionStatus.CREATED,
+            SessionStatus.QUEUED,
+            SessionStatus.PRE_EVAL,
+            SessionStatus.VALIDATION_RUNNING,
+            SessionStatus.ETHICS_RUNNING,
+            SessionStatus.TIPSC_RUNNING,
+            SessionStatus.WAITING_FOR_FOUNDER,
+            SessionStatus.TIPSC_REEVALUATION,
+            SessionStatus.TIPSC_FAILED,
+        ):
+            dfv_status = "Not Started"
+        elif session.status in (SessionStatus.DFV_WAITING, SessionStatus.DFV_RUNNING):
+            dfv_status = "Running"
+        elif session.status == SessionStatus.DFV_FAILED:
+            dfv_status = "Failed"
+        elif session.status == SessionStatus.TIPSC_COMPLETED:
+            dfv_status = "Pending"
         else:
             dfv_status = "Pending"
-            if session.dfv:
-                # Check decision or status
-                if isinstance(session.dfv, dict):
-                    dfv_status = session.dfv.get("decision", "Pending")
-                    if not dfv_status or dfv_status == "Pending":
-                        final_dec = session.dfv.get("final_decision", {})
-                        if final_dec:
-                            dfv_status = final_dec.get("status", "Pending")
+
+        if session and session.dfv:
+            if isinstance(session.dfv, dict):
+                dfv_out = session.dfv.get("output") or session.dfv
+            else:
+                dfv_out = getattr(session.dfv, "output", None) or (session.dfv.model_dump() if hasattr(session.dfv, "model_dump") else {})
+
+            if isinstance(dfv_out, dict):
+                decision = dfv_out.get("decision")
+                if not decision:
+                    final_dec = dfv_out.get("final_decision")
+                    if isinstance(final_dec, dict):
+                        decision = final_dec.get("status")
+                    elif hasattr(final_dec, "status"):
+                        decision = getattr(final_dec, "status", None)
+                if not decision:
+                    decision = dfv_out.get("overall_recommendation") or dfv_out.get("recommendation")
+
+                if decision:
+                    dfv_status = str(decision)
                 else:
-                    dfv_status = getattr(session.dfv, "decision", "Pending")
-                    if not dfv_status or dfv_status == "Pending":
-                        final_dec = getattr(session.dfv, "final_decision", None)
-                        if final_dec:
-                            if isinstance(final_dec, dict):
-                                dfv_status = final_dec.get("status", "Pending")
-                            else:
-                                dfv_status = getattr(final_dec, "status", "Pending")
-            elif session.status == SessionStatus.DFV_RUNNING:
-                dfv_status = "Pending"
+                    dfv_status = "Completed"
+            elif session.dfv:
+                dfv_status = "Completed"
+        elif session and session.status in (
+            SessionStatus.DFV_COMPLETED,
+            SessionStatus.DISCOVERY_WAITING,
+            SessionStatus.DISCOVERY_RUNNING,
+            SessionStatus.DISCOVERY_FAILED,
+            SessionStatus.COMPLETED,
+        ):
+            if dfv_status in ("Pending", "Not Started"):
+                dfv_status = "Completed"
 
         # Parse JTBD (Discovery) completed status
         jtbd_completed = False
@@ -319,7 +351,9 @@ async def get_team_progress(
             "jtbd": jtbd_completed,
             "lastActive": last_active,
             "teamId": team_id,
-            "sessionId": str(session.id) if session else None
+            "sessionId": str(session.id) if session else None,
+            "status": session.status.value if (session and hasattr(session.status, "value")) else (session.status if session else None),
+            "dfv_raw": session.dfv.model_dump() if (session and session.dfv and hasattr(session.dfv, "model_dump")) else (session.dfv if session else None)
         })
 
     return success_response(data=results, request=request)

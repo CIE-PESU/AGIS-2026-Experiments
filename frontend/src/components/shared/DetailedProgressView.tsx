@@ -3,6 +3,7 @@ import { ChevronDown, Loader2, AlertCircle } from "lucide-react";
 import { type StageStatus, type Traffic } from "@/data/mockData";
 import { StatusBadge, TrafficDot } from "@/components/shared/StatusBadge";
 import { getSession } from "@/services/authSessions";
+import { deriveCanonicalStageAccess } from "@/utils/sessionStatus";
 
 type StudentDetail = {
   srn: string;
@@ -119,15 +120,17 @@ export function DetailedProgressView({ student }: { student: StudentDetail }) {
       }))
     : null;
 
+  const access = deriveCanonicalStageAccess(sessionData || student);
+
   // Parse DFV inputs and decision
-  const hasDfv = !!sessionData?.dfv;
+  const hasDfv = !!sessionData?.dfv || access.dfv === "completed" || access.dfv === "GO" || access.dfv === "NO-GO";
   let dfvStatus = "Pending";
   let dfvInputs = null;
 
-  if (hasDfv) {
-    const out = sessionData.dfv.output;
+  if (sessionData?.dfv) {
+    const out = sessionData.dfv.output || sessionData.dfv;
     if (out) {
-      dfvStatus = out.decision ?? out.final_decision?.status ?? "Pending";
+      dfvStatus = out.decision ?? out.final_decision?.status ?? out.overall_recommendation ?? out.recommendation ?? "Completed";
     }
     if (sessionData.dfv_inputs) {
       dfvInputs = {
@@ -138,14 +141,10 @@ export function DetailedProgressView({ student }: { student: StudentDetail }) {
     }
   }
 
-  const jtbdCompleted = sessionData
-    ? !!(sessionData.discovery || sessionData.status === "completed")
-    : false;
-
-  const statuses: { label: string; value: StageStatus }[] = [
-    { label: "TIPSC", value: hasTips ? "completed" : (sessionData ? "in_progress" : "available") },
-    { label: "DFV", value: hasDfv ? "completed" : (hasTips ? "available" : "locked") },
-    { label: "JTBD", value: jtbdCompleted ? "completed" : (hasDfv ? "available" : "locked") }
+  const statuses: { label: string; value: any }[] = [
+    { label: "TIPSC", value: access.tipsc },
+    { label: "DFV", value: (access.dfv === "GO" || access.dfv === "NO-GO") ? "completed" : access.dfv },
+    { label: "JTBD", value: access.discovery }
   ];
 
   return (

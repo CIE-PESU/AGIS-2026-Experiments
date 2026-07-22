@@ -13,6 +13,8 @@ import { StatusBadge, TrafficDot } from "@/components/shared/StatusBadge";
 import { useAuth } from "@/context/AuthContext";
 import { getTeamsWithMembers, getComments, addComment, Comment } from "@/utils/adminData";
 
+import { deriveStageAccess } from "@/hooks/useSessionPolling";
+
 export function MentorDashboard() {
   const { user, logout } = useAuth();
   const loadedTeams = useMemo(() => getTeamsWithMembers(), []);
@@ -100,12 +102,40 @@ export function MentorDashboard() {
                 <tr><th className="p-4">Student</th><th className="p-4">TIPSC</th><th className="p-4">DFV</th><th className="p-4">JTBD</th><th className="p-4">Last Active</th><th className="p-4">Actions</th></tr>
               </thead>
               <tbody>
-                {selected.members.map((student) => (
-                  <tr key={student.srn} className="border-t bg-white">
-                    <td className="p-4"><p className="font-semibold">{student.name}</p><p className="text-muted-foreground">{student.srn}</p></td>
-                    <td className="p-4"><div className="flex gap-2">{Object.values(student.tips).map((score, i) => <TrafficDot key={i} status={score.status} />)}</div></td>
-                    <td className="p-4">{student.dfv === "Pending" ? <StatusBadge type="available" label="Pending" /> : <span className={student.dfv === "GO" ? "font-bold text-emerald-700" : "font-bold text-red-700"}>{student.dfv}</span>}</td>
-                    <td className="p-4">{student.jtbd ? <StatusBadge type="completed" /> : <StatusBadge type="locked" label="Pending" />}</td>
+                {selected.members.map((student) => {
+                  const access = deriveStageAccess(student);
+                  return (
+                    <tr key={student.srn} className="border-t bg-white">
+                      <td className="p-4"><p className="font-semibold">{student.name}</p><p className="text-muted-foreground">{student.srn}</p></td>
+                      <td className="p-4">
+                        {access.tipsc === "in_progress" ? (
+                          <StatusBadge type="in_progress" />
+                        ) : (
+                          <div className="flex gap-2">{Object.values(student.tips).map((score, i) => <TrafficDot key={i} status={score.status} />)}</div>
+                        )}
+                      </td>
+                      <td className="p-4">
+                        {access.dfv === "locked" ? (
+                          <StatusBadge type="locked" />
+                        ) : access.dfv === "in_progress" ? (
+                          <StatusBadge type="processing" label="Running" />
+                        ) : access.dfv === "available" ? (
+                          <StatusBadge type="available" label="Pending" />
+                        ) : (
+                          <span className={student.dfv === "GO" ? "font-bold text-emerald-700" : student.dfv === "NO-GO" ? "font-bold text-red-700" : "font-semibold text-slate-700"}>{student.dfv}</span>
+                        )}
+                      </td>
+                      <td className="p-4">
+                        {access.discovery === "locked" ? (
+                          <StatusBadge type="locked" />
+                        ) : access.discovery === "in_progress" ? (
+                          <StatusBadge type="processing" label="Running" />
+                        ) : access.discovery === "completed" ? (
+                          <StatusBadge type="completed" />
+                        ) : (
+                          <StatusBadge type="available" label="Pending" />
+                        )}
+                      </td>
                     <td className="p-4 text-muted-foreground"><span className="flex items-center gap-1"><Clock className="h-4 w-4" />{student.lastActive}</span></td>
                     <td className="p-4">
                       <div className="flex gap-2">
@@ -136,8 +166,9 @@ export function MentorDashboard() {
                       </div>
                     </td>
                   </tr>
-                ))}
-              </tbody>
+                );
+                  })}
+                </tbody>
             </table>
           </div>
         </Card>

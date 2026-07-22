@@ -44,12 +44,38 @@ def _sanitize_tool_choice(kwargs):
 
 def _patched_litellm_completion(*args, **kwargs):
     kwargs = _sanitize_tool_choice(kwargs)
-    return _original_litellm_completion(*args, **kwargs)
+    max_retries = 3
+    for attempt in range(max_retries):
+        res = _original_litellm_completion(*args, **kwargs)
+        if res and hasattr(res, "choices") and len(res.choices) > 0:
+            msg = res.choices[0].message
+            content = getattr(msg, "content", None)
+            tool_calls = getattr(msg, "tool_calls", None)
+            if content or tool_calls:
+                return res
+            if attempt < max_retries - 1:
+                print(f"[litellm_patch] Received empty LLM response (attempt {attempt + 1}/{max_retries}). Retrying...")
+                continue
+        return res
+    return res
 
 
 async def _patched_litellm_acompletion(*args, **kwargs):
     kwargs = _sanitize_tool_choice(kwargs)
-    return await _original_litellm_acompletion(*args, **kwargs)
+    max_retries = 3
+    for attempt in range(max_retries):
+        res = await _original_litellm_acompletion(*args, **kwargs)
+        if res and hasattr(res, "choices") and len(res.choices) > 0:
+            msg = res.choices[0].message
+            content = getattr(msg, "content", None)
+            tool_calls = getattr(msg, "tool_calls", None)
+            if content or tool_calls:
+                return res
+            if attempt < max_retries - 1:
+                print(f"[litellm_patch] Received empty async LLM response (attempt {attempt + 1}/{max_retries}). Retrying...")
+                continue
+        return res
+    return res
 
 
 litellm.completion = _patched_litellm_completion
@@ -109,6 +135,7 @@ llm = LLM(
     base_url=os.environ["LM_STUDIO_URL"],
     api_key=os.environ["OPENAI_API_KEY"],
     temperature=0.1,
+    num_retries=3,
 )
 
 # Discover and activate local business framework guidelines from markdown packages
@@ -143,40 +170,39 @@ class DFAOutput(BaseModel):
     tips_validated_metrics: TipsValidatedMetrics
     final_decision: DecisionGate
 
-# 3. Define the Phase 1 Desirability Evaluation Agent
-desirability_agent = Agent(
-    role="Desirability Evaluation Agent",
-    goal=f"Determine whether the proposed solution addresses a genuine user need and whether sufficient market demand exists. Today's Date {TodayDate}",
-    backstory=(
-        """You are an expert market research analyst and user experience strategist. You MUST use the Search tool and ScrapeWebsite tool for EVERY task.
-    Do NOT answer from memory or prior knowledge.
-    Your first action must always be a tool call.
-    If you have not searched the web, your answer is incomplete.
-        """
-    ),
-    llm=llm,
-    tools=[search_tool, scrape_tool],
-    verbose=False,
-    skills=[activated[0]],
-    max_iter=7
-)
+def create_dfv_crew():
+    desirability_agent = Agent(
+        role="Desirability Evaluation Agent",
+        goal=f"Determine whether the proposed solution addresses a genuine user need and whether sufficient market demand exists. Today's Date {TodayDate}",
+        backstory=(
+            """You are an expert market research analyst and user experience strategist. You MUST use the Search tool and ScrapeWebsite tool for EVERY task.
+        Do NOT answer from memory or prior knowledge.
+        Your first action must always be a tool call.
+        If you have not searched the web, your answer is incomplete.
+            """
+        ),
+        llm=llm,
+        tools=[search_tool, scrape_tool],
+        verbose=False,
+        skills=[activated[0]],
+        max_iter=7
+    )
 
-# 4. Define the Desirability Task mapped exactly to system documentation outputs
-desirability_task = Task(
-    description="{desirability}",
-    expected_output=(
-        "A formal text-formatted 'Desirability Analysis Report' containing:\n"
-        "1. User Demand Analysis (validating target user pain points and problem severity).\n"
-        "2. Market Demand Assessment (current industry search interest and growth indicators).\n"
-        "3. Competitor Analysis (gaps, weaknesses, or friction in existing products/alternatives).\n"
-        "4. Opportunity Identification (clear statement on why this solution is or is not desired by the market).\n"
-        "keep the output under 600 words"
-    ),
-    agent=desirability_agent,
-    async_execution=True
-)
+    desirability_task = Task(
+        description="{desirability}",
+        expected_output=(
+            "A formal text-formatted 'Desirability Analysis Report' containing:\n"
+            "1. User Demand Analysis (validating target user pain points and problem severity).\n"
+            "2. Market Demand Assessment (current industry search interest and growth indicators).\n"
+            "3. Competitor Analysis (gaps, weaknesses, or friction in existing products/alternatives).\n"
+            "4. Opportunity Identification (clear statement on why this solution is or is not desired by the market).\n"
+            "keep the output under 600 words"
+        ),
+        agent=desirability_agent,
+        async_execution=True
+    )
 
-feasibility_agent = Agent(
+    feasibility_agent = Agent(
         role="Feasibility Evaluation Agent",
         goal=f"Evaluate the feasibility of a startup idea strictly from the Feasibility dimension of the DFV framework. Today's Date {TodayDate}",
         backstory=(
@@ -192,67 +218,67 @@ feasibility_agent = Agent(
         max_iter=7
     )
 
-feasibility_task = Task(
-    description="{feasibility}",
-    expected_output=(
-        "A plain-language Feasibility Evaluation containing:\n"
-        "1. A short feasibility opinion.\n"
-        "2. Main technical and operational challenges.\n"
-        "3. Required tools, stack, or infrastructure.\n"
-        "4. Suggestions to improve or simplify the idea if needed.\n"
-        "5. Practical next steps for implementation.\n"
-        "Do not include any score, rating, grade, or percentage. keep the output under 600 words"
-    ),
-    agent=feasibility_agent,
-    async_execution=True
-)
+    feasibility_task = Task(
+        description="{feasibility}",
+        expected_output=(
+            "A plain-language Feasibility Evaluation containing:\n"
+            "1. A short feasibility opinion.\n"
+            "2. Main technical and operational challenges.\n"
+            "3. Required tools, stack, or infrastructure.\n"
+            "4. Suggestions to improve or simplify the idea if needed.\n"
+            "5. Practical next steps for implementation.\n"
+            "Do not include any score, rating, grade, or percentage. keep the output under 600 words"
+        ),
+        agent=feasibility_agent,
+        async_execution=True
+    )
 
-viability_agent = Agent(
-    role="Viability Evaluation Agent",
-    goal=f"Determine whether the proposed solution can generate sustainable business value and long-term growth. Today's Date {TodayDate}",
-    backstory=(
-        """You are an expert startup strategist, business consultant, and commercialization analyst. You MUST use the Search tool and ScrapeWebsite tool for EVERY task.
-        Do NOT answer from memory or prior knowledge.
-        Your first action must always be a tool call.
-        If you have not searched the web, your answer is incomplete."""
-    ),
-    llm=llm,
-    tools=[search_tool, scrape_tool],
-    verbose=False,
-    skills=[activated[3]],
-    max_iter=7
-)
+    viability_agent = Agent(
+        role="Viability Evaluation Agent",
+        goal=f"Determine whether the proposed solution can generate sustainable business value and long-term growth. Today's Date {TodayDate}",
+        backstory=(
+            """You are an expert startup strategist, business consultant, and commercialization analyst. You MUST use the Search tool and ScrapeWebsite tool for EVERY task.
+            Do NOT answer from memory or prior knowledge.
+            Your first action must always be a tool call.
+            If you have not searched the web, your answer is incomplete."""
+        ),
+        llm=llm,
+        tools=[search_tool, scrape_tool],
+        verbose=False,
+        skills=[activated[3]],
+        max_iter=7
+    )
 
-viability_task = Task(
-    description="{viability}",
-    expected_output=(
-        "A Viability Analysis Report containing:\n"
-        "1. Business Model Analysis\n"
-        "2. Revenue Opportunities\n"
-        "3. Customer Segment Analysis\n"
-        "4. Cost Considerations\n"
-        "5. Sustainability Assessment\n"
-        "6. Final Viability Conclusion\n"
-        "keep the output under 600 words"
-    ),
-    agent=viability_agent,
-    async_execution=True
-)
+    viability_task = Task(
+        description="{viability}",
+        expected_output=(
+            "A Viability Analysis Report containing:\n"
+            "1. Business Model Analysis\n"
+            "2. Revenue Opportunities\n"
+            "3. Customer Segment Analysis\n"
+            "4. Cost Considerations\n"
+            "5. Sustainability Assessment\n"
+            "6. Final Viability Conclusion\n"
+            "keep the output under 600 words"
+        ),
+        agent=viability_agent,
+        async_execution=True
+    )
 
-dfv_risk_decision_agent = Agent(
-    role="Internal DFV Decision and Risk Assessment Engine",
-    goal=f"Identify hidden risks across project dimensions and aggregate all findings into a final project readiness decision. Today's Date {TodayDate}",
-    backstory=(
-        """You are an expert venture risk analyst and product strategist. """
-    ),
-    verbose=False,
-    skills=[activated[1]],
-    llm=llm
-)
+    dfv_risk_decision_agent = Agent(
+        role="Internal DFV Decision and Risk Assessment Engine",
+        goal=f"Identify hidden risks across project dimensions and aggregate all findings into a final project readiness decision. Today's Date {TodayDate}",
+        backstory=(
+            """You are an expert venture risk analyst and product strategist. """
+        ),
+        verbose=False,
+        skills=[activated[1]],
+        llm=llm
+    )
 
-dfv_decision_task = Task(
-    description=(
-        """Review the reports provided in your context thoroughly from the Desirability,
+    dfv_decision_task = Task(
+        description=(
+            """Review the reports provided in your context thoroughly from the Desirability,
         Feasibility, and Viability evaluation phases. Synthesize these findings to construct
         a structured assessment of the project idea, filling in the required JSON fields.
 
@@ -276,23 +302,30 @@ dfv_decision_task = Task(
         4. final_decision:
            - status: Critically weigh all three dimensions. If any phase reveals a fatal flaw, set this field to 'NO-GO'. If all three pillars balance sustainably, set this to 'GO'.
            - justification: Provide a clear, data-backed analytical reason for why the project received a GO or a NO-GO status."""
-    ),
-    expected_output=(
-        "Return ONLY a single valid JSON object -- no markdown code fences, no explanation "
-        "text before or after it -- matching exactly this structure:\n"
-        "{\n"
-        '  "refined_idea": {"customer_segment": "...", "qualified_problem": "...", '
-        '"consequence": "...", "proposed_solution": "..."},\n'
-        '  "hypotheses": {"desirability_statement": "...", "feasibility_statement": "...", '
-        '"viability_statement": "..."},\n'
-        '  "tips_validated_metrics": {"timely_factor": "...", "importance_metric": "...", '
-        '"profitability_pivot": "...", "solvability_constraint": "..."},\n'
-        '  "final_decision": {"status": "GO or NO-GO", "justification": "..."}\n'
-        "}"
-    ),
-    context=[desirability_task, feasibility_task, viability_task],
-    agent=dfv_risk_decision_agent,
-)
+        ),
+        expected_output=(
+            "Return ONLY a single valid JSON object -- no markdown code fences, no explanation "
+            "text before or after it -- matching exactly this structure:\n"
+            "{\n"
+            '  "refined_idea": {"customer_segment": "...", "qualified_problem": "...", '
+            '"consequence": "...", "proposed_solution": "..."},\n'
+            '  "hypotheses": {"desirability_statement": "...", "feasibility_statement": "...", '
+            '"viability_statement": "..."},\n'
+            '  "tips_validated_metrics": {"timely_factor": "...", "importance_metric": "...", '
+            '"profitability_pivot": "...", "solvability_constraint": "..."},\n'
+            '  "final_decision": {"status": "GO or NO-GO", "justification": "..."}\n'
+            "}"
+        ),
+        context=[desirability_task, feasibility_task, viability_task],
+        agent=dfv_risk_decision_agent,
+    )
+
+    return Crew(
+        agents=[desirability_agent, feasibility_agent, viability_agent, dfv_risk_decision_agent],
+        tasks=[desirability_task, feasibility_task, viability_task, dfv_decision_task],
+        process=Process.sequential,
+        verbose=False
+    )
 
 # print(desirability_agent.skills)
 # print(viability_agent.skills)
@@ -420,14 +453,7 @@ def _extract_json_block(raw: str) -> str:
 
 
 def run_analysis(inputs: dict):
-    crew = Crew(
-        agents=[desirability_agent, feasibility_agent, viability_agent, dfv_risk_decision_agent],
-        tasks=[desirability_task, feasibility_task, viability_task, dfv_decision_task],
-        process=Process.sequential,
-        verbose=False
-    )
-
-
+    crew = create_dfv_crew()
     result = crew.kickoff(inputs=inputs)
 
 

@@ -1,5 +1,5 @@
 export type Traffic = "green" | "yellow" | "red";
-export type StageStatus = "locked" | "available" | "in_progress" | "completed";
+export type StageStatus = "locked" | "available" | "in_progress" | "completed" | "failed";
 
 export type TIPSCScore = {
   status: Traffic;

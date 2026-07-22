@@ -8,6 +8,7 @@ export interface Student {
   jtbd: boolean;
   lastActive: string;
   teamId: string | null;
+  sessionId?: string | null;
 }
 
 export interface Team {
