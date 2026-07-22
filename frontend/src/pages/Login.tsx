@@ -18,7 +18,8 @@ export function Login() {
 
   if (user) return <Navigate to={getRoleHome(user.role)} replace />;
 
-  const isStudent = srn.toLowerCase() !== "admin" && srn.toLowerCase() !== "mentor";
+  const nonStudentRoles = ["admin", "ashwin", "bhavesh", "urav"];
+  const isStudent = !nonStudentRoles.includes(srn.toLowerCase());
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();

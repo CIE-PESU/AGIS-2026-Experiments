@@ -33,7 +33,7 @@ class LoginRequest(BaseModel):
     @classmethod
     def validate_srn(cls, v: str) -> str:
         v = str(v).upper().strip()
-        if "MENTOR" in v or "ADMIN" in v:
+        if "MENTOR" in v or "ADMIN" in v or v in ("ASHWIN", "BHAVESH", "URAV"):
             return v
         if not _SRN_PATTERN.match(v):
             raise ValueError(
@@ -45,7 +45,7 @@ class LoginRequest(BaseModel):
     @field_validator("password")
     @classmethod
     def validate_password(cls, v: str) -> str:
-        if v == "dev":
+        if v in ("dev", "Stake", "FIFA", "Meghana"):
             return v
         if len(v) < 6:
             raise ValueError("Password must be at least 6 characters.")
