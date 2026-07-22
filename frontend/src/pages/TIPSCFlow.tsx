@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Brain, CheckCircle2, Loader2, XCircle } from "lucide-react";
+import { ArrowLeft, ArrowRight, Brain, CheckCircle2, Loader2, XCircle, MessageCircleQuestion } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,17 +16,15 @@ import { RegulatoryCard } from "@/components/shared/RegulatoryCard";
 import { EthicsCard } from "@/components/shared/EthicsCard";
 import { toast } from "sonner";
 
-const STEPS = [
-  "Queued",
-  "Pre Evaluation",
-  "Validation",
-  "Regulatory",
-  "Ethics",
-  "TIPSC",
-  "Founder",
-  "DFV",
-  "Discovery",
-  "Completed"
+type TabKey = "preeval" | "validation" | "regulatory" | "ethics" | "tipsc" | "founder";
+
+const TABS: { key: TabKey; label: string }[] = [
+  { key: "preeval", label: "Pre Evaluation" },
+  { key: "validation", label: "Validation" },
+  { key: "regulatory", label: "Regulatory" },
+  { key: "ethics", label: "Ethics" },
+  { key: "tipsc", label: "TIPSC" },
+  { key: "founder", label: "Founder" }
 ];
 
 const PROCESSING_STATUSES = new Set([
@@ -82,6 +80,16 @@ function getStepIndex(status?: string | null): number {
   }
 }
 
+/** Maps the backend's current step index onto the tab that should be active by default. */
+function defaultTabForStep(stepIndex: number): TabKey {
+  if (stepIndex <= 1) return "preeval";
+  if (stepIndex === 2) return "validation";
+  if (stepIndex === 3) return "regulatory";
+  if (stepIndex === 4) return "ethics";
+  if (stepIndex === 6) return "founder";
+  return "tipsc";
+}
+
 function getLoadingText(status?: string | null): string {
   switch (status) {
     case "created":
@@ -122,6 +130,8 @@ export function TIPSCFlow() {
   const [local, setLocal] = useState<Record<string, string>>(formData);
   const [answer, setAnswer] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabKey>("preeval");
+  const [tabManuallySelected, setTabManuallySelected] = useState(false);
 
   const tips = sessionDoc?.tipsc ?? null;
 
@@ -146,6 +156,15 @@ export function TIPSCFlow() {
 
   const filled = preEvaluationQuestions.every((q) => local[q.key]?.trim());
 
+  // Auto-advance the active tab to follow the pipeline's progress, unless the
+  // user has manually clicked a different tab (then we respect their choice
+  // until they navigate again).
+  useEffect(() => {
+    if (!tabManuallySelected) {
+      setActiveTab(defaultTabForStep(currentStep));
+    }
+  }, [currentStep, tabManuallySelected]);
+
   useEffect(() => {
     if (readyForDFV) {
       unlockNext("tipsc");
@@ -158,6 +177,11 @@ export function TIPSCFlow() {
 
   if (session.tipsc === "locked") {
     return <Navigate to="/workspace" replace />;
+  }
+
+  function selectTab(key: TabKey) {
+    setTabManuallySelected(true);
+    setActiveTab(key);
   }
 
   async function submitForm(event: FormEvent) {
@@ -233,9 +257,11 @@ export function TIPSCFlow() {
     setLocal({});
     setFormData({});
     setAnswer("");
+    setTabManuallySelected(false);
     addEvent("TIPSC Restarted");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
+
   async function retryTIPSC() {
     if (!sessionId) return;
 
@@ -243,16 +269,13 @@ export function TIPSCFlow() {
 
     try {
       await triggerTipsc(sessionId);
-
       addEvent("TIPSC Retry Triggered");
-
       toast.success("TIPSC restarted.");
     } catch (err: unknown) {
       const errorMessage =
         err instanceof Error
           ? err.message
           : "Failed to restart TIPSC.";
-
       toast.error(errorMessage);
     } finally {
       setSubmitting(false);
@@ -261,11 +284,43 @@ export function TIPSCFlow() {
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
+      {/* ── Follow-up question — pinned banner, no scrolling required ── */}
+      {isFollowup && pendingQuestion && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="w-[560px] max-w-[calc(100vw-2rem)] rounded-xl border border-[#34305E]/20 bg-white shadow-2xl overflow-hidden animate-in zoom-in-95 fade-in duration-300">
+      {/* Header bar - teal from CIE brand */}
+      <div className="bg-[#3B8FA6] px-5 py-3.5 flex items-center gap-2">
+        <MessageCircleQuestion className="h-5 w-5 text-white" />
+        <p className="text-base font-bold text-white">TIPSC needs more information</p>
+      </div>
+      <div className="p-6">
+        <p className="text-base text-[#2D2A6E]">{pendingQuestion}</p>
+        <Textarea
+          className="mt-4 bg-slate-50 text-base border-slate-200 focus-visible:ring-[#3B8FA6]"
+          rows={4}
+          value={answer}
+          onChange={(e) => setAnswer(e.target.value)}
+          placeholder="Type your answer here..."
+          autoFocus
+        />
+        <Button
+          disabled={!answer.trim() || submitting}
+          className="mt-4 w-full bg-[#E8622C] hover:bg-[#d1541f] text-white"
+          onClick={sendFollowUp}
+        >
+          {submitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+          Submit & Re-evaluate
+        </Button>
+      </div>
+    </div>
+  </div>
+)}
+
       <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold text-primary">TIPSC Evaluation</h1>
           <p className="text-muted-foreground">
-            Pre-Evaluation → Validation → Regulatory → Ethics → TIPSC → DFV → Discovery
+            Pre-Evaluation → Validation → Regulatory → Ethics → TIPSC
           </p>
         </div>
         <Button asChild variant="outline">
@@ -273,17 +328,20 @@ export function TIPSCFlow() {
         </Button>
       </div>
 
-      <div className="mb-8 grid grid-cols-2 md:grid-cols-5 gap-2">
-        {STEPS.map((step, index) => (
-          <div
-            key={step}
-            className={`rounded-full px-2 py-2 text-center text-xs font-semibold ${index <= currentStep
-              ? "bg-secondary text-white"
-              : "bg-white text-muted-foreground"
-              }`}
+      {/* ── Tabs ── */}
+      <div className="mb-8 grid grid-cols-2 md:grid-cols-6 gap-2">
+        {TABS.map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => selectTab(key)}
+            className={`rounded-full px-2 py-2 text-center text-xs font-semibold transition-colors ${
+              activeTab === key
+                ? "bg-secondary text-white"
+                : "bg-white text-muted-foreground hover:bg-slate-50"
+            }`}
           >
-            {step}
-          </div>
+            {label}
+          </button>
         ))}
       </div>
 
@@ -324,16 +382,48 @@ export function TIPSCFlow() {
 
       {isProcessing && <Loading icon={<Brain />} text={loadingText} />}
 
+      {/* ── Tab content — only the selected section renders ── */}
       {sessionDoc && (
         <div className="space-y-4">
-          {sessionDoc.preeval && <PreEvaluationCard data={sessionDoc.preeval} />}
-          {sessionDoc.validation && <ValidationCard data={sessionDoc.validation} />}
-          {sessionDoc.regulatory && <RegulatoryCard data={sessionDoc.regulatory} />}
-          {sessionDoc.ethics && <EthicsCard data={sessionDoc.ethics} />}
+          {activeTab === "preeval" && sessionDoc.preeval && (
+            <PreEvaluationCard data={sessionDoc.preeval} />
+          )}
+          {activeTab === "preeval" && !sessionDoc.preeval && (
+            <EmptyTabState label="Pre-Evaluation" />
+          )}
+
+          {activeTab === "validation" && sessionDoc.validation && (
+            <ValidationCard data={sessionDoc.validation} />
+          )}
+          {activeTab === "validation" && !sessionDoc.validation && (
+            <EmptyTabState label="Validation" />
+          )}
+
+          {activeTab === "regulatory" && sessionDoc.regulatory && (
+            <RegulatoryCard data={sessionDoc.regulatory} />
+          )}
+          {activeTab === "regulatory" && !sessionDoc.regulatory && (
+            <EmptyTabState label="Regulatory" />
+          )}
+
+          {activeTab === "ethics" && sessionDoc.ethics && (
+            <EthicsCard data={sessionDoc.ethics} />
+          )}
+          {activeTab === "ethics" && !sessionDoc.ethics && (
+            <EmptyTabState label="Ethics" />
+          )}
+
+          {activeTab === "founder" && (
+            <FounderTab
+              pendingQuestion={isFollowup ? pendingQuestion : null}
+              followupHistory={sessionDoc.followup_history ?? []}
+            />
+          )}
         </div>
       )}
+
       {isFailed && (
-        <Card className="border-red-200">
+        <Card className="border-red-200 mt-4">
           <CardHeader>
             <CardTitle className="text-red-600">
               TIPSC Evaluation Failed
@@ -354,39 +444,19 @@ export function TIPSCFlow() {
               {submitting && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
-
               Retry TIPSC Evaluation
             </Button>
           </CardContent>
         </Card>
       )}
-      {(isFollowup || isFinal) && tips && (
-        <Card>
+
+      {activeTab === "tipsc" && (isFollowup || isFinal) && tips && (
+        <Card className="mt-4">
           <CardHeader>
             <CardTitle>TIPSC Scores</CardTitle>
           </CardHeader>
           <CardContent>
             <ScoreGrid tips={tips} />
-            {isFollowup && pendingQuestion && (
-              <div className="mt-6 rounded-lg bg-amber-50 p-4 text-amber-800">
-                <b>Additional information needed</b>
-                <p className="mt-1 text-sm">{pendingQuestion}</p>
-                <Textarea
-                  className="mt-4 bg-white"
-                  value={answer}
-                  onChange={(e) => setAnswer(e.target.value)}
-                />
-                <Button
-                  disabled={!answer.trim() || submitting}
-                  className="mt-4"
-                  variant="secondary"
-                  onClick={sendFollowUp}
-                >
-                  {submitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                  Submit & Re-evaluate
-                </Button>
-              </div>
-            )}
             {isFinal && (
               <div
                 className={`mt-6 rounded-lg p-4 ${readyForDFV ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"
@@ -428,6 +498,51 @@ export function TIPSCFlow() {
   );
 }
 
+function EmptyTabState({ label }: { label: string }) {
+  return (
+    <Card>
+      <CardContent className="py-10 text-center text-sm text-muted-foreground">
+        {label} results will appear here once that stage completes.
+      </CardContent>
+    </Card>
+  );
+}
+
+function FounderTab({
+  pendingQuestion,
+  followupHistory
+}: {
+  pendingQuestion: string | null;
+  followupHistory: { question: string; answer: string; turn?: number; answered_at?: string }[];
+}) {
+  if (!pendingQuestion && followupHistory.length === 0) {
+    return <EmptyTabState label="Founder follow-up" />;
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Founder Follow-up</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {pendingQuestion && (
+          <p className="text-sm text-muted-foreground italic">
+            A question is currently pending — see the banner at the top of the page to answer it.
+          </p>
+        )}
+        {[...followupHistory]
+          .sort((a, b) => (a.turn ?? 0) - (b.turn ?? 0))
+          .map((item, index) => (
+            <div key={index} className="rounded-lg border p-4">
+              <p className="text-sm font-semibold text-slate-800">Q: {item.question}</p>
+              <p className="mt-1 text-sm text-muted-foreground">A: {item.answer}</p>
+            </div>
+          ))}
+      </CardContent>
+    </Card>
+  );
+}
+
 function Loading({ icon, text }: { icon: React.ReactNode; text: string }) {
   return (
     <Card>
@@ -466,7 +581,6 @@ function ScoreGrid({ tips }: { tips: TIPSCResult }) {
 
   return (
     <div className="space-y-6">
-
       <div className="grid gap-4 md:grid-cols-2">
         {scores.map((score) => (
           <div
@@ -479,7 +593,6 @@ function ScoreGrid({ tips }: { tips: TIPSCResult }) {
                 {score.key}
               </h3>
             </div>
-
             <p className="text-sm text-muted-foreground">
               {score.reason}
             </p>
@@ -491,7 +604,6 @@ function ScoreGrid({ tips }: { tips: TIPSCResult }) {
         <h3 className="font-semibold mb-2">
           Overall Readiness
         </h3>
-
         <p className="font-medium">
           {tips.overall_readiness}
         </p>
@@ -501,12 +613,10 @@ function ScoreGrid({ tips }: { tips: TIPSCResult }) {
         <h3 className="font-semibold mb-2">
           Reasoning
         </h3>
-
         <p className="text-sm whitespace-pre-wrap text-muted-foreground">
           {tips.reasoning}
         </p>
       </div>
-
     </div>
   );
 }
