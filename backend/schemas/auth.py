@@ -33,7 +33,7 @@ class LoginRequest(BaseModel):
     @classmethod
     def validate_srn(cls, v: str) -> str:
         v = str(v).upper().strip()
-        if "MENTOR" in v or "ADMIN" in v or v in ("ASHWIN", "BHAVESH", "URAV"):
+        if "@" in v or "ADMIN" in v or v in ("ASHWIN", "BHAVESH", "URAV"):
             return v
         if not _SRN_PATTERN.match(v):
             raise ValueError(

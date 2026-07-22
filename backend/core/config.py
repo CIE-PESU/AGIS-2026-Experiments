@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRY_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRY_DAYS: int = 7
+    FERNET_KEY: str
 
     # ── PES Auth ───────────────────────────────────────────────────────────────
     PES_AUTH_URL: str                    # e.g. https://auth.pes.edu/api/v1/validate

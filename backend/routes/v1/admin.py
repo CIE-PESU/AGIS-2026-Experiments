@@ -3,15 +3,42 @@ from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, Query
 
+from pydantic import BaseModel
 from dependencies.auth import require_admin
 from schemas.auth import CurrentUser
 from services import admin_service
+from core.security import cipher
+from models.user import User
+
+class MentorCreateRequest(BaseModel):
+    name: str
+    email: str
+    password: str
 
 # Apply the admin lock to every route in this file automatically
 router = APIRouter(
     tags=["Admin"],
     dependencies=[Depends(require_admin())]
 )
+
+@router.post("/mentors")
+async def create_mentor(req: MentorCreateRequest):
+    """Admin: Create a new mentor with an encrypted password."""
+    # Check if mentor already exists
+    existing = await User.find_one(User.srn == req.email.upper())
+    if existing:
+        return {"error": "Mentor already exists"}
+    
+    enc_pw = cipher.encrypt(req.password.encode()).decode()
+    new_mentor = User(
+        srn=req.email.upper(),
+        name=req.name,
+        email=req.email,
+        role="mentor",
+        encrypted_password=enc_pw
+    )
+    await new_mentor.insert()
+    return {"message": "Mentor created successfully"}
 
 @router.get("/sessions")
 async def list_all_sessions(
