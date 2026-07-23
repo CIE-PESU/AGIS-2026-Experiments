@@ -1,0 +1,37 @@
+[
+    {
+        "srn": "ASHWIN",
+        "name": "Ashwin",
+        "email": "ashwin@pes.edu",
+        "role": "admin",
+        "encrypted_password": "gAAAAABqYKqMdpFftoI6_i2-NT1vHBm_4tNxZ123DWzTbyEwiaQZfolXaE2Oqphu9f5Dx2Gke16rXMkN06nWj_vaWXaynIVHBA=="
+    },
+    {
+        "srn": "BHAVESH",
+        "name": "Bhavesh",
+        "email": "bhavesh@pes.edu",
+        "role": "admin",
+        "encrypted_password": "gAAAAABqYKqMZCIf_tI5H78sE2aSqJfLVBFvFzSdfH99UXYU_hnwNKd0jlKL0lZ6v5lc0lrIEVZXNiZpqEpqfkPD9HJApKUdtA=="
+    },
+    {
+        "srn": "URAV",
+        "name": "Urav",
+        "email": "urav@pes.edu",
+        "role": "admin",
+        "encrypted_password": "gAAAAABqYKqMin8V8bDgZ6splNykeFhOu-GSsJhxERnH4gcQnb6DGePbaihlSkOChMZas24tgmQ6C1abXn762_PEALD5xeQcZA=="
+    },
+    {
+        "srn": "PALASH.AGAR@GMAIL.COM",
+        "name": "Palash Agarwal",
+        "email": "palash.agar@gmail.com",
+        "role": "mentor",
+        "encrypted_password": "gAAAAABqYLGC7CrEXhwYwNSShQF5dNknMEJBAp0pNYUlEvRklODALL6MuBOOiYLKTzkloBLaViCLbPjvyTX1rIGVgGihEsj2Og=="
+    },
+    {
+        "srn": "KISH@GMAIL.COM",
+        "name": "Kishan",
+        "email": "kish@gmail.com",
+        "role": "mentor",
+        "encrypted_password": "gAAAAABqYLdEuhGzyas7jLz9bIYZ4dV_G5OPqP4n0mrk_VGQOMbTdlousuAggNB3lHqmoPvjSd-jTTHvg8s_TFit96e1kAnrbQ=="
+    }
+]
