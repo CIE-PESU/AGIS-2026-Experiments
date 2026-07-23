@@ -290,6 +290,13 @@ async def on_startup() -> None:
             exc,
         )
 
+    try:
+        from services.timeout_supervisor import timeout_supervisor
+        timeout_supervisor.start(check_interval_seconds=60)
+        logger.info("[startup] Timeout supervisor background task started ✓")
+    except Exception as exc:
+        logger.error("[startup] Failed to start timeout supervisor: %s", exc)
+
     logger.info(
         "=== AGIS Backend Ready ==="
     )

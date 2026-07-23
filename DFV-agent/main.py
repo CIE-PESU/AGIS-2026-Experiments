@@ -302,7 +302,7 @@ def create_dfv_crew():
             "keep the output under 600 words"
         ),
         agent=desirability_agent,
-        async_execution=True
+        async_execution=False
     )
 
     feasibility_agent = Agent(
@@ -333,7 +333,7 @@ def create_dfv_crew():
             "Do not include any score, rating, grade, or percentage. keep the output under 600 words"
         ),
         agent=feasibility_agent,
-        async_execution=True
+        async_execution=False
     )
 
     viability_agent = Agent(
@@ -365,14 +365,14 @@ def create_dfv_crew():
             "keep the output under 600 words"
         ),
         agent=viability_agent,
-        async_execution=True
+        async_execution=False
     )
 
     dfv_risk_decision_agent = Agent(
         role="Internal DFV Decision and Risk Assessment Engine",
         goal=f"Identify hidden risks across project dimensions and aggregate all findings into a final project readiness decision. Today's Date {TodayDate}",
         backstory=(
-            """You are an expert venture risk analyst and product strategist. """
+            """You are an expert venture risk analyst and product strategist. You output ONLY a single valid, raw JSON object matching the requested schema. You NEVER output markdown headers, markdown bullet points, or conversational text outside the JSON object."""
         ),
         verbose=False,
         skills=[activated[1]],
@@ -385,7 +385,12 @@ def create_dfv_crew():
         Feasibility, and Viability evaluation phases. Synthesize these findings to construct
         a structured assessment of the project idea, filling in the required JSON fields.
 
-        Specifically:
+        CRITICAL OUTPUT INSTRUCTIONS:
+        You MUST return ONLY a single, valid, raw JSON object.
+        Do NOT output any markdown formatting (no ## headers, no bold text, no bullet points, no markdown code fences like ```json).
+        Do NOT output any text or explanation before or after the JSON object.
+
+        Specifically, construct a JSON object matching these exact fields:
         1. refined_idea:
            - customer_segment: The precise group of users experiencing the problem.
            - qualified_problem: The specific pain point or problem being addressed.
@@ -407,8 +412,8 @@ def create_dfv_crew():
            - justification: Provide a clear, data-backed analytical reason for why the project received a GO or a NO-GO status."""
         ),
         expected_output=(
-            "Return ONLY a single valid JSON object -- no markdown code fences, no explanation "
-            "text before or after it -- matching exactly this structure:\n"
+            "Return ONLY a single valid JSON object -- no markdown code fences, no markdown headers, "
+            "no explanation text before or after it -- matching exactly this structure:\n"
             "{\n"
             '  "refined_idea": {"customer_segment": "...", "qualified_problem": "...", '
             '"consequence": "...", "proposed_solution": "..."},\n'

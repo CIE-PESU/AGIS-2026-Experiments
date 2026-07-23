@@ -5,16 +5,15 @@ Responsibilities:
 - Consume userSession.dfv
 - Consume userSession.discovery
 - Execute the corresponding agent
-- Report successful output to the backend internal API
-- Retry failed jobs through Kafka
-- Send exhausted jobs to DLQ
-- Report final failures to the backend
+- Report output (success or failure) to the backend internal API
+- Commit Kafka offset (single-shot execution)
 
 Architecture:
     Kafka -> Worker -> Agent -> Internal Backend API -> MongoDB
 
 The worker NEVER writes directly to MongoDB.
-The backend remains the source of truth for state transitions and persistence.
+The backend remains the single source of truth for state transitions and persistence.
+The worker executes each message single-shot without local retries or DLQ requeueing.
 """
 
 from __future__ import annotations
@@ -60,8 +59,6 @@ from kafka.topics import KafkaTopic
 from models.schema import (
     DFVJobMessage,
     DiscoveryJobMessage,
-    DeadLetterMessage,
-    DiscoveryDeadLetterMessage,
 )
 
 
@@ -359,6 +356,7 @@ class CombinedAgentWorker:
 
         self.http_client = httpx.AsyncClient(
             base_url=settings.WORKER_BACKEND_URL,
+            transport=httpx.AsyncHTTPTransport(retries=3),
             timeout=httpx.Timeout(
                 connect=10.0,
                 read=60.0,
@@ -628,95 +626,7 @@ class CombinedAgentWorker:
 
 
     # =========================================================================
-    # RETRIES
-    # =========================================================================
-
-    async def _retry_dfv(
-        self,
-        job: DFVJobMessage,
-    ) -> None:
-
-        if self.producer is None:
-            raise RuntimeError(
-                "Kafka producer is not initialized"
-            )
-
-        await self.producer.send_and_wait(
-            KafkaTopic.USER_SESSION_DFV,
-            value=job.model_dump_json().encode("utf-8"),
-            key=job.userSession_id.encode("utf-8"),
-        )
-
-
-    async def _retry_discovery(
-        self,
-        job: DiscoveryJobMessage,
-    ) -> None:
-
-        if self.producer is None:
-            raise RuntimeError(
-                "Kafka producer is not initialized"
-            )
-
-        await self.producer.send_and_wait(
-            KafkaTopic.USER_SESSION_DISCOVERY,
-            value=job.model_dump_json().encode("utf-8"),
-            key=job.userSession_id.encode("utf-8"),
-        )
-
-
-    # =========================================================================
-    # DLQ
-    # =========================================================================
-
-    async def _send_dfv_dlq(
-        self,
-        job: DFVJobMessage,
-        reason: str,
-    ) -> None:
-
-        if self.producer is None:
-            raise RuntimeError(
-                "Kafka producer is not initialized"
-            )
-
-        message = DeadLetterMessage(
-            original_message=job,
-            failure_reason=reason,
-        )
-
-        await self.producer.send_and_wait(
-            KafkaTopic.USER_SESSION_DFV_DLQ,
-            value=message.model_dump_json().encode("utf-8"),
-            key=job.userSession_id.encode("utf-8"),
-        )
-
-
-    async def _send_discovery_dlq(
-        self,
-        job: DiscoveryJobMessage,
-        reason: str,
-    ) -> None:
-
-        if self.producer is None:
-            raise RuntimeError(
-                "Kafka producer is not initialized"
-            )
-
-        message = DiscoveryDeadLetterMessage(
-            original_message=job,
-            failure_reason=reason,
-        )
-
-        await self.producer.send_and_wait(
-            KafkaTopic.USER_SESSION_DISCOVERY_DLQ,
-            value=message.model_dump_json().encode("utf-8"),
-            key=job.userSession_id.encode("utf-8"),
-        )
-
-
-    # =========================================================================
-    # MESSAGE HANDLERS
+    # MESSAGE HANDLERS (SINGLE-SHOT EXECUTORS)
     # =========================================================================
 
     async def _handle_dfv(
@@ -726,59 +636,35 @@ class CombinedAgentWorker:
 
         try:
             job = DFVJobMessage(**raw_value)
-
         except ValidationError as exc:
-
             logger.error(
                 "Malformed DFV Kafka message: %s",
                 exc,
             )
-
             return
 
         try:
-
             await self._process_dfv(job)
-
         except Exception as exc:
-
-            job.retry_count += 1
-
             _log(
                 job.correlation_id,
                 f"DFV failed: {exc}",
                 level="error",
             )
-
-            if job.retry_count <= settings.AGENT_MAX_RETRIES:
-
-                _log(
-                    job.correlation_id,
-                    (
-                        f"Requeueing DFV "
-                        f"retry={job.retry_count}/"
-                        f"{settings.AGENT_MAX_RETRIES}"
-                    ),
-                    level="warning",
+            try:
+                await self._report_failure(
+                    session_id=job.userSession_id,
+                    correlation_id=job.correlation_id,
+                    flow="dfv",
+                    error_code="DFV_AGENT_FAILED",
+                    error_message=str(exc),
+                    retry_count=job.retry_count,
                 )
-
-                await self._retry_dfv(job)
-
-                return
-
-            await self._send_dfv_dlq(
-                job,
-                str(exc),
-            )
-
-            await self._report_failure(
-                session_id=job.userSession_id,
-                correlation_id=job.correlation_id,
-                flow="dfv",
-                error_code="DFV_AGENT_FAILED",
-                error_message=str(exc),
-                retry_count=job.retry_count,
-            )
+            except Exception as report_exc:
+                logger.error(
+                    "Failed to report DFV failure to backend: %s",
+                    report_exc,
+                )
 
 
     async def _handle_discovery(
@@ -788,59 +674,35 @@ class CombinedAgentWorker:
 
         try:
             job = DiscoveryJobMessage(**raw_value)
-
         except ValidationError as exc:
-
             logger.error(
                 "Malformed Discovery Kafka message: %s",
                 exc,
             )
-
             return
 
         try:
-
             await self._process_discovery(job)
-
         except Exception as exc:
-
-            job.retry_count += 1
-
             _log(
                 job.correlation_id,
                 f"Discovery failed: {exc}",
                 level="error",
             )
-
-            if job.retry_count <= settings.AGENT_MAX_RETRIES:
-
-                _log(
-                    job.correlation_id,
-                    (
-                        "Requeueing Discovery "
-                        f"retry={job.retry_count}/"
-                        f"{settings.AGENT_MAX_RETRIES}"
-                    ),
-                    level="warning",
+            try:
+                await self._report_failure(
+                    session_id=job.userSession_id,
+                    correlation_id=job.correlation_id,
+                    flow="discovery",
+                    error_code="DISCOVERY_AGENT_FAILED",
+                    error_message=str(exc),
+                    retry_count=job.retry_count,
                 )
-
-                await self._retry_discovery(job)
-
-                return
-
-            await self._send_discovery_dlq(
-                job,
-                str(exc),
-            )
-
-            await self._report_failure(
-                session_id=job.userSession_id,
-                correlation_id=job.correlation_id,
-                flow="discovery",
-                error_code="DISCOVERY_AGENT_FAILED",
-                error_message=str(exc),
-                retry_count=job.retry_count,
-            )
+            except Exception as report_exc:
+                logger.error(
+                    "Failed to report Discovery failure to backend: %s",
+                    report_exc,
+                )
 
 
     # =========================================================================
@@ -858,18 +720,15 @@ class CombinedAgentWorker:
             print("RECEIVED DFV MESSAGE")
             print(message.value)
             try:
-
                 await self._handle_dfv(
                     message.value
                 )
-
-                await self.consumer_dfv.commit()
-
             except Exception:
-
                 logger.exception(
                     "Unexpected DFV consumer error"
                 )
+            finally:
+                await self.consumer_dfv.commit()
 
 
     async def _consume_discovery(self) -> None:
@@ -880,20 +739,16 @@ class CombinedAgentWorker:
             )
 
         async for message in self.consumer_discovery:
-
             try:
-
                 await self._handle_discovery(
                     message.value
                 )
-
-                await self.consumer_discovery.commit()
-
             except Exception:
-
                 logger.exception(
                     "Unexpected Discovery consumer error"
                 )
+            finally:
+                await self.consumer_discovery.commit()
 
 
     # =========================================================================

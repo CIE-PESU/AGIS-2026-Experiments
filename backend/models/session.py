@@ -295,6 +295,8 @@ class Session(Document):
 
     correlation_id: Optional[str] = None
 
+    flow_started_at: Optional[datetime] = None
+
     failure_metadata: Optional[
         WorkerFailureMetadata
     ] = None
