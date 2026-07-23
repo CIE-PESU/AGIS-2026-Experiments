@@ -17,6 +17,7 @@ from beanie import PydanticObjectId
 
 from models.comment import MentorComment
 from repositories.base import BaseRepository
+from services.comment_service import Comment  # dataclass with comment_id
 
 
 class CommentRepository(BaseRepository[MentorComment]):
@@ -43,7 +44,15 @@ class CommentRepository(BaseRepository[MentorComment]):
             comment=comment,
         )
         await doc.insert()
-        return doc
+        return Comment(
+            comment_id=str(doc.id),
+            session_id=doc.session_id,
+            mentor_id=doc.mentor_id,
+            mentor_name=doc.mentor_name,
+            comment=doc.comment,
+            created_at=doc.created_at,
+            deleted=doc.deleted,
+        )
 
     async def find_by_session(self, session_id: str) -> list[MentorComment]:
         """
@@ -51,7 +60,7 @@ class CommentRepository(BaseRepository[MentorComment]):
 
         Soft-deleted comments (deleted=True) are ALWAYS excluded.
         """
-        return (
+        docs = (
             await MentorComment.find(
                 MentorComment.session_id == session_id,
                 MentorComment.deleted == False,  # noqa: E712
@@ -59,6 +68,18 @@ class CommentRepository(BaseRepository[MentorComment]):
             .sort(+MentorComment.created_at)  # type: ignore[arg-type]
             .to_list()
         )
+        return [
+            Comment(
+                comment_id=str(d.id),
+                session_id=d.session_id,
+                mentor_id=d.mentor_id,
+                mentor_name=d.mentor_name,
+                comment=d.comment,
+                created_at=d.created_at.isoformat(),
+                deleted=d.deleted,
+            )
+            for d in docs
+        ]
 
     async def find_by_id(self, comment_id: str) -> Optional[MentorComment]:
         """
