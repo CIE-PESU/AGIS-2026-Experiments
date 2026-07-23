@@ -31,7 +31,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Optional, Protocol
 
-from services.comment_exceptions import (
+from exceptions.base import (
     CommentNotFoundError,
     InsufficientPermissionsError,
     SessionNotFoundError,
@@ -54,7 +54,7 @@ class Comment:
     mentor_id: str
     mentor_name: str
     comment: str
-    created_at: str
+    created_at: datetime
     deleted: bool = False
 
 
@@ -129,11 +129,11 @@ class CommentService:
             if session.student_id != current_user.user_id:
                 # Ownership-filtered: "not yours" looks identical to "doesn't
                 # exist" to the caller.
-                raise SessionNotFoundError(session.session_id)
+                raise SessionNotFoundError(f"No session found with id '{session.session_id}'")
             return
         if current_user.role == "mentor":
             if session.team_id not in current_user.mentor_team_ids:
-                raise SessionNotFoundError(session.session_id)
+                raise SessionNotFoundError(f"No session found with id '{session.session_id}'")
             return
         raise InsufficientPermissionsError()
 
