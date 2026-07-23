@@ -497,20 +497,19 @@ export function TIPSCFlow() {
           <p className="mt-2 text-sm">
             {tips.reasoning}
           </p>
-          <div className="mt-4 flex items-center justify-between gap-3">
-            <Button variant="outline" onClick={repeatTIPSC} className="inline-flex items-center gap-2">
-              <ArrowLeft className="h-4 w-4" /> Repeat
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={retryTIPSC}
-              disabled={submitting}
-            >
-              {submitting && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              Retry TIPSC Evaluation
-            </Button>
+          <div className="mt-4 flex items-center justify-end gap-3">
+            {(serverStatus === "tipsc_failed" || session.tipsc === "failed") && (
+              <Button
+                variant="secondary"
+                onClick={retryTIPSC}
+                disabled={submitting}
+              >
+                {submitting && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                Retry TIPSC Evaluation
+              </Button>
+            )}
             {readyForDFV ? (
               <Button asChild variant="secondary">
                 <Link to="/workspace/dfv" className="inline-flex items-center gap-2">
