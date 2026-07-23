@@ -4,6 +4,10 @@ import { type StageStatus, type Traffic } from "@/data/mockData";
 import { StatusBadge, TrafficDot } from "@/components/shared/StatusBadge";
 import { getSession } from "@/services/authSessions";
 import { deriveCanonicalStageAccess } from "@/utils/sessionStatus";
+import { PreEvaluationCard } from "@/components/shared/PreEvaluationCard";
+import { ValidationCard } from "@/components/shared/ValidationCard";
+import { RegulatoryCard } from "@/components/shared/RegulatoryCard";
+import { EthicsCard } from "@/components/shared/EthicsCard";
 
 type StudentDetail = {
   srn: string;
@@ -14,6 +18,24 @@ type StudentDetail = {
   jtbd?: boolean;
   sessionId?: string | null;
 };
+
+type MainTabKey = "tipsc" | "dfv" | "discovery";
+type TipscSubTabKey = "preeval" | "validation" | "regulatory" | "ethics" | "tipsc" | "founder";
+
+const MAIN_TABS: { key: MainTabKey; label: string }[] = [
+  { key: "tipsc", label: "TIPSC" },
+  { key: "dfv", label: "DFV" },
+  { key: "discovery", label: "Discovery / JTBD" }
+];
+
+const TIPSC_SUBTABS: { key: TipscSubTabKey; label: string }[] = [
+  { key: "preeval", label: "Pre Evaluation" },
+  { key: "validation", label: "Validation" },
+  { key: "regulatory", label: "Regulatory" },
+  { key: "ethics", label: "Ethics" },
+  { key: "tipsc", label: "TIPSC" },
+  { key: "founder", label: "Follow-up" }
+];
 
 function Section({ title, children, open = true }: { title: string; children: React.ReactNode; open?: boolean }) {
   return (
@@ -27,9 +49,49 @@ function Section({ title, children, open = true }: { title: string; children: Re
   );
 }
 
+function EmptyTabState({ label }: { label: string }) {
+  return (
+    <p className="text-sm text-muted-foreground p-4 text-center rounded-lg bg-muted/40">
+      {label} results will appear here once that stage completes.
+    </p>
+  );
+}
+
+/** Renders an arbitrary discovery field: arrays as bullet lists, strings as paragraphs, objects as key/value pairs. */
+function DiscoveryField({ label, value }: { label: string; value: any }) {
+  if (value === undefined || value === null || value === "") return null;
+
+  return (
+    <div className="rounded-md border p-3">
+      <p className="font-semibold text-sm capitalize">{label.replace(/_/g, " ")}</p>
+      <div className="mt-2 text-sm text-muted-foreground">
+        {Array.isArray(value) ? (
+          <ul className="list-disc pl-5 space-y-1">
+            {value.map((item, i) => (
+              <li key={i}>{typeof item === "string" ? item : JSON.stringify(item)}</li>
+            ))}
+          </ul>
+        ) : typeof value === "object" ? (
+          <div className="space-y-1">
+            {Object.entries(value).map(([k, v]) => (
+              <p key={k}>
+                <span className="font-medium capitalize">{k.replace(/_/g, " ")}:</span> {typeof v === "string" ? v : JSON.stringify(v)}
+              </p>
+            ))}
+          </div>
+        ) : (
+          <p className="whitespace-pre-wrap">{String(value)}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function DetailedProgressView({ student }: { student: StudentDetail }) {
   const [sessionData, setSessionData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [mainTab, setMainTab] = useState<MainTabKey>("tipsc");
+  const [tipscSubTab, setTipscSubTab] = useState<TipscSubTabKey>("preeval");
 
   useEffect(() => {
     if (!student.sessionId) {
@@ -141,6 +203,23 @@ export function DetailedProgressView({ student }: { student: StudentDetail }) {
     }
   }
 
+  // Parse Discovery / JTBD data
+  const discoveryRaw = sessionData?.discovery ?? null;
+  const discoveryOutput = discoveryRaw?.output ?? discoveryRaw ?? null;
+  const hasDiscovery = !!discoveryOutput;
+  const knownDiscoveryKeys = [
+    "customer_jobs",
+    "jobs",
+    "interview_plan",
+    "interview_questions",
+    "recommendations",
+    "discovery_recommendations",
+    "summary"
+  ];
+  const otherDiscoveryEntries = discoveryOutput
+    ? Object.entries(discoveryOutput).filter(([k]) => !knownDiscoveryKeys.includes(k))
+    : [];
+
   const statuses: { label: string; value: any }[] = [
     { label: "TIPSC", value: access.tipsc },
     { label: "DFV", value: (access.dfv === "GO" || access.dfv === "NO-GO") ? "completed" : access.dfv },
@@ -163,73 +242,160 @@ export function DetailedProgressView({ student }: { student: StudentDetail }) {
           </div>
         ))}
       </div>
-      
-      <Section title="Pre-Evaluation Responses">
-        {preEval ? (
-          <div className="space-y-3">
-            {Object.entries(preEval).map(([key, value], index) => (
-              <div key={key} className="rounded-md bg-muted/70 p-3 text-sm">
-                <p className="font-semibold">{index + 1}. {key}</p>
-                <p className="mt-1 text-muted-foreground">{value as string}</p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground p-2">No pre-evaluation answers submitted yet.</p>
-        )}
-      </Section>
 
-      <Section title="TIPSC Evaluation Scores" open={false}>
-        {tips ? (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {Object.entries(tips).map(([key, score]) => (
-              <div key={key} className="rounded-md border p-3">
-                <div className="mb-2 flex items-center gap-2">
-                  <TrafficDot status={score.status as Traffic} />
-                  <p className="font-semibold capitalize">{key}</p>
-                </div>
-                <p className="text-sm text-muted-foreground">{score.explanation}</p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground p-2">TIPSC evaluation has not been performed yet.</p>
-        )}
-      </Section>
-
-      <Section title="TIPSC Follow-up Q&A" open={false}>
-        <div className="space-y-3">
-          {followUps ? (
-            followUps.map((item: any, index: number) => (
-              <div key={index} className="grid gap-3 md:grid-cols-2">
-                <div className="rounded-md bg-amber-50 p-3 text-sm"><b>AI Question {index + 1}:</b> {item.question}</div>
-                <div className="rounded-md bg-emerald-50 p-3 text-sm"><b>Student Response:</b> {item.answer}</div>
-              </div>
-            ))
-          ) : (
-            <p className="text-sm text-muted-foreground p-2">No follow-up exchanges recorded.</p>
-          )}
-        </div>
-      </Section>
-
-      <div className={dfvStatus === "NO-GO" ? "rounded-lg bg-red-50 p-4 text-red-700" : "rounded-lg bg-emerald-50 p-4 text-emerald-700"}>
-        <b>DFV Decision:</b> {dfvStatus}
+      {/* ── Main tabs: TIPSC / DFV / Discovery ── */}
+      <div className="grid grid-cols-3 gap-2">
+        {MAIN_TABS.map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setMainTab(key)}
+            className={`rounded-full px-2 py-2 text-center text-xs font-semibold transition-colors ${
+              mainTab === key
+                ? "bg-secondary text-white"
+                : "bg-white text-muted-foreground hover:bg-slate-50 border"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
-      <Section title="DFV Analysis Inputs" open={false}>
-        {dfvInputs ? (
-          <div className="grid gap-3 md:grid-cols-3">
-            {Object.entries(dfvInputs).map(([key, value]) => (
-              <div key={key} className="rounded-md border p-3 text-sm">
-                <p className="font-semibold capitalize">{key}</p>
-                <p className="mt-1 text-muted-foreground">{value as string}</p>
-              </div>
+      {mainTab === "tipsc" && (
+        <div className="space-y-4">
+          {/* ── TIPSC sub-tabs: Pre Eval / Validation / Regulatory / Ethics / TIPSC / Follow-up ── */}
+          <div className="flex flex-wrap gap-2">
+            {TIPSC_SUBTABS.map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setTipscSubTab(key)}
+                className={`rounded-full px-3 py-1.5 text-center text-xs font-semibold transition-colors ${
+                  tipscSubTab === key
+                    ? "bg-primary text-white"
+                    : "bg-white text-muted-foreground hover:bg-slate-50 border"
+                }`}
+              >
+                {label}
+              </button>
             ))}
           </div>
-        ) : (
-          <p className="text-sm text-muted-foreground p-2">DFV analysis has not been performed yet.</p>
-        )}
-      </Section>
+
+          {tipscSubTab === "preeval" && (
+            sessionData?.preeval ? (
+              <PreEvaluationCard data={sessionData.preeval} />
+            ) : preEval ? (
+              <div className="space-y-3">
+                {Object.entries(preEval).map(([key, value], index) => (
+                  <div key={key} className="rounded-md bg-muted/70 p-3 text-sm">
+                    <p className="font-semibold">{index + 1}. {key}</p>
+                    <p className="mt-1 text-muted-foreground">{value as string}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyTabState label="Pre-Evaluation" />
+            )
+          )}
+
+          {tipscSubTab === "validation" && (
+            sessionData?.validation ? (
+              <ValidationCard data={sessionData.validation} />
+            ) : (
+              <EmptyTabState label="Validation" />
+            )
+          )}
+
+          {tipscSubTab === "regulatory" && (
+            sessionData?.regulatory ? (
+              <RegulatoryCard data={sessionData.regulatory} />
+            ) : (
+              <EmptyTabState label="Regulatory" />
+            )
+          )}
+
+          {tipscSubTab === "ethics" && (
+            sessionData?.ethics ? (
+              <EthicsCard data={sessionData.ethics} />
+            ) : (
+              <EmptyTabState label="Ethics" />
+            )
+          )}
+
+          {tipscSubTab === "tipsc" && (
+            tips ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {Object.entries(tips).map(([key, score]) => (
+                  <div key={key} className="rounded-md border p-3">
+                    <div className="mb-2 flex items-center gap-2">
+                      <TrafficDot status={score.status as Traffic} />
+                      <p className="font-semibold capitalize">{key}</p>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{score.explanation}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyTabState label="TIPSC" />
+            )
+          )}
+
+          {tipscSubTab === "founder" && (
+            followUps ? (
+              <div className="space-y-3">
+                {followUps.map((item: any, index: number) => (
+                  <div key={index} className="grid gap-3 md:grid-cols-2">
+                    <div className="rounded-md bg-amber-50 p-3 text-sm"><b>AI Question {index + 1}:</b> {item.question}</div>
+                    <div className="rounded-md bg-emerald-50 p-3 text-sm"><b>Student Response:</b> {item.answer}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyTabState label="Follow-up" />
+            )
+          )}
+        </div>
+      )}
+
+      {mainTab === "dfv" && (
+        <div className="space-y-4">
+          <div className={dfvStatus === "NO-GO" ? "rounded-lg bg-red-50 p-4 text-red-700" : "rounded-lg bg-emerald-50 p-4 text-emerald-700"}>
+            <b>DFV Decision:</b> {dfvStatus}
+          </div>
+
+          <Section title="DFV Analysis Inputs">
+            {dfvInputs ? (
+              <div className="grid gap-3 md:grid-cols-3">
+                {Object.entries(dfvInputs).map(([key, value]) => (
+                  <div key={key} className="rounded-md border p-3 text-sm">
+                    <p className="font-semibold capitalize">{key}</p>
+                    <p className="mt-1 text-muted-foreground">{value as string}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground p-2">DFV analysis has not been performed yet.</p>
+            )}
+          </Section>
+        </div>
+      )}
+
+      {mainTab === "discovery" && (
+        <div className="space-y-4">
+          {hasDiscovery ? (
+            <div className="space-y-3">
+              <DiscoveryField label="Customer Jobs" value={discoveryOutput.customer_jobs ?? discoveryOutput.jobs} />
+              <DiscoveryField label="Interview Plan" value={discoveryOutput.interview_plan ?? discoveryOutput.interview_questions} />
+              <DiscoveryField label="Recommendations" value={discoveryOutput.recommendations ?? discoveryOutput.discovery_recommendations} />
+              <DiscoveryField label="Summary" value={discoveryOutput.summary} />
+              {otherDiscoveryEntries.map(([key, value]) => (
+                <DiscoveryField key={key} label={key} value={value} />
+              ))}
+            </div>
+          ) : (
+            <EmptyTabState label="Customer Discovery" />
+          )}
+        </div>
+      )}
+
       <p className="rounded-lg bg-muted p-3 text-center text-xs font-semibold text-muted-foreground">View only · Mentor comments do not alter student submissions.</p>
     </div>
   );
