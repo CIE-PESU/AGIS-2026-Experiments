@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { Navigate } from "react-router-dom";
 import { Clock, Eye, LogOut, MessageSquare, Send, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -74,10 +74,7 @@ export function MentorDashboard() {
     ];
   }, [loadedTeams]);
 
-  // Derive unique teams from sessions
-  const teams = Array.from(
-    new Map(sessions.map(s => [s.team_id, s.team_name ?? s.team_id])).entries()
-  ).map(([id, name]) => ({ id, name }));
+
 
   async function send(srn: string, sessionId?: string | null) {
     if (!sessionId) {
@@ -97,11 +94,7 @@ export function MentorDashboard() {
     }
   }
 
-  // Stats
-  const total = sessions.length;
-  const tipscDone = sessions.filter(s => s.tipsc_score != null).length;
-  const dfvReady = sessions.filter(s => s.ready_for_dfv).length;
-  const uniqueTeams = teams.length;
+
 
   if (!user) return <Navigate to="/login" replace />;
   if (user.role !== "mentor") return <Navigate to={user.role === "admin" ? "/admin" : "/workspace"} replace />;
@@ -131,18 +124,12 @@ export function MentorDashboard() {
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-8">
-        {/* Stats */}
         <div className="grid gap-4 md:grid-cols-4">
-          {[
-            ["Teams Assigned", uniqueTeams],
-            ["Total Students", total],
-            ["TIPSC Complete", tipscDone],
-            ["DFV Ready", dfvReady],
-          ].map(([label, value]) => (
+          {stats.map(([label, value]) => (
             <Card key={label as string}>
               <CardContent className="p-5">
                 <p className="text-sm text-muted-foreground">{label}</p>
-                <p className="mt-2 text-3xl font-bold text-primary">{value}</p>
+                <p className="mt-2 text-3xl font-bold text-primary">{value as number}</p>
               </CardContent>
             </Card>
           ))}
@@ -163,7 +150,7 @@ export function MentorDashboard() {
                 <tr><th className="p-4">Student</th><th className="p-4">TIPSC</th><th className="p-4">DFV</th><th className="p-4">JTBD</th><th className="p-4">Last Active</th><th className="p-4">Actions</th></tr>
               </thead>
               <tbody>
-                {selected.members.map((student: any) => {
+                {loadedTeams.find((t) => t.name === team)?.members?.map((student: any) => {
                   const access = deriveStageAccess(student);
                   return (
                     <tr key={student.srn} className="border-t bg-white">
