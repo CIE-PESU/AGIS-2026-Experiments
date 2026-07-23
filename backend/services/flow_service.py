@@ -544,17 +544,25 @@ class FlowService:
         if not ready_for_dfv:
             raise DFVNotUnlockedError(session_id)
 
-        self._guard_transition(
-            session,
-            SessionStatus.DFV_WAITING,
-        )
-
-        await self._session_repo.update_dfv_inputs(
-            session_id,
-            dfv_inputs,
-        )
-
         correlation_id = _new_correlation_id()
+
+        # Atomic CAS: Transition status to DFV_WAITING and set correlation_id in a single Mongo write.
+        cas_won = await self._session_repo.atomic_start_dfv_flow(
+            session_id=session_id,
+            correlation_id=correlation_id,
+            dfv_inputs=dfv_inputs,
+        )
+
+        if not cas_won:
+            # CAS lost — session is already in DFV_WAITING or DFV_RUNNING! Return active state safely.
+            current = await self._load_session(session_id, student_id)
+            return {
+                "session_id": str(current.id),
+                "flow": "dfv",
+                "status": current.status.value,
+                "correlation_id": current.correlation_id or correlation_id,
+                "triggered_at": _now_iso(),
+            }
 
         from models.schema import (
             DFVJobMessage,
@@ -573,34 +581,14 @@ class FlowService:
             ),
         )
 
-        # ------------------------------------------------------------
-        # 1. Save correlation id FIRST
-        # ------------------------------------------------------------
-        await self._session_repo.set_correlation_id(
-            session_id,
-            correlation_id,
-        )
-
-        # ------------------------------------------------------------
-        # 2. Update session status in Mongo BEFORE Kafka publish
-        # ------------------------------------------------------------
-        await self._commit_status_or_raise(
-            session,
-            SessionStatus.DFV_WAITING,
-        )
-
-        # ------------------------------------------------------------
-        # 3. Publish job to Kafka
-        # ------------------------------------------------------------
+        # Publish job to Kafka
         await self._publish_or_raise(
             DFV_TOPIC,
             payload.model_dump(),
             "dfv",
         )
 
-        # ------------------------------------------------------------
-        # 4. Audit
-        # ------------------------------------------------------------
+        # Audit
         await self._audit.log_event(
             session_id=session_id,
             event="DFV_TRIGGERED",
@@ -637,40 +625,31 @@ class FlowService:
             student_id,
         )
 
-        self._guard_transition(
-            session,
-            SessionStatus.DISCOVERY_WAITING,
-        )
-
-        # Persist the student's submitted Discovery form
-        # (Implement update_discovery_inputs() in session_repo if it doesn't exist yet.)
-        await self._session_repo.update_discovery_inputs(
-            session_id,
-            discovery_inputs,
-        )
-
         correlation_id = _new_correlation_id()
+
+        # Atomic CAS: Transition status to DISCOVERY_WAITING and set correlation_id in a single Mongo write.
+        cas_won = await self._session_repo.atomic_start_discovery_flow(
+            session_id=session_id,
+            correlation_id=correlation_id,
+            discovery_inputs=discovery_inputs,
+        )
+
+        if not cas_won:
+            # CAS lost — session is already in DISCOVERY_WAITING or DISCOVERY_RUNNING! Return active state safely.
+            current = await self._load_session(session_id, student_id)
+            return {
+                "session_id": str(current.id),
+                "flow": "discovery",
+                "status": current.status.value,
+                "correlation_id": current.correlation_id or correlation_id,
+                "triggered_at": _now_iso(),
+            }
 
         payload = DiscoveryJobMessage(
             userSession_id=str(session.id),
             correlation_id=correlation_id,
             retry_count=0,
             payload=DiscoveryJobPayload(**discovery_inputs),
-        )
-
-        #
-        # IMPORTANT:
-        # Persist state BEFORE publishing to Kafka.
-        #
-
-        await self._session_repo.set_correlation_id(
-            session_id,
-            correlation_id,
-        )
-
-        await self._commit_status_or_raise(
-            session,
-            SessionStatus.DISCOVERY_WAITING,
         )
 
         await self._publish_or_raise(

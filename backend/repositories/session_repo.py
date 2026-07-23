@@ -509,8 +509,84 @@ class SessionRepository(BaseRepository[Session]):
 
 
     # ──────────────────────────────────────────────────────────────────────
-    # CORRELATION
+    # ATOMIC CAS FLOW STARTS
     # ──────────────────────────────────────────────────────────────────────
+
+    async def atomic_start_dfv_flow(
+        self,
+        session_id: str,
+        correlation_id: str,
+        dfv_inputs: dict[str, Any],
+    ) -> bool:
+        """
+        Atomically transition session from allowed pre-DFV status (TIPSC_COMPLETED, DFV_FAILED)
+        to DFV_WAITING, setting correlation_id, flow_started_at, and dfv_inputs in one atomic operation.
+
+        Returns True if CAS won (update modified/matched 1 document), False if CAS lost (already waiting/running or invalid state).
+        """
+        now = utc_now()
+        allowed_statuses = [
+            SessionStatus.TIPSC_COMPLETED.value,
+            SessionStatus.DFV_FAILED.value,
+        ]
+        result = await Session.find_one(
+            Session.id == PydanticObjectId(session_id),
+            In("status", allowed_statuses),
+        ).update(
+            {
+                "$set": {
+                    "correlation_id": correlation_id,
+                    "dfv_inputs": dfv_inputs,
+                    "status": SessionStatus.DFV_WAITING.value,
+                    "flow_started_at": now,
+                    "updated_at": now,
+                },
+                "$inc": {"version": 1},
+            }
+        )
+        if result is None:
+            return False
+        matched = getattr(result, "matched_count", 0)
+        modified = getattr(result, "modified_count", 0)
+        return matched == 1 or modified == 1
+
+    async def atomic_start_discovery_flow(
+        self,
+        session_id: str,
+        correlation_id: str,
+        discovery_inputs: dict[str, Any],
+    ) -> bool:
+        """
+        Atomically transition session from allowed pre-Discovery status (DFV_COMPLETED, DISCOVERY_FAILED)
+        to DISCOVERY_WAITING, setting correlation_id, flow_started_at, and discovery_inputs in one atomic operation.
+
+        Returns True if CAS won (update modified/matched 1 document), False if CAS lost (already waiting/running or invalid state).
+        """
+        now = utc_now()
+        allowed_statuses = [
+            SessionStatus.DFV_COMPLETED.value,
+            SessionStatus.DISCOVERY_FAILED.value,
+        ]
+        result = await Session.find_one(
+            Session.id == PydanticObjectId(session_id),
+            In("status", allowed_statuses),
+        ).update(
+            {
+                "$set": {
+                    "correlation_id": correlation_id,
+                    "discovery_inputs": discovery_inputs,
+                    "status": SessionStatus.DISCOVERY_WAITING.value,
+                    "flow_started_at": now,
+                    "updated_at": now,
+                },
+                "$inc": {"version": 1},
+            }
+        )
+        if result is None:
+            return False
+        matched = getattr(result, "matched_count", 0)
+        modified = getattr(result, "modified_count", 0)
+        return matched == 1 or modified == 1
 
     async def set_correlation_id(
         self,

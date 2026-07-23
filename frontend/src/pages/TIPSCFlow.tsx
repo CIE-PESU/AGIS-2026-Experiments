@@ -143,14 +143,7 @@ export function TIPSCFlow() {
   const isFinal = activeSessionExists && Boolean(serverStatus && FINAL_STATUSES.has(serverStatus));
   const isFailed = serverStatus === "tipsc_failed";
 
-  const readyForDFV =
-    serverStatus === "tipsc_completed" ||
-    serverStatus === "dfv_waiting" ||
-    serverStatus === "dfv_running" ||
-    serverStatus === "dfv_completed" ||
-    serverStatus === "discovery_waiting" ||
-    serverStatus === "discovery_running" ||
-    serverStatus === "completed";
+  const readyForDFV = Boolean(sessionDoc?.tipsc?.ready_for_dfv);
 
   const currentStep = getStepIndex(serverStatus);
   const loadingText = getLoadingText(serverStatus);

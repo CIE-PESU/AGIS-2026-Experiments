@@ -1,6 +1,6 @@
-import { useMemo, useState, useCallback, useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Navigate } from "react-router-dom";
-import { Clock, Eye, LogOut, MessageSquare, Send } from "lucide-react";
+import { Clock, Eye, LogOut, MessageSquare, Send, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -45,7 +45,7 @@ export function MentorDashboard() {
 
   const [comments, setComments] = useState<Record<string, Comment[]>>({});
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const selected = loadedTeams.find((item) => item.name === team) || loadedTeams[0] || { name: "", members: [] };
+  const [sending, setSending] = useState<Record<string, boolean>>({});
 
   const refreshComments = useCallback(async () => {
     const allComments: Record<string, Comment[]> = {};
@@ -74,8 +74,10 @@ export function MentorDashboard() {
     ];
   }, [loadedTeams]);
 
-  if (!user) return <Navigate to="/login" replace />;
-  if (user.role !== "mentor") return <Navigate to={user.role === "admin" ? "/admin" : "/workspace"} replace />;
+  // Derive unique teams from sessions
+  const teams = Array.from(
+    new Map(sessions.map(s => [s.team_id, s.team_name ?? s.team_id])).entries()
+  ).map(([id, name]) => ({ id, name }));
 
   async function send(srn: string, sessionId?: string | null) {
     if (!sessionId) {
@@ -94,6 +96,15 @@ export function MentorDashboard() {
       toast.error(err.message);
     }
   }
+
+  // Stats
+  const total = sessions.length;
+  const tipscDone = sessions.filter(s => s.tipsc_score != null).length;
+  const dfvReady = sessions.filter(s => s.ready_for_dfv).length;
+  const uniqueTeams = teams.length;
+
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== "mentor") return <Navigate to={user.role === "admin" ? "/admin" : "/workspace"} replace />;
 
   return (
     <div className="min-h-screen bg-muted/50">
@@ -118,10 +129,22 @@ export function MentorDashboard() {
           </div>
         </div>
       </header>
+
       <main className="mx-auto max-w-7xl px-4 py-8">
+        {/* Stats */}
         <div className="grid gap-4 md:grid-cols-4">
-          {stats.map(([label, value]) => (
-            <Card key={label}><CardContent className="p-5"><p className="text-sm text-muted-foreground">{label}</p><p className="mt-2 text-3xl font-bold text-primary">{value}</p></CardContent></Card>
+          {[
+            ["Teams Assigned", uniqueTeams],
+            ["Total Students", total],
+            ["TIPSC Complete", tipscDone],
+            ["DFV Ready", dfvReady],
+          ].map(([label, value]) => (
+            <Card key={label as string}>
+              <CardContent className="p-5">
+                <p className="text-sm text-muted-foreground">{label}</p>
+                <p className="mt-2 text-3xl font-bold text-primary">{value}</p>
+              </CardContent>
+            </Card>
           ))}
         </div>
 

@@ -40,7 +40,10 @@ export function DFVFlow() {
     }
   }, [phase, serverStatus, results.dfv, addEvent, unlockNext]);
 
+  const [submitting, setSubmitting] = useState(false);
+
   async function run() {
+    if (submitting) return;
     const payload = {
       desirability_context: inputs.desirability_context.trim(),
       feasibility_context: inputs.feasibility_context.trim(),
@@ -50,8 +53,7 @@ export function DFVFlow() {
       toast.error(`Each DFV context field must be at least ${DFV_CONTEXT_MIN} characters.`);
       return;
     }
-    // Persist DFV context inputs into shared session formData (namespaced) so
-    // they are not lost on navigation and can be included in the exported report.
+    setSubmitting(true);
     setFormData({
       ...formData,
       dfv_desirability_context: payload.desirability_context,
@@ -65,6 +67,8 @@ export function DFVFlow() {
     } catch {
       toast.error("Failed to start DFV analysis. Check backend connection.");
       setPhase("form");
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -98,7 +102,8 @@ export function DFVFlow() {
                 />
               </label>
             ))}
-            <Button variant="secondary" disabled={!Object.values(inputs).every(Boolean)} onClick={run}>
+            <Button variant="secondary" disabled={submitting || !Object.values(inputs).every(Boolean)} onClick={run}>
+              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {serverStatus === "dfv_failed" ? "Retry DFV Evaluation" : "Run DFV Analysis"}
             </Button>
           </CardContent>

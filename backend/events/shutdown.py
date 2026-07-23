@@ -34,6 +34,13 @@ async def on_shutdown() -> None:
 
     # ── 2. MongoDB ─────────────────────────────────────────────────────────────
     try:
+        from services.timeout_supervisor import timeout_supervisor
+        await timeout_supervisor.stop()
+        logger.info("[shutdown] Timeout supervisor stopped ✓")
+    except Exception as exc:
+        logger.error("[shutdown] Timeout supervisor stop error: %s", exc)
+
+    try:
         from database.mongodb import disconnect_db
         await disconnect_db()
         logger.info("[shutdown] MongoDB closed ✓")
