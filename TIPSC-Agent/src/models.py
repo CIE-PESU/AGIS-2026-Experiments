@@ -30,6 +30,27 @@ class TIPSRAGScores(BaseModel):
     def uppercase_scores(cls, v):
         return v.strip().upper() if isinstance(v, str) else v
 
+    @model_validator(mode="before")
+    @classmethod
+    def handle_case_insensitivity(cls, data: dict):
+        if not isinstance(data, dict):
+            return data
+        
+        # Check for lowercase or capitalized variants of reason fields
+        for letter in ["T", "I", "P", "S"]:
+            upper_key = f"{letter}_reason"
+            lower_key = f"{letter.lower()}_reason"
+            title_key = f"{letter}_Reason"
+            
+            # If the correct key is missing, try to find an alternative
+            if upper_key not in data or not data[upper_key]:
+                if lower_key in data and data[lower_key]:
+                    data[upper_key] = data[lower_key]
+                elif title_key in data and data[title_key]:
+                    data[upper_key] = data[title_key]
+                    
+        return data
+
     @field_validator("T_reason", "I_reason", "P_reason", "S_reason", mode="before")
     @classmethod
     def normalize_reasons(cls, v):

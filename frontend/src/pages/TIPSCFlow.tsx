@@ -16,6 +16,7 @@ import { RegulatoryCard } from "@/components/shared/RegulatoryCard";
 import { EthicsCard } from "@/components/shared/EthicsCard";
 import { toast } from "sonner";
 import { generateUUID } from "@/lib/utils";
+import ReactMarkdown from 'react-markdown';
 
 type TabKey = "preeval" | "validation" | "regulatory" | "ethics" | "tipsc" | "founder";
 
@@ -487,9 +488,18 @@ export function TIPSCFlow() {
             {readyForDFV ? <CheckCircle2 /> : <XCircle />}{" "}
             {readyForDFV ? "Ready for DFV" : "Not Yet Ready"}
           </div>
-          <p className="mt-2 text-sm">
-            {tips.reasoning}
-          </p>
+          <div className="mt-2 text-sm">
+            <ReactMarkdown
+              components={{
+                p: ({node, ...props}) => <p className="mb-2 last:mb-0 whitespace-pre-wrap" {...props} />,
+                ul: ({node, ...props}) => <ul className="list-disc pl-5 mb-2" {...props} />,
+                li: ({node, ...props}) => <li className="mb-1" {...props} />,
+                strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
+              }}
+            >
+              {tips.reasoning}
+            </ReactMarkdown>
+          </div>
           <div className="mt-4 flex items-center justify-end gap-3">
             {(serverStatus === "tipsc_failed" || session.tipsc === "failed") && (
               <Button
@@ -617,7 +627,7 @@ function ScoreGrid({ tips }: { tips: TIPSCResult }) {
               </h3>
             </div>
             <p className="text-sm text-muted-foreground">
-              {score.reason}
+              {score.reason || "No explanation provided by the agent."}
             </p>
           </div>
         ))}
@@ -636,9 +646,18 @@ function ScoreGrid({ tips }: { tips: TIPSCResult }) {
         <h3 className="font-semibold mb-2">
           Reasoning
         </h3>
-        <p className="text-sm whitespace-pre-wrap text-muted-foreground">
-          {tips.reasoning}
-        </p>
+        <div className="text-sm text-muted-foreground">
+          <ReactMarkdown
+            components={{
+              p: ({node, ...props}) => <p className="mb-2 last:mb-0 whitespace-pre-wrap" {...props} />,
+              ul: ({node, ...props}) => <ul className="list-disc pl-5 mb-2" {...props} />,
+              li: ({node, ...props}) => <li className="mb-1" {...props} />,
+              strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
+            }}
+          >
+            {tips.reasoning}
+          </ReactMarkdown>
+        </div>
       </div>
     </div>
   );
