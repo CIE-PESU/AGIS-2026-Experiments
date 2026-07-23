@@ -237,7 +237,6 @@ llm = LLM(
     base_url=os.environ["LM_STUDIO_URL"],
     api_key=os.environ["OPENAI_API_KEY"],
     temperature=0.1,
-    num_retries=3,
     timeout=108000,
 )
 
