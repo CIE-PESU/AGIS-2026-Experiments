@@ -118,7 +118,14 @@ class CommentService:
         session = await self._sessions.find_by_id(session_id)
         if session is None:
             raise SessionNotFoundError(session_id)
-        return session
+        if isinstance(session, SessionAccessInfo):
+            return session
+        sid = str(getattr(session, "id", getattr(session, "session_id", session_id)))
+        return SessionAccessInfo(
+            session_id=sid,
+            student_id=session.student_id,
+            team_id=session.team_id,
+        )
 
     def _check_can_view(
         self, session: SessionAccessInfo, current_user: CurrentUserLike

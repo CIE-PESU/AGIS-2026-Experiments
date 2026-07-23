@@ -75,12 +75,18 @@ class AuthService:
             )
 
         # Step 3: Generate tokens
+        if user.role == "mentor":
+            from services.mentor_service import sync_mentor_teams
+            mentor_team_ids = await sync_mentor_teams(str(user.id))
+        else:
+            mentor_team_ids = user.mentor_team_ids
+
         access_token = create_access_token(
             user_id=str(user.id),
             role=user.role,
             name=user.name,
             team_id=user.team_id,
-            mentor_team_ids=user.mentor_team_ids,
+            mentor_team_ids=mentor_team_ids,
         )
         raw_refresh, hashed_refresh = create_refresh_token()
 
@@ -138,12 +144,18 @@ class AuthService:
             raise RefreshTokenInvalidError("User associated with this token no longer exists.")
 
         # Issue new tokens
+        if user.role == "mentor":
+            from services.mentor_service import sync_mentor_teams
+            mentor_team_ids = await sync_mentor_teams(str(user.id))
+        else:
+            mentor_team_ids = user.mentor_team_ids
+
         access_token = create_access_token(
             user_id=str(user.id),
             role=user.role,
             name=user.name,
             team_id=user.team_id,
-            mentor_team_ids=user.mentor_team_ids,
+            mentor_team_ids=mentor_team_ids,
         )
         raw_refresh, hashed_refresh = create_refresh_token()
         new_token_doc = RefreshToken.create_for_user(

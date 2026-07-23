@@ -29,7 +29,35 @@ from repositories.session_repo import session_repo
 from schemas.mentor import MentorSessionListItem, MentorTeamResponse, TeamMemberInfo
 from state_machine.states import SessionStatus
 
-logger = logging.getLogger(__name__)
+async def sync_mentor_teams(mentor_id: str) -> list[str]:
+    """
+    Ensure User.mentor_team_ids matches all Team documents where mentor_id is assigned.
+    Single source of truth sync for mentor authorization.
+    """
+    if not mentor_id:
+        return []
+    mentor = None
+    try:
+        mentor = await User.get(PydanticObjectId(mentor_id))
+    except Exception:
+        pass
+    if not mentor:
+        mentor = await User.find_one(User.srn == mentor_id.upper())
+    if not mentor:
+        return []
+        
+    mentor_id_str = str(mentor.id)
+    mentor_srn = mentor.srn
+    
+    teams_by_id = await Team.find(Team.mentor_id == mentor_id_str).to_list()
+    teams_by_srn = await Team.find(Team.mentor_id == mentor_srn).to_list() if mentor_srn else []
+    
+    all_teams = {str(t.id): t for t in (teams_by_id + teams_by_srn)}
+    mentor_team_ids = list(all_teams.keys())
+    
+    mentor.mentor_team_ids = mentor_team_ids
+    await mentor.save()
+    return mentor_team_ids
 
 
 class MentorService:

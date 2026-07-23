@@ -1,184 +1,195 @@
-# AGIS Backend & Kafka Workers Workflow Guide
+# AGIS Setup, Workflow & Deployment Guide
 
-This document explains the end-to-end workflow of the AGIS platform, detailing how to run the FastAPI backend, how to run the Kafka worker agents, and the flow of information across the system.
+This document provides a comprehensive, step-by-step guide for setting up, configuring, and running the AGIS platform (FastAPI backend, React frontend, Kafka workers, MongoDB, and CrewAI agents) on any fresh system.
 
-## 1. Prerequisites
+---
 
-Before running the components, ensure the following services are running locally (typically via Docker or native installations):
+## 1. System Requirements & Prerequisites
 
-1. **MongoDB**: Running locally at `mongodb://127.0.0.1:27017`
-2. **Apache Kafka**: Running locally at `127.0.0.1:9092`
-3. **LM Studio**: Running locally with the appropriate LLM loaded (e.g., Bonsai-8B, Mistral-7B). Ensure the Local Server is enabled at `http://127.0.0.1:1234/v1`.
+Ensure the target system has the following software installed:
 
-## 2. Running the API Backend
+* **Python**: `v3.12+`
+* **Node.js**: `v18+` & `npm`
+* **Docker & Docker Compose**: Installed and running
+* **Local LLM Server (LM Studio / Ollama / vLLM)**:
+  * Local OpenAI-compatible server running at `http://127.0.0.1:1234/v1`
+  * Model loaded (e.g., `qwen2.5-32b-instruct` or `bonsai-8b`)
+* **Serper API Key**: For web search capabilities in CrewAI agents (get from [serper.dev](https://serper.dev)).
 
-The backend is a FastAPI application that serves as the single source of truth. It manages sessions, enforces RBAC, handles MongoDB persistence for API routes, and publishes events to Kafka.
+---
 
-### Setup Environment
+## 2. Infrastructure Setup (Docker)
+
+Start MongoDB and Apache Kafka using Docker Compose:
+
+```bash
+# Navigate to workspace root
+cd "/Users/saicharanbk/Documents/Github Projects/AGIS-2026-Experiments"
+
+# Launch MongoDB (27017) and Kafka (9092) in detached mode
+docker compose up -d
+```
+
+### Services Started:
+
+* **MongoDB**: `mongodb://localhost:27017`
+* **Kafka Broker**: `localhost:9092`
+* **Zookeeper**: `localhost:2181`
+
+---
+
+## 3. Environment Configuration (`.env`)
+
+### A. Backend Configuration (`backend/.env`)
+
+Copy the template environment file:
 
 ```bash
 cd backend
-pip install -r requirements.txt
-# Copy the example env file and update as needed
 cp .env.example .env
 ```
 
-### Run the Backend
+Ensure `backend/.env` contains:
+
+```env
+# Database & Messaging
+MONGODB_URI=mongodb://localhost:27017
+MONGODB_DB_NAME=pesu_agis
+KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+
+# Auth & Secrets
+JWT_SECRET_KEY=your-super-secret-jwt-key-min-32-chars
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=60
+REFRESH_TOKEN_EXPIRE_DAYS=7
+WORKER_INTERNAL_SECRET=your-shared-internal-worker-secret
+
+# LLM & Search
+LM_STUDIO_URL=http://localhost:1234/v1
+OPENAI_API_KEY=lm-studio
+OPENAI_MODEL_NAME=qwen2.5-32b-instruct
+SERPER_API_KEY=your_serper_api_key_here
+
+# App Settings
+ENVIRONMENT=development
+LOG_LEVEL=INFO
+```
+
+### B. Agent Environment Configuration (`DFV-agent/.env`, `TIPSC-Agent/.env`)
+
+Ensure agent directories have `.env` configured pointing to the same LLM and Serper key:
+
+```env
+LM_STUDIO_URL=http://localhost:1234/v1
+OPENAI_API_KEY=lm-studio
+OPENAI_MODEL_NAME=qwen2.5-32b-instruct
+SERPER_API_KEY=your_serper_api_key_here
+```
+
+---
+
+## 4. One-Time Database Migration
+
+Run the session team synchronization script to align any historical diverged `Session.team_id` records with `User.team_id`:
 
 ```bash
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+# From workspace root
+python backend/scripts/migrate_session_teams.py
 ```
 
-*Note: The backend publishes to Kafka but does NOT consume messages. It waits for workers to update the session data in MongoDB asynchronously.*
+---
 
-## 3. Running the Kafka Workers (Agents)
+## 5. Execution Commands (Services Setup)
 
-Run this command in backend folder (docker should be installed!!!)
+Run each of the following components in separate terminal windows:
 
-```
-docker compose up
-```
+### Terminal 1: Local LLM Server (LM Studio / Ollama)
 
-### A. TIPSC Worker
+1. Open LM Studio (or your local LLM host).
+2. Load model (e.g. `qwen2.5-32b-instruct`).
+3. Start local server at `http://127.0.0.1:1234/v1`.
 
-For the TIPSC scoring phase, there is a dedicated consumer.
-
-```bash
-# cd backend
-# # python -m workers.tipsc_worker
-```
-
-### B. Combined Agent Worker (DFV & Discovery)
-
-The backend features a unified worker script that consumes from both `userSession.dfv` and `userSession.discovery` topics. It dynamically imports and runs the agents from the respective folders.
+### Terminal 2: FastAPI Backend Server
 
 ```bash
 cd backend
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+
+# Run Uvicorn server
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+* Backend API documentation will be accessible at `http://localhost:8000/docs`.
+
+### Terminal 3: React Frontend Application
+
+```bash
+cd frontend
+npm install
+
+# Start Vite development server
+npm run dev
+```
+
+* Web application will be accessible at `http://localhost:5173`.
+
+### Terminal 4: Combined Agent Worker (DFV & Discovery)
+
+```bash
+cd backend
+source .venv/bin/activate
 python -m workers.combined_agent_worker
 ```
 
-*Make sure you have installed the requirements for the agents as well, since `combined_agent_worker.py` imports their logic directly.*
+---
 
-### 4. The End-to-End Workflow
+## 6. Verification & Testing Commands
 
-Here is how data flows through the platform asynchronously during a complete lifecycle:
+### A. Run Automated Unit Tests
 
-### Phase 1: Session Creation (API → Kafka)
+Run the Pytest suite covering authorization, team reassignment, and comment services:
 
-1. **User Action:** Student POSTs their initial idea via the frontend to `/api/v1/sessions`.
-2. **Backend Action:**
-   - Validates input and authenticates the student.
-   - Writes a new session document to MongoDB with `status = created`.
-   - Publishes an event to the `userSession.tipsc` Kafka topic.
-   - Updates MongoDB `status = queued` and returns `201 Created` to the frontend.
-
-### Phase 2: TIPSC Worker Execution
-
-1. **Worker Consumption:** The TIPSC Kafka consumer picks up the event.
-2. **Execution:** It triggers the CrewAI TIPSC pipeline (Pre-evaluation, TIPSC scoring with potential follow-up questions).
-3. **Database Write:** The worker writes the final output directly to the session document in MongoDB and sets `status = tipsc_completed`.
-4. **Notification:** The worker publishes a completion event to `userSession.notifications`.
-
-### Phase 3: DFV Flow
-
-1. **User Action:** Student triggers the DFV analysis via `POST /api/v1/sessions/{id}/trigger/dfv` with context inputs.
-2. **Backend Action:** Publishes to `userSession.dfv` topic with the DFV context.
-3. **Worker Consumption:** The `combined_agent_worker` consumes the DFV message.
-4. **Execution:** Evaluates Desirability, Feasibility, and Viability using CrewAI.
-5. **Database Write:** The worker updates the MongoDB session with the DFV output and sets `status = dfv_completed`.
-
-### Phase 4: Customer Discovery Planner Flow
-
-1. **User Action:** Student triggers the discovery planner via `POST /api/v1/sessions/{id}/trigger/discovery`.
-2. **Backend Action:** Publishes to `userSession.discovery` topic.
-3. **Worker Consumption:** The `combined_agent_worker` consumes the Discovery message.
-4. **Execution:** Generates a structured Jobs-To-Be-Done (JTBD) interview plan.
-5. **Database Write:** The worker updates MongoDB with the discovery plan and sets the session `status = completed`.
-
-Throughout this entire process, the **React frontend polls the backend** (`GET /api/v1/sessions/{id}`) every few seconds to reflect real-time status changes and unlock subsequent phases as the Kafka workers finish their tasks.
-
-## 5. Worker Communication Protocol
-
-### Internal API Endpoints
-
-Workers communicate completion/failure back to the backend via internal endpoints (protected by `X-Worker-Secret` header):
-
-- `POST /internal/sessions/{session_id}/output` — Worker submits successful flow output
-- `POST /internal/sessions/{session_id}/failure` — Worker reports flow failure after retries
-
-### MongoDB Direct Writes
-
-Workers also write status updates directly to MongoDB (using a separate service account with write-only access to `sessions.status` field) for low-latency status transitions like `tipsc_running`, `dfv_running`, etc.
-
-### Correlation IDs
-
-Every request chain is linked by a `correlation_id`:
-
-- Generated by backend on session creation
-- Passed to Kafka in event payload
-- Workers include it in all internal API calls
-- Enables end-to-end tracing from API request → Kafka → Worker → DB write
-
-## 6. Environment Variables
-
-### Backend (.env)
-
-```
-MONGODB_URI=mongodb://localhost:27017
-MONGODB_DB_NAME=agis
-KAFKA_BOOTSTRAP_SERVERS=localhost:9092
-JWT_SECRET_KEY=your-secret-key
-JWT_ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=15
-REFRESH_TOKEN_EXPIRE_DAYS=7
-PES_AUTH_API_URL=https://auth.pes.edu/api
-PES_AUTH_API_KEY=your-pes-auth-key
-WORKER_SECRET=shared-internal-secret
-ENVIRONMENT=development
+```bash
+# From workspace root
+pytest backend/tests
 ```
 
-### Worker (.env)
+### B. Run API Smoke Tests
 
-```
-MONGODB_URI=mongodb://localhost:27017
-MONGODB_DB_NAME=agis
-KAFKA_BOOTSTRAP_SERVERS=localhost:9092
-KAFKA_GROUP_ID=tipsc-worker-group
-WORKER_SECRET=shared-internal-secret
-LM_STUDIO_URL=http://127.0.0.1:1234/v1
-LM_STUDIO_MODEL=bonsai-8b
+Run end-to-end API verification against a running backend instance:
+
+```bash
+python backend/scripts/smoke_test.py
+python backend/scripts/test_api_comments.py
 ```
 
-## 7. Development Workflow
+---
 
-1. Start MongoDB and Kafka (docker-compose up -d)
-2. Start LM Studio with model loaded
-3. Start backend: `uvicorn main:app --reload --port 8000`
-4. Start TIPSC worker: `python -m workers.tipsc_worker`
-5. Start combined worker: `python -m workers.combined_agent_worker`
-6. Start frontend: `cd frontend && npm run dev -- --host 0.0.0.0`
-7. Access frontend at `http://localhost:5173`
+## 7. Operational Workflow & Architecture
 
-## 8. Troubleshooting
+```
+User Browser (React Frontend :5173)
+        │
+        ▼ HTTP REST / JWT
+FastAPI Backend (:8000) ──────────────► MongoDB (:27017)
+        │                                  ▲
+        ▼ Kafka Event                      │ DB Direct Write
+Kafka Topics ──────────────────────────────┤
+  • userSession.dfv                        │
+  • userSession.discovery                  │
+        │                                  │
+        ▼ Kafka Consumer                   │
+Background Workers ────────────────────────┘
+  • combined_agent_worker.py
+        │
+        ▼ Local LLM API
+LM Studio / Ollama (:1234/v1)
+```
 
-### Kafka Connection Issues
-
-- Verify Kafka is running: `kafka-topics --bootstrap-server localhost:9092 --list`
-- Check topics exist: `userSession.tipsc`, `userSession.dfv`, `userSession.discovery`, `userSession.notifications`
-
-### MongoDB Connection Issues
-
-- Verify MongoDB is running: `mongosh --eval "db.runCommand({ping: 1})"`
-- Check database exists: `use agis`
-
-### Worker Not Processing Messages
-
-- Check worker logs for connection errors
-- Verify `KAFKA_GROUP_ID` is unique per worker type
-- Check message format matches expected schema
-
-### Frontend Not Updating
-
-- Check polling interval in `useSessionPolling` hook (default 5s)
-- Verify backend returns updated status in `GET /sessions/{id}`
-- Check browser console for CORS or auth errors
+1. **Session Creation**: Student creates a session via Frontend -> Backend writes to MongoDB (`status: queued`) and emits Kafka event to `userSession.tipsc`.
+2. **TIPSC Evaluation**: `tipsc_worker.py` uses asyncio event, invokes CrewAI TIPSC agents against LM Studio, and updates session to `tipsc_completed`.
+3. **DFV Evaluation**: Student triggers DFV -> Backend emits to `userSession.dfv` -> `combined_agent_worker.py` evaluates Desirability, Feasibility, Viability and sets status to `dfv_completed`.
+4. **Customer Discovery Planning**: Student triggers Discovery -> Backend emits to `userSession.discovery` -> Worker generates JTBD interview guide and sets status to `completed`.
+5. **Real-time Status Sync**: Frontend polls `GET /api/v1/sessions/{id}` to display progress dynamically.

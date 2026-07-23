@@ -40,6 +40,7 @@ export function DetailedProgressView({ student }: { student: StudentDetail }) {
     async function loadDetail() {
       setLoading(true);
       try {
+        console.log("[DetailedProgressView] Loading sessionId:", student.sessionId);
         const data = await getSession(student.sessionId!);
         if (active) {
           setSessionData(data);

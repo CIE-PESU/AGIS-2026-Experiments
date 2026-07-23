@@ -15,6 +15,21 @@ from core.sync import dump_seed_data
 from repositories.session_repo import session_repo
 from models.user import User
 from models.team import Team
+from models.session import Session
+from state_machine.states import SessionStatus
+from services.mentor_service import sync_mentor_teams
+
+async def sync_student_session_teams(student_srns: list[str], new_team_id: str | None):
+    """Synchronize Session.team_id for active sessions when student team membership changes."""
+    if not student_srns:
+        return
+    students = await User.find({"srn": {"$in": student_srns}}).to_list()
+    student_ids = [str(s.id) for s in students]
+    if student_ids:
+        await Session.find({
+            "student_id": {"$in": student_ids},
+            "status": {"$ne": SessionStatus.ARCHIVED.value}
+        }).update({"$set": {"team_id": new_team_id or ""}})
 
 class MentorCreateRequest(BaseModel):
     name: str
@@ -143,9 +158,12 @@ async def create_team(req: TeamCreateRequest, background_tasks: BackgroundTasks)
     """Admin: Create a new team and update student references."""
     team = Team(team_name=req.name, mentor_id=req.mentor_id or "", members=req.members)
     await team.insert()
-    # Update students' team_id
+    # Update students' team_id and their active sessions
     if req.members:
         await User.find({"srn": {"$in": req.members}}).update({"$set": {"team_id": str(team.id)}})
+        await sync_student_session_teams(req.members, str(team.id))
+    if req.mentor_id:
+        await sync_mentor_teams(req.mentor_id)
     background_tasks.add_task(dump_seed_data)
     return {"message": "Team created", "team": team.model_dump()}
 
@@ -156,18 +174,28 @@ async def update_team(team_id: str, req: TeamUpdateRequest, background_tasks: Ba
     if not team:
         return {"error": "Team not found"}
     
-    # Clear old members' team_id
-    if team.members:
-        await User.find({"srn": {"$in": team.members}}).update({"$set": {"team_id": None}})
+    old_mentor_id = team.mentor_id
+    old_members = team.members or []
+    
+    # Clear old members' team_id and sessions
+    if old_members:
+        await User.find({"srn": {"$in": old_members}}).update({"$set": {"team_id": None}})
+        await sync_student_session_teams(old_members, None)
     
     team.team_name = req.name
     team.mentor_id = req.mentor_id or ""
     team.members = req.members
     await team.save()
     
-    # Set new members' team_id
+    # Set new members' team_id and sessions
     if req.members:
         await User.find({"srn": {"$in": req.members}}).update({"$set": {"team_id": str(team.id)}})
+        await sync_student_session_teams(req.members, str(team.id))
+    
+    if old_mentor_id and old_mentor_id != req.mentor_id:
+        await sync_mentor_teams(old_mentor_id)
+    if req.mentor_id:
+        await sync_mentor_teams(req.mentor_id)
     
     background_tasks.add_task(dump_seed_data)
     return {"message": "Team updated"}
@@ -178,10 +206,14 @@ async def delete_team(team_id: str, background_tasks: BackgroundTasks):
     if not team:
         return {"error": "Team not found"}
     
+    old_mentor_id = team.mentor_id
     if team.members:
         await User.find({"srn": {"$in": team.members}}).update({"$set": {"team_id": None}})
+        await sync_student_session_teams(team.members, None)
         
     await team.delete()
+    if old_mentor_id:
+        await sync_mentor_teams(old_mentor_id)
     
     background_tasks.add_task(dump_seed_data)
     return {"message": "Team deleted"}
