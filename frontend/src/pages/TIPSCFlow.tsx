@@ -485,45 +485,65 @@ export function TIPSCFlow() {
       )}
 
       {/* Ready-for-DFV banner + actions — shown under EVERY tab once TIPSC is final, not just the TIPSC tab */}
-      {isFinal && tips && (
-        <div
-          className={`mt-4 rounded-lg p-4 ${readyForDFV ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"
-            }`}
+   {/* ── Follow-up question — pinned banner, no scrolling required ── */}
+{isFollowup && pendingQuestion && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="w-[560px] max-w-[calc(100vw-2rem)] animate-in zoom-in-95 fade-in duration-300">
+
+      {/* Navy tab shape - clean arcs, #2673A6 */}
+      <div className="relative z-10 h-24">
+        <svg
+          className="absolute inset-0 h-full w-full"
+          viewBox="0 0 560 100"
+          preserveAspectRatio="none"
         >
-          <div className="flex items-center gap-2 font-bold">
-            {readyForDFV ? <CheckCircle2 /> : <XCircle />}{" "}
-            {readyForDFV ? "Ready for DFV" : "Not Yet Ready"}
+          <path
+            d="M0,20 A20,20 0 0 1 20,0 L320,0 A20,20 0 0 1 340,20 L340,36 A20,20 0 0 0 360,56 L540,56 A20,20 0 0 1 560,76 L560,100 L0,100 Z"
+            fill="#2673A6"
+          />
+        </svg>
+        <div className="absolute left-5 top-4 flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 shrink-0">
+            <MessageCircleQuestion className="h-4 w-4 text-white" />
           </div>
-          <p className="mt-2 text-sm">
-            {tips.reasoning}
-          </p>
-          <div className="mt-4 flex items-center justify-end gap-3">
-            {(serverStatus === "tipsc_failed" || session.tipsc === "failed") && (
-              <Button
-                variant="secondary"
-                onClick={retryTIPSC}
-                disabled={submitting}
-              >
-                {submitting && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                Retry TIPSC Evaluation
-              </Button>
-            )}
-            {readyForDFV ? (
-              <Button asChild variant="secondary">
-                <Link to="/workspace/dfv" className="inline-flex items-center gap-2">
-                  Proceed to DFV <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
-            ) : (
-              <Button variant="secondary" disabled className="opacity-50 cursor-not-allowed">
-                Proceed to DFV <ArrowRight className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
+          <p className="text-sm font-semibold text-white whitespace-nowrap">TIPSC needs more information</p>
         </div>
-      )}
+        <Link
+          to="/workspace"
+          className="absolute right-5 top-4 text-xs font-semibold text-white/90 hover:text-white underline underline-offset-2"
+        >
+          Back to Workspace
+        </Link>
+      </div>
+
+      {/* White - front, covers most of navy, only the top step peeks */}
+      <div className="relative z-20 -mt-8 rounded-[28px] bg-white shadow-2xl px-6 pt-10 pb-8">
+        <p className="text-base text-[#34305E]">{pendingQuestion}</p>
+        <Textarea
+          className="mt-4 bg-slate-50 text-base border-slate-200 rounded-2xl focus-visible:ring-[#34305E]"
+          rows={4}
+          value={answer}
+          onChange={(e) => setAnswer(e.target.value)}
+          placeholder="Type your answer here..."
+          autoFocus
+        />
+      </div>
+
+      {/* Orange - behind, peeks below the white card */}
+      <div className="relative z-10 -mt-6 rounded-[28px] bg-[#E75A2D] pt-6">
+        <button
+          disabled={!answer.trim() || submitting}
+          onClick={sendFollowUp}
+          className="w-full h-14 flex items-center justify-center gap-2 text-white font-semibold text-base disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+          Submit & Re-evaluate
+        </button>
+      </div>
+
+    </div>
+  </div>
+)}
     </main>
   );
 }
