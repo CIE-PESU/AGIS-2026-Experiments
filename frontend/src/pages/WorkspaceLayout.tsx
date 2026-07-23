@@ -114,15 +114,6 @@ export function WorkspaceLayout() {
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary font-bold text-white">
               {user.name.charAt(0)}
             </div>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setIsChatOpen(prev => !prev)}
-              title="Messaging & Feedback"
-              className={`h-9 w-9 relative border-primary/20 hover:bg-primary/5 ${isChatOpen ? "bg-primary/5 border-primary text-primary" : "text-slate-600"}`}
-            >
-              <MessageSquare className="h-4 w-4" />
-            </Button>
             <Button variant="ghost" size="icon" onClick={() => void logout()} title="Logout">
               <LogOut className="h-4 w-4" />
             </Button>
