@@ -65,11 +65,21 @@ export function deriveCanonicalStageAccess(doc: any | null): SessionStageAccess 
   }
 
   const status: string = typeof doc.status === "string" ? doc.status : doc.status?.value || "";
+
+  // Single source of truth for DFV unlock gate: backend's ready_for_dfv boolean
+  const readyForDFV = Boolean(doc?.tipsc?.ready_for_dfv);
+
   const mapped = CANONICAL_STAGE_MAP[status] || {
     tipsc: "available",
     dfv: "locked",
     discovery: "locked"
   };
+
+  let dfvStageState = mapped.dfv;
+  // If TIPSC evaluation is complete, DFV is ONLY available if backend ready_for_dfv is true!
+  if (status === "tipsc_completed") {
+    dfvStageState = readyForDFV ? "available" : "locked";
+  }
 
   let dfvDecision: string | null = null;
   const dfvRaw = doc.dfv_raw || doc.dfv || doc.dfv_status;
@@ -80,7 +90,7 @@ export function deriveCanonicalStageAccess(doc: any | null): SessionStageAccess 
     dfvDecision = out?.decision ?? out?.final_decision?.status ?? out?.overall_recommendation ?? null;
   }
 
-  let dfvState = mapped.dfv;
+  let dfvState = dfvStageState;
   if ((status === "dfv_completed" || status === "discovery_waiting" || status === "discovery_running" || status === "completed") && dfvDecision) {
     dfvState = dfvDecision as SessionStageState;
   }

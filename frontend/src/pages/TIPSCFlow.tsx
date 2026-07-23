@@ -143,9 +143,7 @@ export function TIPSCFlow() {
   const isFinal = activeSessionExists && Boolean(serverStatus && FINAL_STATUSES.has(serverStatus));
   const isFailed = serverStatus === "tipsc_failed";
 
-  const readyForDFV = Boolean(
-    sessionDoc?.tipsc?.ready_for_dfv ?? tips?.ready_for_dfv ?? false
-  );
+  const readyForDFV = Boolean(sessionDoc?.tipsc?.ready_for_dfv);
 
   const currentStep = getStepIndex(serverStatus);
   const loadingText = getLoadingText(serverStatus);
