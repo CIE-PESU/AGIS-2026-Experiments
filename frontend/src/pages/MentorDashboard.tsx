@@ -17,22 +17,32 @@ import { deriveStageAccess } from "@/hooks/useSessionPolling";
 
 export function MentorDashboard() {
   const { user, logout } = useAuth();
-  const loadedTeams = useMemo(() => {
-    if (!user || user.role !== "mentor") return [];
-    
-    // The user.srn stores the email for mentors
-    const allMentors = getMentors();
-    const currentMentor = allMentors.find(m => m.email.toLowerCase() === user.srn.toLowerCase());
-    
-    if (!currentMentor) return [];
-    
-    const allTeams = getTeamsWithMembers();
-    return allTeams.filter(t => t.mentorId === currentMentor.id);
+  const [loadedTeams, setLoadedTeams] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function loadData() {
+      if (!user || user.role !== "mentor") return;
+      const allMentors = await getMentors();
+      const currentMentor = allMentors.find(m => m.srn?.toLowerCase() === user.srn.toLowerCase());
+      
+      if (!currentMentor) {
+        setLoadedTeams([]);
+        return;
+      }
+      
+      const allTeams = await getTeamsWithMembers();
+      setLoadedTeams(allTeams.filter(t => t.mentorId === currentMentor.id));
+    }
+    loadData();
   }, [user]);
 
-  const [team, setTeam] = useState(() => {
-    return loadedTeams[0]?.name || "";
-  });
+  const [team, setTeam] = useState("");
+  useEffect(() => {
+    if (loadedTeams.length > 0 && !team) {
+      setTeam(loadedTeams[0].name);
+    }
+  }, [loadedTeams, team]);
+
   const [comments, setComments] = useState<Record<string, Comment[]>>({});
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const selected = loadedTeams.find((item) => item.name === team) || loadedTeams[0] || { name: "", members: [] };
@@ -55,7 +65,7 @@ export function MentorDashboard() {
     return [
       ["Teams Assigned", loadedTeams.length],
       ["Total Students", members.length],
-      ["TIPSC Complete", members.filter((m) => Object.values(m.tips).every((s) => s.status === "green")).length],
+      ["TIPSC Complete", members.filter((m) => Object.keys(m.tips).length > 0 && Object.values(m.tips).every((s: any) => s.status === "green")).length],
       ["DFV Complete", members.filter((m) => m.dfv !== "Pending").length]
     ];
   }, [loadedTeams]);
@@ -122,7 +132,7 @@ export function MentorDashboard() {
                 <tr><th className="p-4">Student</th><th className="p-4">TIPSC</th><th className="p-4">DFV</th><th className="p-4">JTBD</th><th className="p-4">Last Active</th><th className="p-4">Actions</th></tr>
               </thead>
               <tbody>
-                {selected.members.map((student) => {
+                {selected.members.map((student: any) => {
                   const access = deriveStageAccess(student);
                   return (
                     <tr key={student.srn} className="border-t bg-white">
@@ -131,7 +141,7 @@ export function MentorDashboard() {
                         {access.tipsc === "in_progress" ? (
                           <StatusBadge type="in_progress" />
                         ) : (
-                          <div className="flex gap-2">{Object.values(student.tips).map((score, i) => <TrafficDot key={i} status={score.status} />)}</div>
+                          <div className="flex gap-2">{Object.values(student.tips || {}).map((score: any, i) => <TrafficDot key={i} status={score.status} />)}</div>
                         )}
                       </td>
                       <td className="p-4">
