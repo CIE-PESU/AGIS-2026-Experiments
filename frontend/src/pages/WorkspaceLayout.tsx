@@ -119,7 +119,7 @@ export function WorkspaceLayout() {
               size="icon"
               onClick={() => setIsChatOpen(prev => !prev)}
               title="Messaging & Feedback"
-              className={`h-9 w-9 relative border-primary/20 hover:bg-primary/5 ${isChatOpen ? "bg-primary/5 border-primary text-primary" : "text-slate-600"}`}
+              className={`hidden h-9 w-9 relative border-primary/20 hover:bg-primary/5 ${isChatOpen ? "bg-primary/5 border-primary text-primary" : "text-slate-600"}`}
             >
               <MessageSquare className="h-4 w-4" />
             </Button>

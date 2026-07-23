@@ -78,6 +78,7 @@ class AuthService:
         access_token = create_access_token(
             user_id=str(user.id),
             role=user.role,
+            name=user.name,
             team_id=user.team_id,
             mentor_team_ids=user.mentor_team_ids,
         )
@@ -140,6 +141,7 @@ class AuthService:
         access_token = create_access_token(
             user_id=str(user.id),
             role=user.role,
+            name=user.name,
             team_id=user.team_id,
             mentor_team_ids=user.mentor_team_ids,
         )

@@ -12,11 +12,8 @@ import { RequireRole } from "@/components/shared/RequireRole";
 import { useAuth } from "@/context/AuthContext";
 import {
   getMentors,
-  saveMentors,
   getTeams,
-  saveTeams,
   getStudents,
-  saveStudents,
   Student,
   Team,
   Mentor
@@ -49,10 +46,10 @@ export function AdminDashboard() {
   const [dialogMentorPassword, setDialogMentorPassword] = useState("");
 
   // Load and refresh data
-  const refreshData = () => {
-    setMentors(getMentors());
-    setTeams(getTeams());
-    setStudents(getStudents());
+  const refreshData = async () => {
+    setMentors(await getMentors());
+    setTeams(await getTeams());
+    setStudents(await getStudents());
   };
 
   useEffect(() => {
@@ -64,7 +61,7 @@ export function AdminDashboard() {
     const totalMentors = mentors.length;
     const totalTeams = teams.length;
     const totalStudents = students.length;
-    const tipsComplete = students.filter(s => Object.values(s.tips).every(t => t.status === "green")).length;
+    const tipsComplete = students.filter(s => Object.keys(s.tips).length > 0 && Object.values(s.tips).every(t => t.status === "green")).length;
     const dfvComplete = students.filter(s => s.dfv !== "Pending").length;
     return { totalMentors, totalTeams, totalStudents, tipsComplete, dfvComplete };
   }, [mentors, teams, students]);
@@ -128,57 +125,57 @@ export function AdminDashboard() {
   };
 
   // Dialog Save: Team
-  const saveTeamChanges = () => {
+  const saveTeamChanges = async () => {
     if (!dialogTeamName.trim()) {
       toast.error("Team name is required.");
       return;
     }
 
-    let teamId = editingTeam?.id;
-    let updatedTeams = [...teams];
-
-    if (isAddTeamMode) {
-      teamId = "team_" + Date.now();
-      updatedTeams.push({
-        id: teamId,
-        name: dialogTeamName,
-        mentorId: dialogMentorId === "unassigned" ? null : dialogMentorId
+    try {
+      const url = isAddTeamMode ? "/api/v1/admin/teams" : `/api/v1/admin/teams/${editingTeam?.id}`;
+      const method = isAddTeamMode ? "POST" : "PUT";
+      
+      const res = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("agis_access_token")}`
+        },
+        body: JSON.stringify({
+          name: dialogTeamName,
+          mentor_id: dialogMentorId === "unassigned" ? null : dialogMentorId,
+          members: dialogTeamMembers.map(m => m.srn)
+        })
       });
-    } else if (teamId) {
-      updatedTeams = updatedTeams.map(t => t.id === teamId ? {
-        ...t,
-        name: dialogTeamName,
-        mentorId: dialogMentorId === "unassigned" ? null : dialogMentorId
-      } : t);
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to save team in backend");
+      }
+
+      await refreshData();
+      setIsTeamDialogOpen(false);
+      toast.success(isAddTeamMode ? "Team created successfully" : "Team updated successfully");
+    } catch (err: any) {
+      toast.error(err.message);
     }
-
-    // Assign teamId to members, clear teamId for unassigned
-    const updatedStudents = students.map(s => {
-      if (dialogTeamMembers.some(m => m.srn === s.srn)) {
-        return { ...s, teamId: teamId || null };
-      }
-      if (s.teamId === teamId && !dialogTeamMembers.some(m => m.srn === s.srn)) {
-        return { ...s, teamId: null };
-      }
-      return s;
-    });
-
-    saveTeams(updatedTeams);
-    saveStudents(updatedStudents);
-    refreshData();
-    setIsTeamDialogOpen(false);
-    toast.success(isAddTeamMode ? "Team created successfully" : "Team updated successfully");
   };
 
   // Handler: Delete Team
-  const handleDeleteTeam = (teamId: string) => {
+  const handleDeleteTeam = async (teamId: string) => {
     if (confirm("Are you sure you want to delete this team? Members will be unassigned.")) {
-      const updatedTeams = teams.filter(t => t.id !== teamId);
-      const updatedStudents = students.map(s => s.teamId === teamId ? { ...s, teamId: null } : s);
-      saveTeams(updatedTeams);
-      saveStudents(updatedStudents);
-      refreshData();
-      toast.success("Team deleted successfully");
+      try {
+        const res = await fetch(`/api/v1/admin/teams/${teamId}`, {
+          method: "DELETE",
+          headers: { "Authorization": `Bearer ${localStorage.getItem("agis_access_token")}` }
+        });
+        if (!res.ok) throw new Error("Failed to delete team");
+        
+        await refreshData();
+        toast.success("Team deleted successfully");
+      } catch (err: any) {
+        toast.error(err.message);
+      }
     }
   };
 
@@ -215,41 +212,28 @@ export function AdminDashboard() {
     }
 
     try {
-      if (isAddMentorMode) {
-        // Create in backend
-        const res = await fetch("/api/v1/admin/mentors", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${localStorage.getItem("agis_access_token")}`
-          },
-          body: JSON.stringify({
-            name: dialogMentorName,
-            email: dialogMentorEmail,
-            password: dialogMentorPassword,
-          })
-        });
-
-        if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error || "Failed to create mentor in backend");
-        }
-      }
-
-      let updatedMentors = [...mentors];
-      if (isAddMentorMode) {
-        const mentorId = "mentor_" + Date.now();
-        updatedMentors.push({ id: mentorId, name: dialogMentorName, email: dialogMentorEmail });
-      } else if (editingMentor) {
-        updatedMentors = updatedMentors.map(m => m.id === editingMentor.id ? {
-          ...m,
+      const url = isAddMentorMode ? "/api/v1/admin/mentors" : `/api/v1/admin/mentors/${editingMentor?.id}`;
+      const method = isAddMentorMode ? "POST" : "PUT";
+      
+      const res = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("agis_access_token")}`
+        },
+        body: JSON.stringify({
           name: dialogMentorName,
-          email: dialogMentorEmail
-        } : m);
+          email: dialogMentorEmail,
+          password: isAddMentorMode ? dialogMentorPassword : undefined,
+        })
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to save mentor in backend");
       }
 
-      saveMentors(updatedMentors);
-      refreshData();
+      await refreshData();
       setIsMentorDialogOpen(false);
       toast.success(isAddMentorMode ? "Mentor added successfully" : "Mentor updated successfully");
     } catch (err: any) {
@@ -258,14 +242,20 @@ export function AdminDashboard() {
   };
 
   // Handler: Delete Mentor
-  const handleDeleteMentor = (mentorId: string) => {
+  const handleDeleteMentor = async (mentorId: string) => {
     if (confirm("Are you sure you want to delete this mentor? Supervised teams will be unassigned.")) {
-      const updatedMentors = mentors.filter(m => m.id !== mentorId);
-      const updatedTeams = teams.map(t => t.mentorId === mentorId ? { ...t, mentorId: null } : t);
-      saveMentors(updatedMentors);
-      saveTeams(updatedTeams);
-      refreshData();
-      toast.success("Mentor deleted successfully");
+      try {
+        const res = await fetch(`/api/v1/admin/mentors/${mentorId}`, {
+          method: "DELETE",
+          headers: { "Authorization": `Bearer ${localStorage.getItem("agis_access_token")}` }
+        });
+        if (!res.ok) throw new Error("Failed to delete mentor");
+        
+        await refreshData();
+        toast.success("Mentor deleted successfully");
+      } catch (err: any) {
+        toast.error(err.message);
+      }
     }
   };
 
@@ -401,7 +391,7 @@ export function AdminDashboard() {
                         </tr>
                       ) : (
                         mappedTeams.map(t => {
-                          const tipsCount = t.members.filter(s => Object.values(s.tips).every(x => x.status === "green")).length;
+                          const tipsCount = t.members.filter(s => Object.keys(s.tips).length > 0 && Object.values(s.tips).every(x => x.status === "green")).length;
                           const dfvCount = t.members.filter(s => s.dfv !== "Pending").length;
                           return (
                             <tr key={t.id} className="border-t bg-white hover:bg-slate-50/50">

@@ -12,7 +12,6 @@ export function Login() {
   const navigate = useNavigate();
   const [srn, setSrn] = useState("");
   const [password, setPassword] = useState("");
-  const [teamName, setTeamName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -27,14 +26,10 @@ export function Login() {
       setError("Please enter both SRN and password.");
       return;
     }
-    if (isStudent && !teamName.trim()) {
-      setError("Team Name is required for students.");
-      return;
-    }
     setError("");
     setLoading(true);
     try {
-      const role = await login(srn, password, isStudent ? teamName : undefined);
+      const role = await login(srn, password);
       navigate(getRoleHome(role));
     } catch {
       setError("Login failed. Check your credentials and try again.");
@@ -59,18 +54,6 @@ export function Login() {
           onChange={(e) => setSrn(e.target.value)} 
           placeholder="PES2UG22CS001" 
         />
-        
-        {isStudent && (
-          <>
-            <label className="mt-4 block text-sm font-semibold text-slate-700">Team Name</label>
-            <Input 
-              className="mt-2" 
-              value={teamName} 
-              onChange={(e) => setTeamName(e.target.value)} 
-              placeholder="e.g. Team Gamma" 
-            />
-          </>
-        )}
         
         <label className="mt-4 block text-sm font-semibold text-slate-700">Password</label>
         <Input 

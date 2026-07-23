@@ -1,37 +1,93 @@
-[
+{
+  "users": [
     {
-        "srn": "ASHWIN",
-        "name": "Ashwin",
-        "email": "ashwin@pes.edu",
-        "role": "admin",
-        "encrypted_password": "gAAAAABqYKqMdpFftoI6_i2-NT1vHBm_4tNxZ123DWzTbyEwiaQZfolXaE2Oqphu9f5Dx2Gke16rXMkN06nWj_vaWXaynIVHBA=="
+      "id": "6a60ad0f186849c0ad8ca110",
+      "srn": "ASHWIN",
+      "name": "Ashwin",
+      "email": "ashwin@pes.edu",
+      "role": "admin",
+      "encrypted_password": "gAAAAABqYKqMdpFftoI6_i2-NT1vHBm_4tNxZ123DWzTbyEwiaQZfolXaE2Oqphu9f5Dx2Gke16rXMkN06nWj_vaWXaynIVHBA==",
+      "team_id": null,
+      "mentor_team_ids": [],
+      "created_at": "2026-07-22 11:44:15.028000"
     },
     {
-        "srn": "BHAVESH",
-        "name": "Bhavesh",
-        "email": "bhavesh@pes.edu",
-        "role": "admin",
-        "encrypted_password": "gAAAAABqYKqMZCIf_tI5H78sE2aSqJfLVBFvFzSdfH99UXYU_hnwNKd0jlKL0lZ6v5lc0lrIEVZXNiZpqEpqfkPD9HJApKUdtA=="
+      "id": "6a60ad62186849c0ad8ca114",
+      "srn": "BHAVESH",
+      "name": "Bhavesh",
+      "email": "bhavesh@pes.edu",
+      "role": "admin",
+      "encrypted_password": "gAAAAABqYKqMZCIf_tI5H78sE2aSqJfLVBFvFzSdfH99UXYU_hnwNKd0jlKL0lZ6v5lc0lrIEVZXNiZpqEpqfkPD9HJApKUdtA==",
+      "team_id": null,
+      "mentor_team_ids": [],
+      "created_at": "2026-07-22 11:45:38.889000"
     },
     {
-        "srn": "URAV",
-        "name": "Urav",
-        "email": "urav@pes.edu",
-        "role": "admin",
-        "encrypted_password": "gAAAAABqYKqMin8V8bDgZ6splNykeFhOu-GSsJhxERnH4gcQnb6DGePbaihlSkOChMZas24tgmQ6C1abXn762_PEALD5xeQcZA=="
+      "id": "6a60ad7b186849c0ad8ca116",
+      "srn": "URAV",
+      "name": "Urav",
+      "email": "urav@pes.edu",
+      "role": "admin",
+      "encrypted_password": "gAAAAABqYKqMin8V8bDgZ6splNykeFhOu-GSsJhxERnH4gcQnb6DGePbaihlSkOChMZas24tgmQ6C1abXn762_PEALD5xeQcZA==",
+      "team_id": null,
+      "mentor_team_ids": [],
+      "created_at": "2026-07-22 11:46:03.859000"
     },
     {
-        "srn": "PALASH.AGAR@GMAIL.COM",
-        "name": "Palash Agarwal",
-        "email": "palash.agar@gmail.com",
-        "role": "mentor",
-        "encrypted_password": "gAAAAABqYLGC7CrEXhwYwNSShQF5dNknMEJBAp0pNYUlEvRklODALL6MuBOOiYLKTzkloBLaViCLbPjvyTX1rIGVgGihEsj2Og=="
+      "id": "6a60b182f90b67db3169efe4",
+      "srn": "PALASH.AGAR@GMAIL.COM",
+      "name": "Palash Agarwal",
+      "email": "palash.agar@gmail.com",
+      "role": "mentor",
+      "encrypted_password": "gAAAAABqYLGC7CrEXhwYwNSShQF5dNknMEJBAp0pNYUlEvRklODALL6MuBOOiYLKTzkloBLaViCLbPjvyTX1rIGVgGihEsj2Og==",
+      "team_id": null,
+      "mentor_team_ids": [],
+      "created_at": "2026-07-22 12:03:14.939000"
     },
     {
-        "srn": "KISH@GMAIL.COM",
-        "name": "Kishan",
-        "email": "kish@gmail.com",
-        "role": "mentor",
-        "encrypted_password": "gAAAAABqYLdEuhGzyas7jLz9bIYZ4dV_G5OPqP4n0mrk_VGQOMbTdlousuAggNB3lHqmoPvjSd-jTTHvg8s_TFit96e1kAnrbQ=="
+      "id": "6a60b744838f00e3186dd940",
+      "srn": "KISH@GMAIL.COM",
+      "name": "Kishan",
+      "email": "kish@gmail.com",
+      "role": "mentor",
+      "encrypted_password": "gAAAAABqYLdEuhGzyas7jLz9bIYZ4dV_G5OPqP4n0mrk_VGQOMbTdlousuAggNB3lHqmoPvjSd-jTTHvg8s_TFit96e1kAnrbQ==",
+      "team_id": null,
+      "mentor_team_ids": [],
+      "created_at": "2026-07-22 12:27:48.537000"
+    },
+    {
+      "id": "6a61cc735476fc7b3c1eb76b",
+      "srn": "PES1UG24AM371",
+      "name": "Kishan Kabadi S",
+      "email": "kishankabadis@gmail.com",
+      "role": "student",
+      "encrypted_password": null,
+      "team_id": "6a61cfd1898af91e7572559a",
+      "mentor_team_ids": [],
+      "created_at": "2026-07-23 08:10:27.658000"
+    },
+    {
+      "id": "6a61cc955476fc7b3c1eb76d",
+      "srn": "PES1UG23AM349",
+      "name": "Vijayarudha Meti",
+      "email": "vijayarudhameti@gmail.com",
+      "role": "student",
+      "encrypted_password": null,
+      "team_id": "6a61cfd1898af91e7572559a",
+      "mentor_team_ids": [],
+      "created_at": "2026-07-23 08:11:01.816000"
     }
-]
+  ],
+  "teams": [
+    {
+      "id": "6a61cfd1898af91e7572559a",
+      "team_name": "TEAM",
+      "mentor_id": "6a60b744838f00e3186dd940",
+      "members": [
+        "PES1UG24AM371",
+        "PES1UG23AM349"
+      ],
+      "created_at": "2026-07-23 08:24:49.088000"
+    }
+  ]
+}

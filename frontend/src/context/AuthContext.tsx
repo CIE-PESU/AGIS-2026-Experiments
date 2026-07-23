@@ -4,7 +4,7 @@ import { login as apiLogin, logout as apiLogout, getActiveSession } from "@/serv
 import { deriveStageAccess } from "@/hooks/useSessionPolling";
 import type { DFVResult, JTBDResult, StageStatus, TIPSCResult } from "@/data/mockData";
 import type { Role, SessionDocument, SessionStatus } from "@/types/api";
-import { registerStudentTeam, getStudents, initializeStorage } from "@/utils/adminData";
+import { getStudents } from "@/utils/adminData";
 import { mapTipscOutput, mapDfvOutput, mapDiscoveryOutput } from "@/utils/mapSessionResults";
 
 export type AppUser = { userId: string; srn: string; name: string; role: Role; teamId: string | null };
@@ -24,7 +24,7 @@ type AuthContextValue = {
   formData: FormDataMap;
   timeline: TimelineEvent[];
   sessionDoc: SessionDocument | null;
-  login: (srn: string, password: string, teamName?: string) => Promise<Role>;
+  login: (srn: string, password: string) => Promise<Role>;
   logout: () => Promise<void>;
   setSessionFromServer: (doc: SessionDocument) => void;
   unlockNext: (completed: keyof SessionState) => void;
@@ -90,16 +90,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSessionDoc(null);
   }, []);
 
-  const login = useCallback(async (srn: string, password: string, teamName?: string): Promise<Role> => {
+  const login = useCallback(async (srn: string, password: string): Promise<Role> => {
     try {
-      const data = await apiLogin(srn, password, teamName);
+      const data = await apiLogin(srn, password, undefined);
       let resolvedTeamId = data.user.team_id ?? null;
       if (data.role === "student") {
-        if (teamName) {
-          resolvedTeamId = registerStudentTeam(data.user.srn, teamName);
-        } else {
-          initializeStorage();
-          const existingStudent = getStudents().find(s => s.srn === data.user.srn);
+        if (!resolvedTeamId) {
+          const allStudents = await getStudents();
+          const existingStudent = allStudents.find((s: any) => s.srn === data.user.srn);
           if (existingStudent) {
             resolvedTeamId = existingStudent.teamId;
           }
