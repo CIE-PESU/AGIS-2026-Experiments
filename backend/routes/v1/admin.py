@@ -3,6 +3,8 @@ from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, Query
 
+import json
+from pathlib import Path
 from pydantic import BaseModel
 from dependencies.auth import require_admin
 from schemas.auth import CurrentUser
@@ -38,6 +40,28 @@ async def create_mentor(req: MentorCreateRequest):
         encrypted_password=enc_pw
     )
     await new_mentor.insert()
+    
+    # Also save to seed_data.json for git tracking
+    seed_file = Path(__file__).resolve().parent.parent.parent / "scripts" / "seed_data.json"
+    if seed_file.exists():
+        try:
+            with open(seed_file, "r") as f:
+                data = json.load(f)
+            
+            data.append({
+                "srn": req.email.upper(),
+                "name": req.name,
+                "email": req.email,
+                "role": "mentor",
+                "encrypted_password": enc_pw
+            })
+            
+            with open(seed_file, "w") as f:
+                json.dump(data, f, indent=2)
+        except Exception as e:
+            # We don't want to fail the API request if file write fails, but we should log it
+            print(f"Failed to write to seed_data.json: {e}")
+            
     return {"message": "Mentor created successfully"}
 
 @router.get("/sessions")
