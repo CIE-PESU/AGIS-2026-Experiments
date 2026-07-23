@@ -124,6 +124,7 @@ class CurrentUser(BaseModel):
 
     user_id: str
     role: str
+    name: str = "Unknown"
     team_id: Optional[str] = None
     mentor_team_ids: list[str] = []
 

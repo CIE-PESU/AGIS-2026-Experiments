@@ -12,6 +12,7 @@ from schemas.auth import CurrentUser
 from services import admin_service
 from core.security import cipher
 from core.sync import dump_seed_data
+from repositories.session_repo import session_repo
 from models.user import User
 from models.team import Team
 
@@ -103,6 +104,26 @@ async def list_students():
         s_dict = s.model_dump()
         s_dict["id"] = str(s.id)
         s_dict["encrypted_password"] = None
+        
+        # Attach real active session data
+        active_session = await session_repo.find_active_by_student(str(s.id))
+        if active_session:
+            s_dict["session_id"] = str(active_session.id)
+            s_dict["status"] = active_session.status
+            if active_session.tipsc:
+                s_dict["tips"] = active_session.tipsc.tips_rag_scores.model_dump()
+            else:
+                s_dict["tips"] = {}
+            if active_session.dfv:
+                s_dict["dfv"] = active_session.dfv.status
+            else:
+                s_dict["dfv"] = "Pending"
+        else:
+            s_dict["session_id"] = None
+            s_dict["status"] = None
+            s_dict["tips"] = {}
+            s_dict["dfv"] = "Pending"
+            
         data.append(s_dict)
     return {"data": data}
 

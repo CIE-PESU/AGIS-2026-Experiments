@@ -51,6 +51,7 @@ def _utc_now() -> datetime:
 def create_access_token(
     user_id: str,
     role: str,
+    name: str,
     team_id: str | None = None,
     mentor_team_ids: list[str] | None = None,
 ) -> str:
@@ -60,6 +61,7 @@ def create_access_token(
     Args:
         user_id: The user's unique ID (stored in MongoDB as _id or a prefixed string).
         role: One of "student", "mentor", "admin".
+        name: The user's name.
         team_id: The student's team ID (None for non-students).
         mentor_team_ids: List of team IDs the mentor supervises (None for non-mentors).
 
@@ -72,6 +74,7 @@ def create_access_token(
     payload: dict[str, Any] = {
         "sub": user_id,                        # Subject (user ID)
         "role": role,
+        "name": name,
         "team_id": team_id,
         "mentor_team_ids": mentor_team_ids or [],
         "iat": now,                            # Issued-at

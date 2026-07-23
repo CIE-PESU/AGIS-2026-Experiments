@@ -55,6 +55,7 @@ async def get_current_user(
     return CurrentUser(
         user_id=payload["sub"],
         role=payload.get("role", ""),
+        name=payload.get("name", "Unknown"),
         team_id=payload.get("team_id"),
         mentor_team_ids=payload.get("mentor_team_ids", []),
     )

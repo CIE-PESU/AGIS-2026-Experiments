@@ -8,6 +8,7 @@ export interface Student {
   lastActive: string;
   teamId: string | null;
   sessionId?: string | null;
+  status?: string;
 }
 
 export interface Team {
@@ -55,15 +56,27 @@ export async function getStudents(): Promise<Student[]> {
   const res = await fetch("/api/v1/admin/students", { headers: getAuthHeaders() });
   if (!res.ok) return [];
   const data = await res.json();
+  const mapTips = (tips: any) => {
+    if (!tips || Object.keys(tips).length === 0) return {};
+    return {
+      timely: { status: tips.T || "yellow", explanation: tips.T_reason || "" },
+      importance: { status: tips.I || "yellow", explanation: tips.I_reason || "" },
+      profitable: { status: tips.P || "yellow", explanation: tips.P_reason || "" },
+      solvable: { status: tips.S || "yellow", explanation: tips.S_reason || "" }
+    };
+  };
+
   return data.data.map((s: any) => ({
     srn: s.srn,
     name: s.name,
     email: s.email,
-    tips: {}, // Need real session logic
-    dfv: "Pending", // Need real session logic
+    tips: mapTips(s.tips),
+    dfv: s.dfv || "Pending",
     jtbd: false,
     lastActive: "Just now",
-    teamId: s.team_id || null
+    teamId: s.team_id || null,
+    sessionId: s.session_id || null,
+    status: s.status
   }));
 }
 
@@ -85,15 +98,29 @@ export interface Comment {
   timestamp: string;
 }
 
-export function getComments(srn: string): Comment[] {
-  const all = JSON.parse(localStorage.getItem("admin_comments") || "{}");
-  return all[srn] || [];
+export async function getComments(sessionId: string): Promise<Comment[]> {
+  const res = await fetch(`/api/v1/sessions/${sessionId}/comments`, { headers: getAuthHeaders() });
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.map((c: any) => ({
+    sender: c.mentor_name,
+    message: c.comment,
+    timestamp: new Date(c.created_at).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })
+  }));
 }
 
-export function addComment(srn: string, comment: Comment) {
-  const all = JSON.parse(localStorage.getItem("admin_comments") || "{}");
-  if (!all[srn]) all[srn] = [];
-  all[srn].push(comment);
-  localStorage.setItem("admin_comments", JSON.stringify(all));
+export async function addComment(sessionId: string, text: string) {
+  const res = await fetch(`/api/v1/sessions/${sessionId}/comments`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ comment: text })
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    let msg = "Failed to add comment";
+    if (err.error) msg = err.error;
+    else if (err.detail && Array.isArray(err.detail)) msg = err.detail[0]?.msg || msg;
+    throw new Error(msg);
+  }
 }
 

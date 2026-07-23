@@ -16,5 +16,9 @@ class MentorComment(Document):
     deleted: bool = False   # soft-delete — excluded from queries when True
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
+    @property
+    def comment_id(self) -> str:
+        return str(self.id)
+
     class Settings:
         name = "mentor_comments"

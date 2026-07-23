@@ -47,12 +47,16 @@ export function MentorDashboard() {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const selected = loadedTeams.find((item) => item.name === team) || loadedTeams[0] || { name: "", members: [] };
 
-  const refreshComments = useCallback(() => {
+  const refreshComments = useCallback(async () => {
     const allComments: Record<string, Comment[]> = {};
     const students = loadedTeams.flatMap(t => t.members);
-    students.forEach(s => {
-      allComments[s.srn] = getComments(s.srn);
-    });
+    await Promise.all(students.map(async (s) => {
+      if (s.sessionId) {
+        allComments[s.srn] = await getComments(s.sessionId);
+      } else {
+        allComments[s.srn] = [];
+      }
+    }));
     setComments(allComments);
   }, [loadedTeams]);
 
@@ -73,18 +77,22 @@ export function MentorDashboard() {
   if (!user) return <Navigate to="/login" replace />;
   if (user.role !== "mentor") return <Navigate to={user.role === "admin" ? "/admin" : "/workspace"} replace />;
 
-  function send(srn: string) {
+  async function send(srn: string, sessionId?: string | null) {
+    if (!sessionId) {
+      toast.error("Student hasn't started a session yet");
+      return;
+    }
     const text = drafts[srn]?.trim();
     if (!text) return;
-    const comment: Comment = {
-      sender: user?.name || "Mentor",
-      message: text,
-      timestamp: new Date().toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })
-    };
-    addComment(srn, comment);
-    setDrafts((current) => ({ ...current, [srn]: "" }));
-    refreshComments();
-    toast.success("Remark added");
+    
+    try {
+      await addComment(sessionId, text);
+      setDrafts((current) => ({ ...current, [srn]: "" }));
+      await refreshComments();
+      toast.success("Remark added");
+    } catch (err: any) {
+      toast.error(err.message);
+    }
   }
 
   return (
@@ -151,6 +159,8 @@ export function MentorDashboard() {
                           <StatusBadge type="processing" label="Running" />
                         ) : access.dfv === "available" ? (
                           <StatusBadge type="available" label="Pending" />
+                        ) : access.dfv === "failed" ? (
+                          <StatusBadge type="failed" label="Failed" />
                         ) : (
                           <span className={student.dfv === "GO" ? "font-bold text-emerald-700" : student.dfv === "NO-GO" ? "font-bold text-red-700" : "font-semibold text-slate-700"}>{student.dfv}</span>
                         )}
@@ -162,6 +172,8 @@ export function MentorDashboard() {
                           <StatusBadge type="processing" label="Running" />
                         ) : access.discovery === "completed" ? (
                           <StatusBadge type="completed" />
+                        ) : access.discovery === "failed" ? (
+                          <StatusBadge type="failed" label="Failed" />
                         ) : (
                           <StatusBadge type="available" label="Pending" />
                         )}
@@ -189,7 +201,7 @@ export function MentorDashboard() {
                                 ))}
                               </div>
                               <Textarea className="mt-4" value={drafts[student.srn] || ""} onChange={(e) => setDrafts({ ...drafts, [student.srn]: e.target.value })} placeholder="Add a mentor remark..." />
-                              <Button className="mt-3" variant="secondary" onClick={() => send(student.srn)}><Send className="h-4 w-4" /> Send</Button>
+                              <Button className="mt-3" variant="secondary" onClick={() => send(student.srn, student.sessionId)} disabled={!student.sessionId} title={!student.sessionId ? "Student has not started a session yet" : ""}><Send className="h-4 w-4" /> Send</Button>
                             </div>
                           </DialogContent>
                         </Dialog>
