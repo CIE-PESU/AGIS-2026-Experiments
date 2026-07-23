@@ -10,7 +10,7 @@ import { useAuth } from "@/context/AuthContext";
 export function Login() {
   const { user, login } = useAuth();
   const navigate = useNavigate();
-  const [srn, setSrn] = useState("PES2UG22CS001");
+  const [srn, setSrn] = useState("");
   const [password, setPassword] = useState("");
   const [teamName, setTeamName] = useState("");
   const [error, setError] = useState("");
@@ -18,7 +18,8 @@ export function Login() {
 
   if (user) return <Navigate to={getRoleHome(user.role)} replace />;
 
-  const isStudent = srn.toLowerCase() !== "admin" && srn.toLowerCase() !== "mentor";
+  const nonStudentRoles = ["admin", "ashwin", "bhavesh", "urav"];
+  const isStudent = !nonStudentRoles.includes(srn.toLowerCase()) && !srn.includes("@");
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();

@@ -46,6 +46,7 @@ export function AdminDashboard() {
   const [editingMentor, setEditingMentor] = useState<Mentor | null>(null);
   const [dialogMentorName, setDialogMentorName] = useState("");
   const [dialogMentorEmail, setDialogMentorEmail] = useState("");
+  const [dialogMentorPassword, setDialogMentorPassword] = useState("");
 
   // Load and refresh data
   const refreshData = () => {
@@ -187,6 +188,7 @@ export function AdminDashboard() {
     setEditingMentor(null);
     setDialogMentorName("");
     setDialogMentorEmail("");
+    setDialogMentorPassword("");
     setIsMentorDialogOpen(true);
   };
 
@@ -196,32 +198,63 @@ export function AdminDashboard() {
     setEditingMentor(mentor);
     setDialogMentorName(mentor.name);
     setDialogMentorEmail(mentor.email);
+    setDialogMentorPassword("");
     setIsMentorDialogOpen(true);
   };
 
   // Dialog Save: Mentor
-  const saveMentorChanges = () => {
+  const saveMentorChanges = async () => {
     if (!dialogMentorName.trim() || !dialogMentorEmail.trim()) {
       toast.error("Name and Email are required.");
       return;
     }
 
-    let updatedMentors = [...mentors];
-    if (isAddMentorMode) {
-      const mentorId = "mentor_" + Date.now();
-      updatedMentors.push({ id: mentorId, name: dialogMentorName, email: dialogMentorEmail });
-    } else if (editingMentor) {
-      updatedMentors = updatedMentors.map(m => m.id === editingMentor.id ? {
-        ...m,
-        name: dialogMentorName,
-        email: dialogMentorEmail
-      } : m);
+    if (isAddMentorMode && !dialogMentorPassword.trim()) {
+      toast.error("Password is required for new mentors.");
+      return;
     }
 
-    saveMentors(updatedMentors);
-    refreshData();
-    setIsMentorDialogOpen(false);
-    toast.success(isAddMentorMode ? "Mentor added successfully" : "Mentor updated successfully");
+    try {
+      if (isAddMentorMode) {
+        // Create in backend
+        const res = await fetch("/api/v1/admin/mentors", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${localStorage.getItem("agis_access_token")}`
+          },
+          body: JSON.stringify({
+            name: dialogMentorName,
+            email: dialogMentorEmail,
+            password: dialogMentorPassword,
+          })
+        });
+
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || "Failed to create mentor in backend");
+        }
+      }
+
+      let updatedMentors = [...mentors];
+      if (isAddMentorMode) {
+        const mentorId = "mentor_" + Date.now();
+        updatedMentors.push({ id: mentorId, name: dialogMentorName, email: dialogMentorEmail });
+      } else if (editingMentor) {
+        updatedMentors = updatedMentors.map(m => m.id === editingMentor.id ? {
+          ...m,
+          name: dialogMentorName,
+          email: dialogMentorEmail
+        } : m);
+      }
+
+      saveMentors(updatedMentors);
+      refreshData();
+      setIsMentorDialogOpen(false);
+      toast.success(isAddMentorMode ? "Mentor added successfully" : "Mentor updated successfully");
+    } catch (err: any) {
+      toast.error(err.message);
+    }
   };
 
   // Handler: Delete Mentor
@@ -648,6 +681,19 @@ export function AdminDashboard() {
                   placeholder="e.g. mentor@pes.edu"
                 />
               </div>
+
+              {isAddMentorMode && (
+                <div>
+                  <label className="block text-sm font-semibold mb-1 text-slate-700">Password</label>
+                  <Input
+                    type="password"
+                    value={dialogMentorPassword}
+                    onChange={e => setDialogMentorPassword(e.target.value)}
+                    placeholder="Enter mentor password"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Required for login. Mentors will use their email to log in.</p>
+                </div>
+              )}
             </div>
 
             {/* Footer Buttons */}

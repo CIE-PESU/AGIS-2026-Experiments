@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, Navigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, CheckCircle2, DollarSign, Heart, Loader2, ThumbsDown, ThumbsUp, Wrench } from "lucide-react";
+import { ArrowRight, CheckCircle2, DollarSign, Heart, Loader2, ThumbsDown, ThumbsUp, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,11 +8,11 @@ import { TrafficDot } from "@/components/shared/StatusBadge";
 import { DFV_CONTEXT_MIN } from "@/constants";
 import { triggerDfv } from "@/services/authSessions";
 import { useAuth } from "@/context/AuthContext";
-import type { DFVResult, TIPSCResult } from "@/data/mockData";
+import type { DFVResult } from "@/data/mockData";
 import { toast } from "sonner";
 
 export function DFVFlow() {
-  const { session, sessionId, serverStatus, results, saveResults, formData, setFormData, unlockNext, addEvent } = useAuth();
+  const { session, sessionId, serverStatus, results, formData, setFormData, unlockNext, addEvent } = useAuth();
   
   const [phase, setPhase] = useState<"form" | "processing" | "results">(
     (serverStatus === "dfv_running" || serverStatus === "dfv_waiting") ? "processing" : results.dfv ? "results" : "form"
@@ -68,27 +68,6 @@ export function DFVFlow() {
     }
   }
 
-  function repeatDFV() {
-    setInputs({ desirability_context: "", feasibility_context: "", viability_context: "" });
-    try {
-      saveResults("dfv", undefined as unknown as DFVResult);
-    } catch {
-      // ignore
-    }
-    addEvent("DFV Restarted");
-    setPhase("form");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
-  function repeatTIPSCFromHere() {
-    try {
-      saveResults("tips", undefined as unknown as TIPSCResult);
-    } catch {
-      // ignore if saveResults doesn't accept undefined
-    }
-    setFormData({});
-  }
-
   const sections = [
     ["desirability_context", Heart, "text-accent", "Who wants this, and why now?"],
     ["feasibility_context", Wrench, "text-secondary", "What can your team build and operate?"],
@@ -101,6 +80,11 @@ export function DFVFlow() {
       {phase === "form" && (
         <Card>
           <CardContent className="space-y-6 p-6">
+            {serverStatus === "dfv_failed" && (
+              <div className="rounded-lg bg-red-50 p-4 border border-red-200 text-red-700 font-medium text-sm">
+                DFV Evaluation Failed. Please review your inputs below and click <b>Retry DFV Evaluation</b>.
+              </div>
+            )}
             {sections.map(([key, Icon, color, prompt]) => (
               <label key={key} className="block">
                 <span className="flex items-center gap-2 font-semibold capitalize">
@@ -115,7 +99,7 @@ export function DFVFlow() {
               </label>
             ))}
             <Button variant="secondary" disabled={!Object.values(inputs).every(Boolean)} onClick={run}>
-              Run DFV Analysis
+              {serverStatus === "dfv_failed" ? "Retry DFV Evaluation" : "Run DFV Analysis"}
             </Button>
           </CardContent>
         </Card>
@@ -216,17 +200,7 @@ export function DFVFlow() {
               </>
             )}
 
-            <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t pt-6">
-              <div className="flex flex-wrap gap-3">
-                <Button variant="outline" onClick={repeatDFV} className="inline-flex items-center gap-2">
-                  <ArrowLeft className="h-4 w-4" /> Repeat DFV
-                </Button>
-                <Button asChild variant="outline" onClick={repeatTIPSCFromHere} className="inline-flex items-center gap-2">
-                  <Link to="/workspace/tipsc">
-                    <ArrowLeft className="h-4 w-4" /> Repeat TIPSC
-                  </Link>
-                </Button>
-              </div>
+            <div className="mt-8 flex items-center justify-end border-t pt-6">
               {passed ? (
                 <Button asChild variant="secondary">
                   <Link to="/workspace/discovery" className="inline-flex items-center gap-2">

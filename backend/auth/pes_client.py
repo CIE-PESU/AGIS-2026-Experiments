@@ -7,12 +7,14 @@ from __future__ import annotations
 import logging
 
 import httpx
+from cryptography.fernet import Fernet
 
 from core.config import settings
 from exceptions.base import InvalidCredentialsError, PESAuthUnavailableError
 
 logger = logging.getLogger(__name__)
 
+# The mock admins and mock fernet key have been moved.
 
 class PESAuthClient:
     def __init__(self) -> None:
@@ -28,15 +30,12 @@ class PESAuthClient:
         """
         if settings.ENVIRONMENT == "development" or password == "dev":
             logger.info("DEV MODE: Bypassing PES Auth HTTP call for SRN=%s", srn)
+            
             role = "student"
-            if srn.upper().startswith("MENTOR_") or "MENTOR" in srn.upper():
-                role = "mentor"
-            elif srn.upper().startswith("ADMIN_") or "ADMIN" in srn.upper():
+            if srn.upper().startswith("ADMIN_") or "ADMIN" in srn.upper():
                 role = "admin"
 
             mentor_team_ids = []
-            if role == "mentor":
-                mentor_team_ids = ["6a5decdcdc6c8f205414113d"]
 
             return {
                 "srn": srn.upper(),

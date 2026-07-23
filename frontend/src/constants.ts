@@ -7,8 +7,12 @@ export const PES_LOGO_WHITE =
   export const CIE_LOGO =
   "https://images.fillout.com/orgid-407996/flowpublicid-anon-zite/widgetid-default/uEbUMzTUa6gp95qonQK3nf/pasted-image-1782896478033.png";
 
-/** Base URL per docs/api-spec.md §1 */
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api/v1";
+/** Base URL per docs/api-spec.md §1 — automatically uses current LAN hostname if accessing over network */
+export const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ??
+  (typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1"
+    ? `http://${window.location.hostname}:8000/api/v1`
+    : "/api/v1");
 
 /** Session polling interval per docs/backend-arch.md §2.3 */
 export const SESSION_POLL_INTERVAL_MS = 5000;

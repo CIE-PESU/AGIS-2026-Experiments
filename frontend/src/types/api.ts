@@ -255,6 +255,8 @@ discovery?: DiscoveryResult | null;
 pending_question?: string | null;
 followup_turn?: number;
 followup_history?: Array<{ question: string; answer: string; turn: number; answered_at: string }>;
+error?: string | null;
+rejection_reason?: string | null;
 
 created_at: string;
 updated_at: string;

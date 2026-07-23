@@ -49,14 +49,30 @@ class AuthService:
             InvalidCredentialsError  : PES returned 401
             PESAuthUnavailableError  : PES timed out or is down
         """
-        # Step 1: Validate via PES
-        pes_data = await pes_auth_client.validate_credentials(srn=srn, password=password)
+        from core.security import cipher
+        
+        # Step 0: Check if user exists in DB with an encrypted password (e.g. mentor added by admin)
+        user = await User.find_one(User.srn == srn.upper())
+        if user and user.encrypted_password:
+            try:
+                decrypted_pwd = cipher.decrypt(user.encrypted_password.encode()).decode()
+                if password == decrypted_pwd:
+                    # Password matches, proceed directly to token generation
+                    pes_data = None
+                else:
+                    raise InvalidCredentialsError()
+            except Exception:
+                raise InvalidCredentialsError()
+        else:
+            # Step 1: Validate via PES
+            pes_data = await pes_auth_client.validate_credentials(srn=srn, password=password)
 
-        # Step 2: Upsert user in MongoDB
-        user = await self._upsert_user(
-        pes_data,
-        team_id=team_id,
-        )
+        # Step 2: Upsert user in MongoDB (only if pes_data is provided)
+        if pes_data:
+            user = await self._upsert_user(
+                pes_data,
+                team_id=team_id,
+            )
 
         # Step 3: Generate tokens
         access_token = create_access_token(

@@ -236,10 +236,20 @@ export function DiscoveryFlow() {
   }
 
   const exportDiscoveryPlan = () => {
-    if (!result) return;
-    const markdownContent = generateDiscoveryMarkdown(result);
-    downloadMarkdown(markdownContent, `customer-discovery-plan-${Date.now()}.md`);
-  };
+  if (!result) return;
+
+  const anyResult = result as any;
+
+  // Real backend returns { report: "markdown string" } — download it directly.
+  if (anyResult.report) {
+    downloadMarkdown(anyResult.report, `customer-discovery-plan-${Date.now()}.md`);
+    return;
+  }
+
+  // Fallback: structured mock shape — build markdown from sections.
+  const markdownContent = generateDiscoveryMarkdown(result);
+  downloadMarkdown(markdownContent, `customer-discovery-plan-${Date.now()}.md`);
+};
 
   const toggleChecklist = (index: number) => {
     setChecklistState((prev) => ({ ...prev, [index]: !prev[index] }));

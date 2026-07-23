@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRY_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRY_DAYS: int = 7
+    FERNET_KEY: str
 
     # ── PES Auth ───────────────────────────────────────────────────────────────
     PES_AUTH_URL: str                    # e.g. https://auth.pes.edu/api/v1/validate
@@ -74,7 +75,10 @@ class Settings(BaseSettings):
     @property
     def cors_origins_list(self) -> list[str]:
         """Parse the comma-separated CORS_ALLOWED_ORIGINS into a list."""
-        return [origin.strip() for origin in self.CORS_ALLOWED_ORIGINS.split(",") if origin.strip()]
+        origins = [origin.strip() for origin in self.CORS_ALLOWED_ORIGINS.split(",") if origin.strip()]
+        if not self.is_production and "*" not in origins:
+            origins.append("*")
+        return origins
 
     @property
     def is_production(self) -> bool:

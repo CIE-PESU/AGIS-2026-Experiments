@@ -26,7 +26,7 @@ cp .env.example .env
 ### Run the Backend
 
 ```bash
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 *Note: The backend publishes to Kafka but does NOT consume messages. It waits for workers to update the session data in MongoDB asynchronously.*
@@ -156,7 +156,7 @@ LM_STUDIO_MODEL=bonsai-8b
 3. Start backend: `uvicorn main:app --reload --port 8000`
 4. Start TIPSC worker: `python -m workers.tipsc_worker`
 5. Start combined worker: `python -m workers.combined_agent_worker`
-6. Start frontend: `cd frontend && npm run dev`
+6. Start frontend: `cd frontend && npm run dev -- --host 0.0.0.0`
 7. Access frontend at `http://localhost:5173`
 
 ## 8. Troubleshooting

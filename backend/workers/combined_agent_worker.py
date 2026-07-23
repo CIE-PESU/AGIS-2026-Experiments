@@ -29,7 +29,7 @@ import time
 from datetime import datetime, timezone
 from types import ModuleType
 from typing import Any
-
+import re
 import httpx
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from pydantic import ValidationError
@@ -222,20 +222,18 @@ def _extract_json_block(raw: str) -> str:
     """
     Remove markdown code fences and stray model text.
     """
-
+    if not raw:
+        return ""
     cleaned = raw.strip()
-
-    if cleaned.startswith("```"):
-        cleaned = cleaned.strip("`").strip()
-
-        if cleaned.lower().startswith("json"):
-            cleaned = cleaned[4:].strip()
+    cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.MULTILINE | re.IGNORECASE)
+    cleaned = re.sub(r"\s*```$", "", cleaned, flags=re.MULTILINE)
+    cleaned = cleaned.strip()
 
     if not cleaned.startswith("{"):
         start = cleaned.find("{")
         end = cleaned.rfind("}")
 
-        if start != -1 and end != -1:
+        if start != -1 and end != -1 and start < end:
             cleaned = cleaned[start:end + 1]
 
     return cleaned
@@ -245,6 +243,9 @@ def _parse_agent_output(result: Any) -> dict[str, Any]:
     """
     Parse CrewAI output into a JSON dictionary.
     """
+    pydantic_obj = getattr(result, "validated", None) or getattr(result, "pydantic", None)
+    if pydantic_obj and hasattr(pydantic_obj, "model_dump"):
+        return pydantic_obj.model_dump()
 
     raw = getattr(result, "raw", result)
 
@@ -258,7 +259,31 @@ def _parse_agent_output(result: Any) -> dict[str, Any]:
 
     cleaned = _extract_json_block(raw)
 
-    parsed = json.loads(cleaned)
+    logger.info("PARSING AGENT OUTPUT DIAGNOSTICS: repr(raw)=%s, len(raw)=%d, repr(cleaned)=%s, len(cleaned)=%d", repr(raw), len(raw), repr(cleaned), len(cleaned))
+
+    if not cleaned or not (cleaned.startswith("{") or cleaned.startswith("[")):
+        raise ValueError(
+            f"Final Evaluator returned empty or non-JSON output.\n"
+            f"repr(raw): {repr(raw)}\n"
+            f"len(raw): {len(raw)}\n"
+            f"repr(cleaned): {repr(cleaned)}\n"
+            f"len(cleaned): {len(cleaned)}\n"
+            f"First 200 chars (raw): {repr(raw[:200])}\n"
+            f"Last 200 chars (raw): {repr(raw[-200:]) if len(raw) > 200 else repr(raw)}\n"
+            f"First 200 chars (cleaned): {repr(cleaned[:200])}\n"
+            f"Last 200 chars (cleaned): {repr(cleaned[-200:]) if len(cleaned) > 200 else repr(cleaned)}"
+        )
+
+    try:
+        parsed = json.loads(cleaned)
+    except Exception as exc:
+        logger.error("\n===== PARSER FAILURE DIAGNOSTICS =====")
+        logger.error("Raw Output (first 200 chars): %s", repr(raw[:200]))
+        logger.error("Raw Output (last 200 chars):  %s", repr(raw[-200:]) if len(raw) > 200 else repr(raw))
+        logger.error("Cleaned Output (first 200 chars): %s", repr(cleaned[:200]))
+        logger.error("Cleaned Output (last 200 chars):  %s", repr(cleaned[-200:]) if len(cleaned) > 200 else repr(cleaned))
+        logger.error("JSONDecodeError: %s", exc)
+        raise exc
 
     if not isinstance(parsed, dict):
         raise ValueError(

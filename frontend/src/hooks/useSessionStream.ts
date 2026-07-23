@@ -75,58 +75,21 @@ export function useSessionStream(
   }, [sessionId, enabled]);
 }
 
+import { deriveCanonicalStageAccess } from "@/utils/sessionStatus";
+import type { StageStatus } from "@/data/mockData";
+
 /** Map backend session status to UI stage unlock state */
-export function deriveStageAccess(doc: SessionDocument | null) {
-  if (!doc || !doc.status) {
-    return { tipsc: "available" as const, dfv: "locked" as const, discovery: "locked" as const };
-  }
-  const status = doc.status;
-  const tipscDone = [
-    "tipsc_completed",
-    "dfv_waiting",
-    "dfv_running",
-    "dfv_completed",
-    "dfv_failed",
-    "discovery_waiting",
-    "discovery_running",
-    "discovery_failed",
-    "completed",
-    "failed"
-  ].includes(status);
-
-  const dfvDone = [
-    "dfv_completed",
-    "discovery_waiting",
-    "discovery_running",
-    "discovery_failed",
-    "completed"
-  ].includes(status);
-
-  const discoveryDone = status === "completed";
-
-  const tipscInProgress = [
-    "created",
-    "queued",
-    "pre_eval",
-    "validation_running",
-    "regulatory_running",
-    "ethics_running",
-    "tipsc_running",
-    "waiting_for_founder",
-    "tipsc_reevaluation"
-  ].includes(status);
-
-  let dfvPassed = false;
-  if (dfvDone && doc.dfv) {
-    const dfvResult = (doc.dfv as any).output || doc.dfv;
-    const decision = dfvResult?.decision ?? dfvResult?.final_decision?.status ?? "NO-GO";
-    dfvPassed = decision === "GO";
-  }
-
+export function deriveStageAccess(doc: any | null) {
+  const access = deriveCanonicalStageAccess(doc);
+  const toStageStatus = (s: string): StageStatus => {
+    if (s === "failed") return "failed";
+    if (s === "GO" || s === "NO-GO") return "completed";
+    return s as StageStatus;
+  };
   return {
-    tipsc: tipscDone ? ("completed" as const) : tipscInProgress ? ("in_progress" as const) : ("available" as const),
-    dfv: !tipscDone ? ("locked" as const) : dfvDone ? ("completed" as const) : status.includes("dfv") || status === "dfv_waiting" ? ("in_progress" as const) : ("available" as const),
-    discovery: (!dfvDone || (dfvDone && !dfvPassed)) ? ("locked" as const) : discoveryDone ? ("completed" as const) : status.includes("discovery") || status === "discovery_waiting" ? ("in_progress" as const) : ("available" as const)
+    tipsc: toStageStatus(access.tipsc),
+    dfv: toStageStatus(access.dfv),
+    discovery: toStageStatus(access.discovery)
   };
 }
 
