@@ -1,0 +1,43 @@
+# Core
+fastapi>=0.115.5
+uvicorn[standard]>=0.32.1
+tavily-python
+
+# Pydantic
+pydantic>=2.11.9,<2.13
+pydantic-settings>=2.10.1,<2.11
+
+# Environment
+python-dotenv>=1.2.2,<2
+
+# MongoDB (async)
+motor==3.6.0
+beanie==1.27.0
+
+# Auth
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt<5
+
+# HTTP Client
+httpx>=0.28.1,<0.29
+
+# Kafka
+aiokafka==0.11.0
+
+# Utilities
+python-multipart==0.0.12
+ulid-py==1.1.0
+
+# Agent Framework
+crewai==1.14.6
+crewai-tools==1.14.6
+litellm==1.88.1
+
+
+# Dev / Test
+pytest==8.3.4
+pytest-asyncio==0.24.0
+pytest-cov==5.0.0
+ruff==0.8.3
+mypy==1.13.0

@@ -1,0 +1,11 @@
+{
+  "harm_vector": "GREEN",
+  "harm_reason": "The AI validation platform helps students assess startup ideas and does not structurally harm any identifiable group when operating as intended.",
+  "legal_risk": "YELLOW",
+  "legal_reason": "The core model is legal but faces HIGH regulatory burden under India's DPDP Act 2023 for student data processing and MEDIUM burden under 2026 MeitY AI labeling rules, requiring specialist compliance review.",
+  "problem_solution_integrity": "GREEN",
+  "integrity_reason": "The proposed AI platform using TIPSC and viability frameworks directly addresses the stated lack of structured validation guidance for student founders.",
+  "ethics_pass": true,
+  "compliance_flag": true,
+  "rejection_reason": ""
+}

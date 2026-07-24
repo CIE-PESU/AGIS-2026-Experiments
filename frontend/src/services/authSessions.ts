@@ -1,0 +1,128 @@
+import { apiRequest, clearTokens, setTokens, getAccessToken } from "@/services/apiClient";
+import type {
+  AuthUser,
+  CreateSessionRequest,
+  CreateSessionResponse,
+  LoginResponse,
+  MentorComment,
+  RefreshResponse,
+  SessionDocument,
+  TriggerDfvRequest
+} from "@/types/api";
+
+export async function login(srn: string, password: string, team_id?: string): Promise<LoginResponse> {
+  const data = await apiRequest<LoginResponse>("/auth/login", {
+    method: "POST",
+    body: { srn, password, team_id },
+    auth: false
+  });
+  setTokens(data.access_token, data.refresh_token);
+  return data;
+}
+
+export async function logout(refreshToken: string): Promise<void> {
+  try {
+    await apiRequest<void>("/auth/logout", {
+      method: "POST",
+      body: { refresh_token: refreshToken },
+      auth: true
+    });
+  } finally {
+    clearTokens();
+  }
+}
+
+export async function getCurrentUser(): Promise<AuthUser> {
+  return apiRequest<AuthUser>("/auth/me");
+}
+
+export async function createSession(
+  payload: CreateSessionRequest,
+  idempotencyKey?: string
+): Promise<CreateSessionResponse> {
+  return apiRequest<CreateSessionResponse>("/sessions", {
+    method: "POST",
+    body: payload,
+    idempotencyKey
+  });
+}
+
+export async function getSession(sessionId: string): Promise<SessionDocument> {
+  return apiRequest<SessionDocument>(`/sessions/${sessionId}`);
+}
+
+export async function getActiveSession(studentId: string): Promise<SessionDocument> {
+  return apiRequest<SessionDocument>(`/sessions/user/${studentId}/session`);
+}
+
+export async function archiveSession(sessionId: string): Promise<{ session_id: string; status: string; archived_at: string }> {
+  return apiRequest(`/sessions/${sessionId}`, { method: "DELETE" });
+}
+
+export async function triggerTipsc(sessionId: string) {
+  return apiRequest(`/sessions/${sessionId}/trigger/tipsc`, { method: "POST" });
+}
+
+export async function triggerDfv(sessionId: string, payload: TriggerDfvRequest) {
+  return apiRequest(`/sessions/${sessionId}/trigger/dfv`, { method: "POST", body: payload });
+}
+
+export async function triggerDiscovery(sessionId: string, payload: any) {
+  return apiRequest(`/sessions/${sessionId}/trigger/discovery`, { method: "POST", body: payload });
+}
+
+export async function submitFollowup(sessionId: string, answer: string): Promise<any> {
+  return apiRequest(`/sessions/${sessionId}/followup`, { method: "POST", body: { answer } });
+}
+
+export async function getSessionComments(sessionId: string): Promise<MentorComment[]> {
+  const token = getAccessToken();
+  const res = await fetch(`/api/v1/sessions/${sessionId}/comments`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!res.ok) throw new Error("Failed to get comments");
+  return res.json();
+}
+
+export async function addComment(sessionId: string, comment: string): Promise<MentorComment> {
+  const token = getAccessToken();
+  const res = await fetch(`/api/v1/sessions/${sessionId}/comments`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ comment })
+  });
+  if (!res.ok) throw new Error("Failed to add comment");
+  return res.json();
+}
+
+export async function deleteComment(commentId: string): Promise<void> {
+  return apiRequest<void>(`/comments/${commentId}`, { method: "DELETE" });
+}
+
+export async function getSessionHistory(sessionId: string, page = 1, limit = 20) {
+  return apiRequest(`/sessions/${sessionId}/history?page=${page}&limit=${limit}`);
+}
+
+export async function getMentorSessions(params?: { team_id?: string; status?: string; page?: number; limit?: number }) {
+  const query = new URLSearchParams();
+  if (params?.team_id) query.set("team_id", params.team_id);
+  if (params?.status) query.set("status", params.status);
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.limit) query.set("limit", String(params.limit));
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return apiRequest(`/mentor/sessions${suffix}`);
+}
+
+export async function getMentorSessionDetail(sessionId: string): Promise<SessionDocument> {
+  return apiRequest<SessionDocument>(`/mentor/sessions/${sessionId}`);
+}
+
+export async function getMentorTeams() {
+  return apiRequest(`/mentor/teams`);
+}
+
+export async function getTeamProgress(): Promise<any[]> {
+  return apiRequest<any[]>("/sessions/team/progress");
+}
+
+export type { RefreshResponse };

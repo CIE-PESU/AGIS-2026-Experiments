@@ -1,0 +1,14 @@
+{
+  "target_geography": "India",
+  "industry_sector": "AI-powered startup idea validation for student entrepreneurs",
+  "checked_assumptions": [
+    {
+      "assumption": "idk",
+      "verdict": "UNCONFIRMED",
+      "evidence": "The founder provided no explicit, testable assumptions (the assumptions array contains only 'idk'). No search can validate or contradict a placeholder."
+    }
+  ],
+  "competitor_landscape": "The AI-powered startup idea validation space is already populated by global platforms such as ValidatorAI, IdeaValidation.ai, Foundra.ai, UserIntuition, Wynter, Maze, and IdeaProof. These tools offer automated viability scoring, market-size estimates, competition analysis, and AI-moderated customer interviews. None of the search results surfaced an India-specific platform that uses a 'TIPSC' framework combined with desirability/feasibility/viability analysis for university students. Academic work in India (e.g., 'IntelliStart' and a 2022 systematic problem-validation framework paper) shows local research interest, but no commercial product matching the founder's exact description was found.",
+  "market_notes": "India has extensive university entrepreneurship infrastructure: >7,400 Institute Innovation Councils, >2,950 incubators, and >7,500 pre-incubation centers, with 63% of students rating their university entrepreneurial climate above the global average (GUESSS India data). Universities already provide seed funding, workspace, legal support, mentorship, and patenting assistance (IIT Kharagpur, IIM Ahmedabad, Parul University cited). The problem (students lacking structured validation guidance) is partially addressed by existing campus incubators, but no evidence was found of a dedicated AI platform using the TIPSC framework in India. No market-size data for an AI validation platform targeting Indian student founders was located in the searches.",
+  "validation_summary": "MIXED"
+}

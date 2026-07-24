@@ -1,0 +1,111 @@
+node_modules/
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.DS_Store
+/TIPSC-Agent/.env
+/TIPSC-Agent/*/__pycache__/
+/TIPSC-Agent/**/__pycache__/
+/TIPSC-Agent/outputs/
+/TIPSC-Agent/src/test_async_verify.py
+/TIPSC-Agent/src/test_worker_async.py
+
+# Agent LLM output artifacts
+Outputs/
+outputs/
+
+# Python build artifacts
+*.egg-info/
+
+# Legacy dead directories
+workers/
+.env
+
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Python tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.pyre/
+.tox/
+.nox/
+
+# =========================
+# Logs
+# =========================
+*.log
+backend/backend.log
+
+# =========================
+# Environment variables
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# Node / React
+# =========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build outputs
+dist/
+build/
+.next/
+coverage/
+
+# =========================
+# TypeScript
+# =========================
+*.tsbuildinfo
+
+# =========================
+# IDE
+# =========================
+.vscode/
+.idea/
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# =========================
+# Testing
+# =========================
+.cache/
+
+# =========================
+# Database (if local)
+# =========================
+*.sqlite3
+*.db
+
+# =========================
+# Misc
+# =========================
+*.pid
+*.seed
+*.out

@@ -1,4 +1,3 @@
-
 # API Specification
 
 **Project:** AGIS Entrepreneurship Coach Platform
@@ -109,7 +108,8 @@
 ```json
 {
   "srn": "PES2UG22CS001",
-  "password": "secret123"
+  "password": "secret123",
+  "team_id": "optional_team_id"
 }
 ```
 
@@ -117,6 +117,7 @@
 | ------------ | ------ | -------- | ----------------------------------- |
 | `srn`      | string | Yes      | Format:`PES2UG\d{2}[A-Z]{2}\d{3}` |
 | `password` | string | Yes      | Min: 6 chars, Max: 128 chars        |
+| `team_id`  | string | No       | Optional team ID                    |
 
 **Response `200`:**
 
@@ -233,25 +234,41 @@
 **Endpoint:** `POST /sessions`
 **Auth Required:** Yes
 **Roles:** Student only
-**Description:** Creates a new session for the authenticated student. Publishes a TIPSC trigger to Kafka. A student can only have one active session.
+**Description:** Creates a new coaching session for the authenticated student. Publishes a TIPSC evaluation event to Kafka. A student can only have one active session at a time.
+
+**Headers:**
+
+- `Idempotency-Key: <uuid4>` — **Required**. Prevents duplicate session creation on retry. Re-using the same key returns the original session.
 
 **Request Body:**
 
 ```json
 {
   "problem_statement": "Students in Tier-2 cities lack access to quality mentorship for entrepreneurship.",
-  "idea": "A mobile-first platform that connects student founders with domain-expert mentors through structured 30-minute video sessions."
+  "customer_segment": "Engineering students in Tier-2 and Tier-3 cities",
+  "consequence": "Students graduate without practical startup guidance, leading to failed ventures or abandoned ideas.",
+  "assumptions": [
+    "Students want mentorship but can't access it locally",
+    "Mentors are willing to volunteer time remotely",
+    "Video calls are accessible on student networks"
+  ],
+  "proposed_solution": "A mobile-first platform that connects student founders with domain-expert mentors through structured 30-minute video sessions.",
+  "target_geography": "India (Tier-2/3 cities initially)",
+  "industry_sector": "EdTech / Entrepreneurship",
+  "team_id": "optional_team_id"
 }
 ```
 
-| Field                 | Type   | Required | Constraints                    |
-| --------------------- | ------ | -------- | ------------------------------ |
-| `problem_statement` | string | Yes      | Min: 50 chars, Max: 5000 chars |
-| `idea`              | string | Yes      | Min: 50 chars, Max: 5000 chars |
-
-**Headers:**
-
-- `Idempotency-Key: <uuid>` — Strongly recommended to prevent duplicate sessions on network retry.
+| Field                 | Type      | Required | Constraints                    |
+| --------------------- | --------- | -------- | ------------------------------ |
+| `problem_statement` | string    | Yes      | Min: 20 chars, Max: 5000 chars |
+| `customer_segment`  | string    | Yes      | Min: 2 chars, Max: 2000 chars  |
+| `consequence`       | string    | Yes      | Min: 2 chars, Max: 3000 chars  |
+| `assumptions`       | string[]  | No       | Array of strings               |
+| `proposed_solution` | string    | Yes      | Min: 10 chars, Max: 3000 chars |
+| `target_geography`  | string    | Yes      | Min: 2 chars, Max: 1000 chars  |
+| `industry_sector`   | string    | Yes      | Min: 2 chars, Max: 1000 chars  |
+| `team_id`           | string    | No       | Optional team ID               |
 
 **Response `201`:**
 
@@ -259,8 +276,34 @@
 {
   "data": {
     "session_id": "ses_01J2K...",
+    "student_id": "usr_01J2K...",
+    "team_id": "team_01J2K...",
+    "problem_statement": "Students in Tier-2 cities...",
+    "customer_segment": "Engineering students...",
+    "consequence": "Students graduate without...",
+    "assumptions": ["Students want mentorship...", "..."],
+    "proposed_solution": "A mobile-first platform...",
+    "target_geography": "India (Tier-2/3 cities initially)",
+    "industry_sector": "EdTech / Entrepreneurship",
     "status": "queued",
-    "created_at": "2026-06-01T10:00:00Z"
+    "version": 1,
+    "preeval": null,
+    "validation": null,
+    "regulatory": null,
+    "ethics": null,
+    "compliance_context": null,
+    "tipsc": null,
+    "dfv": null,
+    "discovery": null,
+    "pending_question": null,
+    "followup_turn": 0,
+    "followup_history": [],
+    "correlation_id": "cor_01J2K...",
+    "error": null,
+    "rejection_reason": null,
+    "created_at": "2026-06-01T10:00:00Z",
+    "updated_at": "2026-06-01T10:00:00Z",
+    "archived_at": null
   }
 }
 ```
@@ -269,8 +312,7 @@
 
 | Code | Error Code                   | Condition                                |
 | ---- | ---------------------------- | ---------------------------------------- |
-| 400  | `VALIDATION_ERROR`         | Missing or too-short fields              |
-| 403  | `INSUFFICIENT_PERMISSIONS` | Non-student role attempted               |
+| 400  | `VALIDATION_ERROR`         | Missing or invalid Idempotency-Key header |
 | 409  | `ACTIVE_SESSION_EXISTS`    | Student already has an active session    |
 | 503  | `KAFKA_UNAVAILABLE`        | Kafka publish failed; session not queued |
 
@@ -295,32 +337,61 @@
 {
   "data": {
     "session_id": "ses_01J2K...",
-    "team_id": "team_01J2K...",
     "student_id": "usr_01J2K...",
+    "team_id": "team_01J2K...",
     "problem_statement": "Students in Tier-2 cities...",
-    "idea": "A mobile-first platform...",
+    "customer_segment": "Engineering students...",
+    "consequence": "Students graduate without...",
+    "assumptions": ["Students want mentorship..."],
+    "proposed_solution": "A mobile-first platform...",
+    "target_geography": "India (Tier-2/3 cities initially)",
+    "industry_sector": "EdTech / Entrepreneurship",
     "status": "tipsc_completed",
+    "version": 1,
+    "preeval": null,
+    "validation": null,
+    "regulatory": null,
+    "ethics": null,
+    "compliance_context": null,
     "tipsc": {
-      "status": "completed",
-      "score": {
-        "timing": 8,
-        "idea": 7,
-        "problem": 9,
-        "solution": 8,
-        "competition": 6
+      "tips_rag_scores": {
+        "T": "Strong timing - market is ready",
+        "I": "Unique angle on mentorship",
+        "P": "Well-defined problem",
+        "S": "Feasible solution",
+        "T_reason": "EdTech growth post-COVID...",
+        "I_reason": "Niche focus on Tier-2...",
+        "P_reason": "Clear pain point...",
+        "S_reason": "Technical feasibility high..."
       },
-      "total_score": 38,
+      "refined_idea": {
+        "customer_segment": "Engineering students in Tier-2/3 cities",
+        "qualified_problem": "No accessible mentor network",
+        "consequence": "Ideas die before validation",
+        "proposed_solution": "Async video mentorship platform"
+      },
+      "solution_alignment": "Strong alignment...",
+      "overall_readiness": "Ready for DFV",
       "ready_for_dfv": true,
+      "needs_followup": false,
+      "missing_criteria": [],
+      "criteria_state": {},
       "compliance_flag": true,
-      "compliance_issues": [],
-      "followups_asked": 1,
       "reasoning": "The idea is timely given the growth in EdTech...",
+      "followups_asked": 1,
       "completed_at": "2026-06-01T10:05:00Z"
     },
     "dfv": null,
     "discovery": null,
+    "pending_question": null,
+    "followup_turn": 0,
+    "followup_history": [],
+    "correlation_id": "cor_01J2K...",
+    "error": null,
+    "rejection_reason": null,
     "created_at": "2026-06-01T10:00:00Z",
-    "updated_at": "2026-06-01T10:05:00Z"
+    "updated_at": "2026-06-01T10:05:00Z",
+    "archived_at": null
   }
 }
 ```
@@ -334,20 +405,45 @@
 
 ---
 
-### 3.3 List Student Sessions
+### 3.3 Get Active Session by Student ID
+
+**Endpoint:** `GET /user/{student_id}/session`
+**Auth Required:** Yes
+**Roles:** Student (own), Mentor, Admin
+**Description:** Returns the active (non-archived) session for the specified student.
+
+**Path Parameters:**
+
+| Parameter     | Type   | Description              |
+| ------------- | ------ | ------------------------ |
+| `student_id` | string | The student's unique ID |
+
+**Response `200`:** Same as `GET /sessions/{session_id}`
+
+**Errors:**
+
+| Code | Error Code                   | Condition                           |
+| ---- | ---------------------------- | ----------------------------------- |
+| 403  | `INSUFFICIENT_PERMISSIONS` | Student accessing another student   |
+| 404  | `SESSION_NOT_FOUND`        | No active session for this student  |
+
+---
+
+### 3.4 List Sessions (Paginated)
 
 **Endpoint:** `GET /sessions`
 **Auth Required:** Yes
-**Roles:** Student (own sessions), Admin (all)
-**Description:** Returns paginated list of sessions for the authenticated student.
+**Roles:** Student (own sessions), Mentor (supervised teams), Admin (all)
+**Description:** Returns a paginated list of sessions accessible to the current user.
 
 **Query Parameters:**
 
-| Parameter  | Type    | Default | Description      |
-| ---------- | ------- | ------- | ---------------- |
-| `page`   | integer | 1       | Page number      |
-| `limit`  | integer | 20      | Items per page   |
-| `status` | string  | —      | Filter by status |
+| Parameter  | Type    | Default | Description                      |
+| ---------- | ------- | ------- | -------------------------------- |
+| `page`   | integer | 1       | Page number (1-indexed)          |
+| `limit`  | integer | 20      | Items per page (max 100)         |
+| `status` | string  | —       | Filter by session status         |
+| `team_id`| string  | —       | Mentor/Admin only: filter by team|
 
 **Response `200`:**
 
@@ -356,10 +452,34 @@
   "data": [
     {
       "session_id": "ses_01J2K...",
-      "status": "tipsc_completed",
+      "student_id": "usr_01J2K...",
+      "team_id": "team_01J2K...",
       "problem_statement": "Students in Tier-2 cities...",
+      "customer_segment": "Engineering students...",
+      "consequence": "Students graduate without...",
+      "assumptions": ["Students want mentorship..."],
+      "proposed_solution": "A mobile-first platform...",
+      "target_geography": "India (Tier-2/3 cities initially)",
+      "industry_sector": "EdTech / Entrepreneurship",
+      "status": "tipsc_completed",
+      "version": 1,
+      "preeval": null,
+      "validation": null,
+      "regulatory": null,
+      "ethics": null,
+      "compliance_context": null,
+      "tipsc": {...},
+      "dfv": null,
+      "discovery": null,
+      "pending_question": null,
+      "followup_turn": 0,
+      "followup_history": [],
+      "correlation_id": "cor_01J2K...",
+      "error": null,
+      "rejection_reason": null,
       "created_at": "2026-06-01T10:00:00Z",
-      "updated_at": "2026-06-01T10:05:00Z"
+      "updated_at": "2026-06-01T10:05:00Z",
+      "archived_at": null
     }
   ],
   "pagination": {
@@ -374,12 +494,12 @@
 
 ---
 
-### 3.4 Archive Session
+### 3.5 Archive Session
 
 **Endpoint:** `DELETE /sessions/{session_id}`
 **Auth Required:** Yes
 **Roles:** Student (own), Admin
-**Description:** Soft-archives a session. The session data is preserved and queryable via history. A student must archive their current session before starting a new one. Cannot archive a session while a flow is running.
+**Description:** Soft-archives a session. The session is not deleted — it is marked as `archived` and excluded from default listing queries. Cannot archive a session while a flow is actively running.
 
 **Response `200`:**
 
@@ -387,8 +507,12 @@
 {
   "data": {
     "session_id": "ses_01J2K...",
+    "student_id": "usr_01J2K...",
+    "team_id": "team_01J2K...",
+    "problem_statement": "Students in Tier-2 cities...",
     "status": "archived",
-    "archived_at": "2026-06-01T11:00:00Z"
+    "archived_at": "2026-06-01T11:00:00Z",
+    ...
   }
 }
 ```
@@ -403,15 +527,40 @@
 
 ---
 
+### 3.6 SSE Stream for Session Updates
+
+**Endpoint:** `GET /sessions/{session_id}/stream`
+**Auth Required:** Yes (via `token` query parameter)
+**Description:** Yields Server-Sent Events whenever the session status changes. Poll interval: 2 seconds. Client should reconnect on disconnect.
+
+**Query Parameters:**
+
+| Parameter | Type   | Description                                          |
+| --------- | ------ | ---------------------------------------------------- |
+| `token` | string | Bearer token (query param for EventSource compatibility) |
+
+**Response:** `text/event-stream`
+
+```text
+data: {"session_id":"ses_01J2K...","status":"tipsc_running","tipsc":{...}}
+
+data: {"session_id":"ses_01J2K...","status":"tipsc_completed","tipsc":{...}}
+```
+
+---
+
 ## 4. Flow Trigger APIs
 
 ### 4.1 Trigger TIPSC
 
-**Endpoint:** `POST /sessions/{session_id}/trigger/tipsc`**Auth Required:** Yes**Roles:** Student (own session)**Description:** Triggers the TIPSC evaluation flow. Only valid when session status is `created` or `queued`. Publishes to `userSession.tipsc` Kafka topic.
+**Endpoint:** `POST /sessions/{session_id}/trigger/tipsc`
+**Auth Required:** Yes
+**Roles:** Student (own session)
+**Description:** Triggers the TIPSC evaluation flow. Only valid when session status is `created` or `queued`. Publishes to `userSession.tipsc` Kafka topic.
 
 > This is typically triggered automatically on session creation. This endpoint exists for retry scenarios where the initial publish failed.
 
-**Response `200`:**
+**Response `202`:**
 
 ```json
 {
@@ -435,12 +584,51 @@
 
 ---
 
-### 4.2 Trigger DFV
+### 4.2 Submit TIPSC Follow-up Answer
+
+**Endpoint:** `POST /sessions/{session_id}/followup`
+**Auth Required:** Yes
+**Roles:** Student (own session)
+**Description:** Submits the founder's answer for the session's pending TIPSC question and asynchronously resumes TIPSC re-evaluation.
+
+**Request Body:**
+
+```json
+{
+  "answer": "We are targeting engineering students in Tier-2 cities who lack access to quality mentorship."
+}
+```
+
+| Field    | Type   | Required | Constraints                 |
+| -------- | ------ | -------- | --------------------------- |
+| `answer` | string | Yes      | Min: 10 chars, Max: 3000 chars |
+
+**Response `202`:**
+
+```json
+{
+  "data": {
+    "session_id": "ses_01J2K...",
+    "flow": "tipsc",
+    "status": "running",
+    "correlation_id": "cor_01J2K...",
+    "triggered_at": "2026-06-01T10:15:00Z"
+  }
+}
+```
+
+---
+
+### 4.3 Trigger DFV
 
 **Endpoint:** `POST /sessions/{session_id}/trigger/dfv`
 **Auth Required:** Yes
 **Roles:** Student (own session)
-**Description:** Triggers the DFV evaluation flow. Only valid when session status is `tipsc_completed` and `tipsc.ready_for_dfv == true`. Student must provide DFV context inputs. Publishes to `userSession.dfv` Kafka topic.
+**Description:** Triggers the DFV evaluation flow. Only valid when session status is `tipsc_completed` and `tipsc.ready_for_dfv == true`. Publishes to `userSession.dfv` Kafka topic.
+
+**Headers:**
+
+- `Idempotency-Key: <uuid>` — Optional. Prevents duplicate triggers.
 
 **Request Body:**
 
@@ -458,7 +646,7 @@
 | `feasibility_context`  | string | Yes      | Min: 100 chars, Max: 3000 chars |
 | `viability_context`    | string | Yes      | Min: 100 chars, Max: 3000 chars |
 
-**Response `200`:**
+**Response `202`:**
 
 ```json
 {
@@ -482,14 +670,26 @@
 
 ---
 
-### 4.3 Trigger Discovery Planner
+### 4.4 Trigger Discovery Planner
 
 **Endpoint:** `POST /sessions/{session_id}/trigger/discovery`
 **Auth Required:** Yes
 **Roles:** Student (own session)
 **Description:** Triggers the Customer Discovery Planner flow. Only valid when session status is `dfv_completed`. Publishes to `userSession.discovery` Kafka topic.
 
-**Response `200`:**
+**Headers:**
+
+- `Idempotency-Key: <uuid>` — Optional. Prevents duplicate triggers.
+
+**Request Body:**
+
+```json
+{
+  "discovery_inputs": "Optional additional context for discovery planning"
+}
+```
+
+**Response `202`:**
 
 ```json
 {
@@ -526,7 +726,7 @@
 | Parameter | Type    | Default | Description               |
 | --------- | ------- | ------- | ------------------------- |
 | `page`  | integer | 1       | Page number               |
-| `limit` | integer | 50      | Items per page (max: 200) |
+| `limit` | integer | 20      | Items per page (max: 100) |
 
 **Response `200`:**
 
@@ -572,7 +772,7 @@
   ],
   "pagination": {
     "page": 1,
-    "limit": 50,
+    "limit": 20,
     "total": 8,
     "has_next": false,
     "has_prev": false
@@ -707,7 +907,7 @@
 | ----------- | ------- | ------------------------- |
 | `team_id` | string  | Filter by specific team   |
 | `status`  | string  | Filter by session status  |
-| `page`    | integer | Page number               |
+| `page`    | integer | Page number (1-indexed)   |
 | `limit`   | integer | Items per page (max: 100) |
 
 **Response `200`:**
@@ -745,6 +945,8 @@
 **Auth Required:** Yes
 **Roles:** Mentor (supervised team only)
 **Description:** Returns the full session detail including all flow outputs. Same shape as `GET /sessions/{session_id}` but enforces mentor scoping.
+
+**Response `200`:** Same as `GET /sessions/{session_id}`
 
 ---
 
@@ -805,21 +1007,35 @@ X-Correlation-ID: cor_01J2K...
   "correlation_id": "cor_01J2K...",
   "status": "completed",
   "output": {
-    "score": {
-      "timing": 8,
-      "idea": 7,
-      "problem": 9,
-      "solution": 8,
-      "competition": 6
+    "tips_rag_scores": {
+      "T": "Strong timing...",
+      "I": "Unique angle...",
+      "P": "Well-defined problem...",
+      "S": "Feasible solution...",
+      "T_reason": "...",
+      "I_reason": "...",
+      "P_reason": "...",
+      "S_reason": "..."
     },
-    "total_score": 38,
+    "refined_idea": {
+      "customer_segment": "...",
+      "qualified_problem": "...",
+      "consequence": "...",
+      "proposed_solution": "..."
+    },
+    "solution_alignment": "Strong alignment...",
+    "overall_readiness": "Ready for DFV",
     "ready_for_dfv": true,
+    "needs_followup": false,
+    "missing_criteria": [],
+    "criteria_state": {},
     "compliance_flag": true,
-    "compliance_issues": [],
+    "reasoning": "The idea is timely...",
     "followups_asked": 1,
-    "reasoning": "The idea is timely..."
+    "completed_at": "2026-06-01T10:05:00Z"
   },
-  "duration_seconds": 287
+  "duration_seconds": 287,
+  "worker_id": "tipsc-worker-01"
 }
 ```
 
@@ -850,7 +1066,8 @@ X-Correlation-ID: cor_01J2K...
     "summary": "The idea shows strong market pull...",
     "json_report": {}
   },
-  "duration_seconds": 412
+  "duration_seconds": 412,
+  "worker_id": "dfv-worker-01"
 }
 ```
 
@@ -878,7 +1095,8 @@ X-Correlation-ID: cor_01J2K...
       "hypothesis_to_validate": "Students are willing to pay for async video mentorship"
     }
   },
-  "duration_seconds": 310
+  "duration_seconds": 310,
+  "worker_id": "discovery-worker-01"
 }
 ```
 
@@ -919,7 +1137,8 @@ X-Correlation-ID: cor_01J2K...
   "correlation_id": "cor_01J2K...",
   "error_code": "CREWAI_TIMEOUT",
   "error_message": "Agent did not respond within 15 minutes",
-  "retry_count": 3
+  "retry_count": 3,
+  "worker_id": "tipsc-worker-01"
 }
 ```
 
@@ -988,6 +1207,15 @@ X-Correlation-ID: cor_01J2K...
 **Endpoint:** `GET /live`
 **Auth Required:** No
 **Description:** Returns `200` as long as the process is running. Used by Kubernetes liveness probe.
+
+**Response `200`:**
+
+```json
+{
+  "alive": true,
+  "timestamp": "2026-06-01T10:00:00Z"
+}
+```
 
 ---
 
@@ -1063,7 +1291,7 @@ X-Correlation-ID: cor_01J2K...
 | `SESSION_ALREADY_EXISTS`        | 409         | Idempotency key matched an existing session      | Use original response                |
 | `INVALID_STATE_TRANSITION`      | 409         | Flow trigger not valid for current session state | Check current session status         |
 | `FLOW_ALREADY_RUNNING`          | 409         | A flow is already running on this session        | Wait for completion                  |
-| `DFV_NOT_UNLOCKED`              | 409         | TIPSC did not pass`ready_for_dfv`              | Review TIPSC output                  |
+| `DFV_NOT_UNLOCKED`              | 409         | TIPSC did not pass `ready_for_dfv`              | Review TIPSC output                  |
 | `CANNOT_ARCHIVE_ACTIVE_SESSION` | 409         | Session has a flow currently running             | Wait for flow to complete            |
 | `CORRELATION_ID_MISMATCH`       | 409         | Worker correlation ID does not match             | Worker bug — investigate            |
 | `INVALID_OUTPUT_SCHEMA`         | 400         | Worker output missing required fields            | Worker bug — investigate            |
@@ -1082,6 +1310,7 @@ X-Correlation-ID: cor_01J2K...
 | ------- | --------------------- | --------------------------------------------------- |
 | `200` | OK                    | Successful GET, successful trigger                  |
 | `201` | Created               | Session created, comment created                    |
+| `202` | Accepted              | Flow trigger accepted (async processing)            |
 | `204` | No Content            | Logout, delete comment                              |
 | `400` | Bad Request           | Malformed request, invalid output from worker       |
 | `401` | Unauthorized          | Missing, invalid, or expired token                  |

@@ -1,0 +1,40 @@
+{
+  "refined_idea": {
+    "customer_segment": "University students in India",
+    "qualified_problem": "University students struggle to validate startup ideas before investing significant time and resources because they lack structured guidance, market validation frameworks, and access to expert feedback.",
+    "consequence": "idk",
+    "proposed_solution": "Maybe good"
+  },
+  "solution_alignment": "RED",
+  "tips_validated_metrics": {
+    "timely_factor": "India has extensive university entrepreneurship infrastructure (7,400+ IICs, 2,950+ incubators) but no evidence of \u22646-month urgency or active daily problem; consequence unknown.",
+    "importance_metric": "Problem acknowledged but consequence is 'idk'; existing campus incubators partially address the gap, so measurable impact unproven.",
+    "profitability_pivot": "No pricing, business model, or willingness-to-pay evidence; proposed solution described as 'Maybe good' with no monetization plan.",
+    "solvability_constraint": "HIGH-burden DPDP Act 2023 applies (student/minor data) with no compliance plan, legal counsel, or regulatory acquisition strategy mentioned."
+  },
+  "tips_rag_scores": {
+    "T": "YELLOW",
+    "I": "YELLOW",
+    "P": "RED",
+    "S": "RED",
+    "T_reason": "Urgency not evidenced; horizon unclear and consequence unknown.",
+    "I_reason": "Problem exists but consequence is 'idk' and existing incubators partially mitigate it.",
+    "P_reason": "No monetization plan, pricing, or B2B model mentioned; solution description is non-specific.",
+    "S_reason": "HIGH-burden DPDP Act compliance required with no plan, counsel, or acquisition strategy provided."
+  },
+  "overall_readiness": "WEAK",
+  "ready_for_dfv": false,
+  "needs_followup": true,
+  "missing_criteria": [
+    "T",
+    "I",
+    "P",
+    "S"
+  ],
+  "criteria_state": {
+    "T": "weak",
+    "I": "weak",
+    "P": "unclear",
+    "S": "unclear"
+  }
+}

@@ -1,1 +1,240 @@
-{}
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agis.platform/schemas/session.json",
+  "title": "AGIS Session Document",
+  "type": "object",
+  "description": "MongoDB document schema for the sessions collection",
+  "required": [
+    "_id",
+    "student_id",
+    "team_id",
+    "problem_statement",
+    "customer_segment",
+    "consequence",
+    "proposed_solution",
+    "target_geography",
+    "industry_sector",
+    "status",
+    "version",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "_id": {
+      "type": "string",
+      "description": "MongoDB ObjectId as string"
+    },
+    "student_id": {
+      "type": "string",
+      "pattern": "^usr_[A-Z0-9]{12,}$",
+      "description": "Reference to users collection"
+    },
+    "team_id": {
+      "type": "string",
+      "pattern": "^team_[A-Z0-9]{12,}$",
+      "description": "Reference to teams collection"
+    },
+    "problem_statement": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 5000
+    },
+    "customer_segment": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 2000
+    },
+    "consequence": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 3000
+    },
+    "assumptions": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 500 },
+      "maxItems": 20
+    },
+    "proposed_solution": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 3000
+    },
+    "target_geography": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 1000
+    },
+    "industry_sector": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 1000
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "created",
+        "queued",
+        "tipsc_running",
+        "tipsc_completed",
+        "tipsc_failed",
+        "dfv_waiting",
+        "dfv_running",
+        "dfv_completed",
+        "dfv_failed",
+        "discovery_waiting",
+        "discovery_running",
+        "discovery_completed",
+        "discovery_failed",
+        "completed",
+        "archived"
+      ]
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Optimistic locking version"
+    },
+    "preeval": {
+      "type": ["object", "null"],
+      "description": "Pre-evaluation intermediate output"
+    },
+    "validation": {
+      "type": ["object", "null"],
+      "description": "Market validation intermediate output"
+    },
+    "regulatory": {
+      "type": ["object", "null"],
+      "description": "Regulatory mapping intermediate output"
+    },
+    "ethics": {
+      "type": ["object", "null"],
+      "description": "Ethics gate intermediate output"
+    },
+    "compliance_context": {
+      "type": ["string", "null"],
+      "description": "Combined compliance context for TIPSC"
+    },
+    "tipsc": {
+      "type": ["object", "null"],
+      "properties": {
+        "tips_rag_scores": {
+          "type": "object",
+          "required": ["T", "I", "P", "S", "T_reason", "I_reason", "P_reason", "S_reason"],
+          "properties": {
+            "T": { "type": "string" },
+            "I": { "type": "string" },
+            "P": { "type": "string" },
+            "S": { "type": "string" },
+            "T_reason": { "type": "string" },
+            "I_reason": { "type": "string" },
+            "P_reason": { "type": "string" },
+            "S_reason": { "type": "string" }
+          }
+        },
+        "refined_idea": {
+          "type": "object",
+          "required": ["customer_segment", "qualified_problem", "consequence", "proposed_solution"],
+          "properties": {
+            "customer_segment": { "type": "string" },
+            "qualified_problem": { "type": "string" },
+            "consequence": { "type": "string" },
+            "proposed_solution": { "type": "string" }
+          }
+        },
+        "solution_alignment": { "type": "string" },
+        "overall_readiness": { "type": "string" },
+        "ready_for_dfv": { "type": "boolean" },
+        "needs_followup": { "type": "boolean" },
+        "missing_criteria": { "type": "array", "items": { "type": "string" } },
+        "criteria_state": { "type": "object" },
+        "compliance_flag": { "type": "boolean" },
+        "reasoning": { "type": "string" },
+        "followups_asked": { "type": "integer", "minimum": 0 },
+        "completed_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["tips_rag_scores", "refined_idea", "ready_for_dfv", "completed_at"]
+    },
+    "dfv": {
+      "type": ["object", "null"],
+      "properties": {
+        "desirability": {
+          "type": "object",
+          "required": ["score", "report", "recommendations"],
+          "properties": {
+            "score": { "type": "integer", "minimum": 1, "maximum": 10 },
+            "report": { "type": "string" },
+            "recommendations": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "feasibility": {
+          "type": "object",
+          "required": ["score", "report", "recommendations"],
+          "properties": {
+            "score": { "type": "integer", "minimum": 1, "maximum": 10 },
+            "report": { "type": "string" },
+            "recommendations": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "viability": {
+          "type": "object",
+          "required": ["score", "report", "recommendations"],
+          "properties": {
+            "score": { "type": "integer", "minimum": 1, "maximum": 10 },
+            "report": { "type": "string" },
+            "recommendations": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "overall_decision": { "type": "string", "enum": ["GO", "NO-GO"] },
+        "summary": { "type": "string" },
+        "json_report": { "type": "object" }
+      },
+      "required": ["desirability", "feasibility", "viability", "overall_decision"]
+    },
+    "discovery": {
+      "type": ["object", "null"],
+      "properties": {
+        "jtbd_elements": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["job", "outcome", "pain"],
+            "properties": {
+              "job": { "type": "string" },
+              "outcome": { "type": "string" },
+              "pain": { "type": "string" }
+            }
+          }
+        },
+        "interview_plan": {
+          "type": "object",
+          "required": ["target_segment", "interview_questions", "hypothesis_to_validate"],
+          "properties": {
+            "target_segment": { "type": "string" },
+            "interview_questions": { "type": "array", "items": { "type": "string" } },
+            "hypothesis_to_validate": { "type": "string" }
+          }
+        }
+      },
+      "required": ["jtbd_elements", "interview_plan"]
+    },
+    "pending_question": { "type": ["string", "null"] },
+    "followup_turn": { "type": "integer", "minimum": 0 },
+    "followup_history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["question", "answer"],
+        "properties": {
+          "question": { "type": "string" },
+          "answer": { "type": "string" }
+        }
+      }
+    },
+    "correlation_id": { "type": ["string", "null"] },
+    "error": { "type": ["string", "null"] },
+    "rejection_reason": { "type": ["string", "null"] },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "archived_at": { "type": ["string", "null"], "format": "date-time" }
+  }
+}
