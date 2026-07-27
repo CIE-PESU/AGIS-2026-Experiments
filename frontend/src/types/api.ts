@@ -1,4 +1,4 @@
-export type Role = "student" | "mentor" | "admin";
+export type Role = "student" | "mentor" | "mentor_workspace" | "admin";
 
 export type SessionStatus =
 | "created"
@@ -230,8 +230,9 @@ next_steps: string[];
 
 export type SessionDocument = {
 session_id: string;
-team_id: string;
-student_id: string;
+team_id?: string | null;
+student_id?: string | null;
+workspace_id?: string | null;
 problem_statement: string;
 customer_segment?: string;
 consequence?: string;

@@ -43,8 +43,9 @@ class SessionAccessInfo:
     """Minimal session shape this service needs for permission checks."""
 
     session_id: str
-    student_id: str
-    team_id: str
+    student_id: Optional[str]
+    team_id: Optional[str]
+    workspace_id: Optional[str] = None
 
 
 @dataclass
@@ -123,8 +124,9 @@ class CommentService:
         sid = str(getattr(session, "id", getattr(session, "session_id", session_id)))
         return SessionAccessInfo(
             session_id=sid,
-            student_id=session.student_id,
-            team_id=session.team_id,
+            student_id=getattr(session, "student_id", None),
+            team_id=getattr(session, "team_id", None),
+            workspace_id=getattr(session, "workspace_id", None),
         )
 
     def _check_can_view(
@@ -134,14 +136,17 @@ class CommentService:
             return
         if current_user.role == "student":
             if session.student_id != current_user.user_id:
-                # Ownership-filtered: "not yours" looks identical to "doesn't
-                # exist" to the caller.
                 raise SessionNotFoundError(f"No session found with id '{session.session_id}'")
             return
         if current_user.role == "mentor":
             if session.team_id not in current_user.mentor_team_ids:
                 raise SessionNotFoundError(f"No session found with id '{session.session_id}'")
             return
+        if current_user.role == "mentor_workspace":
+            workspace_id = getattr(current_user, "workspace_id", None)
+            if session.workspace_id and workspace_id and session.workspace_id == workspace_id:
+                return
+            raise SessionNotFoundError(f"No session found with id '{session.session_id}'")
         raise InsufficientPermissionsError()
 
     def _check_can_comment(

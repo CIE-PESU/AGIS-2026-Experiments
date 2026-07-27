@@ -55,6 +55,29 @@ if TIPSC_SRC_PATH not in sys.path:
 tipsc_executor_instance = None
 
 
+def provider_supports_response_format(model_name: str) -> bool:
+    """
+    Returns True only for model/provider combinations known to support OpenAI-style
+    response_format={"type": "json_object"} in CrewAI LiteLLM parameter validation.
+    
+    Proxy models (e.g. 'openai/google/gemini...') fail LiteLLM validation and must omit response_format.
+    """
+    if not model_name:
+        return False
+    
+    clean_name = model_name.strip().lower()
+    if clean_name.startswith("openai/google/") or clean_name.startswith("openai/anthropic/"):
+        return False
+        
+    if clean_name.startswith("gpt-") or clean_name.startswith("openai/gpt-"):
+        return True
+        
+    if clean_name.startswith("gemini/") or clean_name.startswith("google/gemini"):
+        return True
+        
+    return False
+
+
 def _load_yaml(relative_path: str) -> dict:
     """
     Load a TIPSC YAML configuration file.
@@ -221,17 +244,23 @@ async def on_startup() -> None:
             "skills/ethics/SKILL.md"
         )
 
+
         # ── LLM ───────────────────────────────────────────────────────────
 
         try:
 
             from crewai import LLM
 
+            extra_args = {}
+            if provider_supports_response_format(settings.OPENAI_MODEL_NAME):
+                extra_args["response_format"] = {"type": "json_object"}
+
             llm = LLM(
-            model=settings.OPENAI_MODEL_NAME,
-            base_url=settings.LM_STUDIO_URL,
-            api_key=settings.OPENAI_API_KEY,
-            temperature=0.2,
+                model=settings.OPENAI_MODEL_NAME,
+                base_url=settings.LM_STUDIO_URL,
+                api_key=settings.OPENAI_API_KEY,
+                temperature=0.2,
+                **extra_args,
             )  
 
             logger.info(

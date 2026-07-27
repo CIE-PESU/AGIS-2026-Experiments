@@ -8,6 +8,7 @@ The raw token is NEVER stored — only the bcrypt hash.
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 from beanie import Document
 from pydantic import Field
@@ -26,7 +27,8 @@ class RefreshToken(Document):
     """
 
     token_hash: str
-    user_id: str
+    user_id: Optional[str] = None
+    workspace_id: Optional[str] = None
     expires_at: datetime
     revoked: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -36,17 +38,27 @@ class RefreshToken(Document):
         indexes = [
             # Unique index on token_hash — each hash is stored once
             [("token_hash", 1)],
-            # TTL index: MongoDB auto-deletes expired documents
-            # (the 'expireAfterSeconds=0' means expire at the expires_at value itself)
+            [("workspace_id", 1)],
         ]
 
     @classmethod
-    def create_for_user(cls, user_id: str, token_hash: str, expiry_days: int = 7) -> "RefreshToken":
+    def create_for_user(cls, user_id: str, token_hash: str, expiry_days: int = 7, workspace_id: str | None = None) -> "RefreshToken":
         """Factory method to build a new RefreshToken for a given user."""
         expires_at = datetime.now(timezone.utc) + timedelta(days=expiry_days)
         return cls(
             token_hash=token_hash,
             user_id=user_id,
+            workspace_id=workspace_id,
+            expires_at=expires_at,
+        )
+
+    @classmethod
+    def create_for_workspace(cls, workspace_id: str, token_hash: str, expiry_days: int = 7) -> "RefreshToken":
+        """Factory method to build a new RefreshToken for a guest workspace."""
+        expires_at = datetime.now(timezone.utc) + timedelta(days=expiry_days)
+        return cls(
+            token_hash=token_hash,
+            workspace_id=workspace_id,
             expires_at=expires_at,
         )
 

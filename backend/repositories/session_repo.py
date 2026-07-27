@@ -16,6 +16,7 @@ from beanie.operators import In, NotIn
 
 from models.session import Session, StateTransition
 from repositories.base import BaseRepository
+from schemas.auth import OwnerContext
 from state_machine.states import SessionStatus
 
 
@@ -121,6 +122,48 @@ class SessionRepository(BaseRepository[Session]):
             ),
         )
 
+    async def find_active_by_owner(
+        self,
+        owner: OwnerContext,
+    ) -> Optional[Session]:
+        """Find the single active (non-archived) session for the given OwnerContext."""
+        if owner.workspace_id:
+            return await Session.find(
+                {"workspace_id": owner.workspace_id, "status": {"$ne": SessionStatus.ARCHIVED.value}}
+            ).sort("-created_at").first_or_none()
+        elif owner.user_id:
+            return await Session.find(
+                {"student_id": owner.user_id, "status": {"$ne": SessionStatus.ARCHIVED.value}}
+            ).sort("-created_at").first_or_none()
+        return None
+
+    async def find_all_by_owner(
+        self,
+        owner: OwnerContext,
+        page: int = 1,
+        limit: int = 20,
+    ) -> list[Session]:
+        """List all non-archived sessions for the given OwnerContext."""
+        skip = (page - 1) * limit
+        expressions = [NotIn(Session.status, [SessionStatus.ARCHIVED])]
+
+        if owner.workspace_id:
+            expressions.append(Session.workspace_id == owner.workspace_id)
+        elif owner.user_id:
+            expressions.append(Session.student_id == owner.user_id)
+        else:
+            return []
+
+        return await Session.find(*expressions).skip(skip).limit(limit).sort(-Session.created_at).to_list()
+
+    async def delete_by_workspace_id(self, workspace_id: str) -> int:
+        """Delete all Session documents matching workspace_id."""
+        sessions = await Session.find(Session.workspace_id == workspace_id).to_list()
+        count = len(sessions)
+        for s in sessions:
+            await s.delete()
+        return count
+
 
     async def find_by_idempotency_key(
         self,
@@ -146,14 +189,10 @@ class SessionRepository(BaseRepository[Session]):
         Used by TIPSC follow-up APIs.
         """
 
-        session = (
-            await Session.find_one(
-                Session.student_id == student_id,
-                Session.status
-                == SessionStatus.WAITING_FOR_FOUNDER,
-            )
-            .sort(-Session.updated_at)
-        )
+        session = await Session.find(
+            Session.student_id == student_id,
+            Session.status == SessionStatus.WAITING_FOR_FOUNDER,
+        ).sort(-Session.updated_at).first_or_none()
 
         if session is None:
             return None

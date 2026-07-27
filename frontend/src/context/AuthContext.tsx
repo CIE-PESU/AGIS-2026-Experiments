@@ -25,6 +25,7 @@ type AuthContextValue = {
   timeline: TimelineEvent[];
   sessionDoc: SessionDocument | null;
   login: (srn: string, password: string) => Promise<Role>;
+  loginWithWorkspace: (workspaceId: string, name: string, role: Role) => void;
   logout: () => Promise<void>;
   setSessionFromServer: (doc: SessionDocument) => void;
   unlockNext: (completed: keyof SessionState) => void;
@@ -66,6 +67,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (sessionId) localStorage.setItem("appSessionId", sessionId);
     else localStorage.removeItem("appSessionId");
   }, [sessionId]);
+
+  // Load active session on mount and when user changes for workspace users (magic link re-login / page refresh)
+  useEffect(() => {
+    if (user?.role === "mentor_workspace" && user.userId) {
+      const loadSession = async () => {
+        try {
+          const activeSession = await getActiveSession(user.userId);
+          if (activeSession) {
+            setSessionFromServer(activeSession);
+          }
+        } catch {
+          // Ignore - no active session or network error
+        }
+      };
+      loadSession();
+    }
+  }, [user]); // Run on mount and when user changes
 
   const [serverStatus, setServerStatus] = useState<SessionStatus | null>(null);
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
@@ -126,6 +144,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return data.role;
     } catch (error) {
       throw error;
+    }
+  }, [resetWorkspace]);
+
+  const loginWithWorkspace = useCallback(async (workspaceId: string, name: string, role: Role) => {
+    const userId = `ws_${workspaceId}`;
+    setUser({
+      userId,
+      srn: `WS_${workspaceId.substring(0, 6).toUpperCase()}`,
+      name: name || "Mentor Workspace",
+      role: role,
+      teamId: null,
+    });
+    resetWorkspace();
+    setTimeline([{ label: "Workspace Session Joined", timestamp: timestamp() }]);
+
+    // Load existing active session for this workspace user
+    try {
+      const activeSession = await getActiveSession(userId);
+      if (activeSession) {
+        setSessionFromServer(activeSession);
+      }
+    } catch {
+      // Ignore - no active session or network error
     }
   }, [resetWorkspace]);
 
@@ -198,10 +239,10 @@ const archiveSession = useCallback(() => {
     () => ({
       user, sessionId, serverStatus, pendingQuestion, session, results,
       formData: formDataState, timeline, sessionDoc,
-      login, logout, setSessionFromServer, unlockNext, saveResults,
+      login, loginWithWorkspace, logout, setSessionFromServer, unlockNext, saveResults,
       addEvent, setFormData, setSessionId, archiveSession
     }),
-    [user, sessionId, serverStatus, pendingQuestion, session, results, formDataState, timeline, sessionDoc, login, logout, setSessionFromServer, unlockNext, saveResults, addEvent, setFormData, setSessionId, archiveSession]
+    [user, sessionId, serverStatus, pendingQuestion, session, results, formDataState, timeline, sessionDoc, login, loginWithWorkspace, logout, setSessionFromServer, unlockNext, saveResults, addEvent, setFormData, setSessionId, archiveSession]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

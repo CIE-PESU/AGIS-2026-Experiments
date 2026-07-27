@@ -60,6 +60,16 @@ class HistoryService:
             if session is None:
                 raise SessionNotFoundError()
 
+        # Workspace (External Reviewer)
+        elif current_user.is_mentor_workspace:
+            session = await session_repo.find_by_id(session_id)
+
+            if (
+                session is None
+                or session.workspace_id != current_user.workspace_id
+            ):
+                raise SessionNotFoundError()
+
         # Mentor
         elif current_user.is_mentor:
             session = await session_repo.find_by_id(session_id)

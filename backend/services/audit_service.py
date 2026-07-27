@@ -46,36 +46,14 @@ class AuditService:
     async def log_event(
         self,
         event: AuditEvent | str,
-        actor: str,
-        actor_role: str,
+        actor: Optional[str] = None,
+        actor_role: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
         session_id: Optional[str] = None,
+        workspace_id: Optional[str] = None,
     ) -> None:
         """
         Write an immutable audit log entry.
-
-        This method is designed to be scheduled via FastAPI BackgroundTask:
-            background_tasks.add_task(
-                audit_service.log_event,
-                event=AuditEvent.SESSION_CREATED,
-                actor=user.user_id,
-                actor_role=user.role,
-                session_id=str(session.id),
-                metadata={...},
-            )
-
-        Failure policy:
-            - If the database write fails for any reason, the exception is caught,
-              logged at ERROR level, and the method returns normally.
-            - The caller (route handler or service) is never informed of audit failures.
-            - This ensures audit never becomes a single point of failure.
-
-        Args:
-            event       : AuditEvent enum value or raw string (e.g. "SESSION_CREATED").
-            actor       : user_id string, "system", or worker identifier.
-            actor_role  : One of "student" | "mentor" | "admin" | "worker" | "system".
-            metadata    : Arbitrary dict for structured context (IDs, names, etc.).
-            session_id  : Linked session's string ID. None for auth/system events.
         """
         try:
             await audit_repo.create_event(
@@ -84,12 +62,14 @@ class AuditService:
                 actor_role=actor_role,
                 metadata=metadata or {},
                 session_id=session_id,
+                workspace_id=workspace_id,
             )
             logger.debug(
-                "Audit log written | event=%s | actor=%s | session_id=%s",
+                "Audit log written | event=%s | actor=%s | session_id=%s | workspace_id=%s",
                 event,
                 actor,
                 session_id,
+                workspace_id,
             )
         except Exception as exc:  # noqa: BLE001
             # Never propagate — audit write failure must not affect the main request.

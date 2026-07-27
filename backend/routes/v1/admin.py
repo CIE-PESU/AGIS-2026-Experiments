@@ -1,14 +1,14 @@
 # app/api/v1/admin.py
 from datetime import datetime
-from typing import Optional
+from typing import Annotated, List, Optional
 from fastapi import APIRouter, Depends, Query, BackgroundTasks
 
 import json
 from pathlib import Path
 from pydantic import BaseModel
-from typing import Optional, List
 from dependencies.auth import require_admin, require_mentor_or_admin
 from schemas.auth import CurrentUser
+from schemas.workspace import WorkspaceCreateRequest
 from services import admin_service
 from core.security import cipher
 from core.sync import dump_seed_data
@@ -33,12 +33,12 @@ async def sync_student_session_teams(student_srns: list[str], new_team_id: str |
 
 class MentorCreateRequest(BaseModel):
     name: str
-    email: str
-    password: str
+    email: Optional[str] = None
+    password: Optional[str] = None
 
 class MentorUpdateRequest(BaseModel):
     name: str
-    email: str
+    email: Optional[str] = None
 
 class TeamCreateRequest(BaseModel):
     name: str
@@ -57,17 +57,22 @@ router = APIRouter(
 
 @router.post("/mentors", dependencies=[Depends(require_admin())])
 async def create_mentor(req: MentorCreateRequest, background_tasks: BackgroundTasks):
-    """Admin: Create a new mentor with an encrypted password."""
+    """Admin: Create a new mentor without credentials."""
+    import uuid
+    clean_name = req.name.strip()
+    email = req.email.strip() if req.email and req.email.strip() else f"{clean_name.lower().replace(' ', '_')}_{uuid.uuid4().hex[:6]}@agis.local"
+    srn = email.upper()
+
     # Check if mentor already exists
-    existing = await User.find_one(User.srn == req.email.upper())
+    existing = await User.find_one(User.srn == srn)
     if existing:
         return {"error": "Mentor already exists"}
     
-    enc_pw = cipher.encrypt(req.password.encode()).decode()
+    enc_pw = cipher.encrypt(req.password.encode()).decode() if req.password and req.password.strip() else None
     new_mentor = User(
-        srn=req.email.upper(),
-        name=req.name,
-        email=req.email,
+        srn=srn,
+        name=clean_name,
+        email=email,
         role="mentor",
         encrypted_password=enc_pw
     )
@@ -75,7 +80,7 @@ async def create_mentor(req: MentorCreateRequest, background_tasks: BackgroundTa
     
     background_tasks.add_task(dump_seed_data)
             
-    return {"message": "Mentor created successfully"}
+    return {"message": "Mentor created successfully", "data": {"id": str(new_mentor.id), "name": new_mentor.name}}
 
 @router.get("/mentors", dependencies=[Depends(require_mentor_or_admin())])
 async def list_mentors():
@@ -94,9 +99,10 @@ async def update_mentor(mentor_id: str, req: MentorUpdateRequest, background_tas
     mentor = await User.get(mentor_id)
     if not mentor:
         return {"error": "Mentor not found"}
-    mentor.name = req.name
-    mentor.email = req.email
-    mentor.srn = req.email.upper()
+    mentor.name = req.name.strip()
+    if req.email and req.email.strip():
+        mentor.email = req.email.strip()
+        mentor.srn = mentor.email.upper()
     await mentor.save()
     background_tasks.add_task(dump_seed_data)
     return {"message": "Mentor updated successfully"}
@@ -261,3 +267,52 @@ async def get_platform_metrics():
     """Admin: Get high-level platform health and usage metrics."""
     metrics = await admin_service.get_metrics()
     return {"data": metrics}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Workspace Link Management (Admin Only)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post("/workspaces")
+async def create_workspace_magic_link(
+    req: WorkspaceCreateRequest,
+    current_user: Annotated[CurrentUser, Depends(require_admin())],
+):
+    """Admin: Create a new 1:1 Isolated Mentor Workspace magic link."""
+    from services.workspace_service import workspace_service
+    from utils.response import success_response
+
+    raw_token, resp = await workspace_service.create_magic_link_workspace(
+        name=req.name,
+        admin_id=current_user.user_id,
+        mentor_id=req.mentor_id,
+    )
+    return {"data": resp.model_dump(), "meta": {"raw_token": raw_token}}
+
+
+@router.get("/workspaces")
+async def list_workspaces(
+    current_user: Annotated[CurrentUser, Depends(require_admin())],
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, le=100),
+):
+    """Admin: List created workspaces."""
+    from services.workspace_service import workspace_service
+    items, total = await workspace_service.list_workspaces(page=page, limit=limit)
+    serialized = [item.model_dump() for item in items]
+    return {"data": serialized, "pagination": {"page": page, "limit": limit, "total": total}}
+
+
+@router.delete("/workspaces/{workspace_id}")
+async def revoke_workspace(
+    workspace_id: str,
+    background_tasks: BackgroundTasks,
+    current_user: Annotated[CurrentUser, Depends(require_admin())],
+):
+    """Admin: Revoke a workspace and purge application data."""
+    from services.workspace_service import workspace_service
+    resp = await workspace_service.revoke_workspace(
+        workspace_id=workspace_id,
+        background_tasks=background_tasks,
+    )
+    return {"data": resp.model_dump()}

@@ -219,20 +219,21 @@ class FlowService:
     async def _load_session(
         self,
         session_id: str,
-        student_id: str,
+        student_id: Optional[str] = None,
+        workspace_id: Optional[str] = None,
     ) -> SessionSnapshot:
 
-        session = (
-            await self._session_repo
-            .find_by_id_and_student(
-                session_id,
-                student_id,
-            )
-        )
+        session = await self._session_repo.find_by_id(session_id)
 
         if session is None:
-
             raise SessionNotFoundError(session_id)
+
+        if workspace_id:
+            if session.workspace_id != workspace_id:
+                raise SessionNotFoundError(session_id)
+        elif student_id:
+            if session.student_id != student_id and session.student_id is not None:
+                raise SessionNotFoundError(session_id)
 
         return session
 
@@ -306,12 +307,14 @@ class FlowService:
     async def trigger_tipsc(
         self,
         session_id: str,
-        student_id: str,
+        student_id: Optional[str] = None,
+        workspace_id: Optional[str] = None,
     ) -> dict:
 
         session = await self._load_session(
             session_id,
-            student_id,
+            student_id=student_id,
+            workspace_id=workspace_id,
         )
 
         if session.status in {
@@ -355,8 +358,8 @@ class FlowService:
         await self._audit.log_event(
             session_id=session_id,
             event="TIPSC_TRIGGERED",
-            actor=student_id,
-            actor_role="student",
+            actor=student_id or (f"ws_{workspace_id}" if workspace_id else "system"),
+            actor_role="student" if student_id else "mentor_workspace",
             metadata={
                 "correlation_id": correlation_id,
             },
@@ -416,13 +419,15 @@ class FlowService:
     async def submit_followup_answer(
         self,
         session_id: str,
-        student_id: str,
-        answer: str,
+        student_id: Optional[str] = None,
+        answer: str = "",
+        workspace_id: Optional[str] = None,
     ) -> dict:
 
         session = await self._load_session(
             session_id,
-            student_id,
+            student_id=student_id,
+            workspace_id=workspace_id,
         )
 
 
@@ -466,8 +471,8 @@ class FlowService:
         await self._audit.log_event(
             session_id=session_id,
             event="TIPSC_FOLLOWUP_ANSWERED",
-            actor=student_id,
-            actor_role="student",
+            actor=student_id or (f"ws_{workspace_id}" if workspace_id else "system"),
+            actor_role="student" if student_id else "mentor_workspace",
             metadata={
                 "turn": session.followup_turn,
                 "question": session.pending_question,
@@ -512,13 +517,16 @@ class FlowService:
     async def trigger_dfv(
         self,
         session_id: str,
-        student_id: str,
-        dfv_inputs: dict,
+        student_id: Optional[str] = None,
+        dfv_inputs: dict = None,
+        workspace_id: Optional[str] = None,
     ) -> dict:
 
+        dfv_inputs = dfv_inputs or {}
         session = await self._load_session(
             session_id,
-            student_id,
+            student_id=student_id,
+            workspace_id=workspace_id,
         )
 
         if not session.tipsc:
@@ -555,7 +563,7 @@ class FlowService:
 
         if not cas_won:
             # CAS lost — session is already in DFV_WAITING or DFV_RUNNING! Return active state safely.
-            current = await self._load_session(session_id, student_id)
+            current = await self._load_session(session_id, student_id=student_id, workspace_id=workspace_id)
             return {
                 "session_id": str(current.id),
                 "flow": "dfv",
@@ -592,8 +600,8 @@ class FlowService:
         await self._audit.log_event(
             session_id=session_id,
             event="DFV_TRIGGERED",
-            actor=student_id,
-            actor_role="student",
+            actor=student_id or (f"ws_{workspace_id}" if workspace_id else "system"),
+            actor_role="student" if student_id else "mentor_workspace",
             metadata={
                 "correlation_id": correlation_id,
             },
@@ -616,13 +624,16 @@ class FlowService:
     async def trigger_discovery(
         self,
         session_id: str,
-        student_id: str,
-        discovery_inputs: dict,
+        student_id: Optional[str] = None,
+        discovery_inputs: dict = None,
+        workspace_id: Optional[str] = None,
     ) -> dict:
 
+        discovery_inputs = discovery_inputs or {}
         session = await self._load_session(
             session_id,
-            student_id,
+            student_id=student_id,
+            workspace_id=workspace_id,
         )
 
         correlation_id = _new_correlation_id()
@@ -636,7 +647,7 @@ class FlowService:
 
         if not cas_won:
             # CAS lost — session is already in DISCOVERY_WAITING or DISCOVERY_RUNNING! Return active state safely.
-            current = await self._load_session(session_id, student_id)
+            current = await self._load_session(session_id, student_id=student_id, workspace_id=workspace_id)
             return {
                 "session_id": str(current.id),
                 "flow": "discovery",
@@ -661,8 +672,8 @@ class FlowService:
         await self._audit.log_event(
             session_id=session_id,
             event="DISCOVERY_TRIGGERED",
-            actor=student_id,
-            actor_role="student",
+            actor=student_id or (f"ws_{workspace_id}" if workspace_id else "system"),
+            actor_role="student" if student_id else "mentor_workspace",
             metadata={
                 "correlation_id": correlation_id,
             },

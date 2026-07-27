@@ -127,7 +127,7 @@ async def trigger_tipsc(
     session_id: str,
     current_user: Annotated[
         CurrentUser,
-        Depends(require_role(UserRole.STUDENT)),
+        Depends(require_role(UserRole.STUDENT, UserRole.MENTOR_WORKSPACE)),
     ],
 ):
 
@@ -137,7 +137,8 @@ async def trigger_tipsc(
 
     result = await flow_service.trigger_tipsc(
         session_id=session_id,
-        student_id=current_user.user_id,
+        student_id=current_user.user_id if current_user.is_student else None,
+        workspace_id=current_user.workspace_id,
     )
 
     return success_response(
@@ -166,7 +167,7 @@ async def submit_followup(
     body: FollowupAnswerRequest,
     current_user: Annotated[
         CurrentUser,
-        Depends(require_role(UserRole.STUDENT)),
+        Depends(require_role(UserRole.STUDENT, UserRole.MENTOR_WORKSPACE)),
     ],
 ):
 
@@ -176,8 +177,9 @@ async def submit_followup(
 
     result = await flow_service.submit_followup_answer(
         session_id=session_id,
-        student_id=current_user.user_id,
+        student_id=current_user.user_id if current_user.is_student else None,
         answer=body.answer,
+        workspace_id=current_user.workspace_id,
     )
 
     return success_response(
@@ -202,7 +204,7 @@ async def trigger_dfv(
     body: DFVTriggerRequest,
     current_user: Annotated[
         CurrentUser,
-        Depends(require_role(UserRole.STUDENT)),
+        Depends(require_role(UserRole.STUDENT, UserRole.MENTOR_WORKSPACE)),
     ],
     idempotency_key: Annotated[
         Optional[str],
@@ -245,8 +247,9 @@ async def trigger_dfv(
 
     result = await flow_service.trigger_dfv(
         session_id=session_id,
-        student_id=current_user.user_id,
+        student_id=current_user.user_id if current_user.is_student else None,
         dfv_inputs=body.model_dump(),
+        workspace_id=current_user.workspace_id,
     )
 
     return success_response(
@@ -270,7 +273,7 @@ async def trigger_discovery(
     session_id: str,
     current_user: Annotated[
         CurrentUser,
-        Depends(require_role(UserRole.STUDENT)),
+        Depends(require_role(UserRole.STUDENT, UserRole.MENTOR_WORKSPACE)),
     ],
     body: DiscoveryTriggerRequest,
     idempotency_key: Annotated[
@@ -315,8 +318,9 @@ async def trigger_discovery(
 
     result = await flow_service.trigger_discovery(
         session_id=session_id,
-        student_id=current_user.user_id,
+        student_id=current_user.user_id if current_user.is_student else None,
         discovery_inputs=body.model_dump(),
+        workspace_id=current_user.workspace_id,
     )
 
     return success_response(

@@ -244,9 +244,11 @@ class Session(Document):
 
     # ── Ownership ──────────────────────────────────────────────────────────
 
-    student_id: Indexed(str)
+    student_id: Optional[Indexed(str)] = None
 
-    team_id: Indexed(str)
+    team_id: Optional[Indexed(str)] = None
+
+    workspace_id: Optional[Indexed(str)] = None
 
     # ── Founder input ──────────────────────────────────────────────────────
 
@@ -352,6 +354,24 @@ class Session(Document):
         name = "sessions"
 
         indexes = [
+            IndexModel(
+                [("workspace_id", ASCENDING)],
+                name="ix_sessions_workspace_id",
+            ),
+            IndexModel(
+                [
+                    ("workspace_id", ASCENDING),
+                    ("status", ASCENDING),
+                ],
+                name="ix_sessions_workspace_status",
+            ),
+            IndexModel(
+                [
+                    ("workspace_id", ASCENDING),
+                    ("created_at", DESCENDING),
+                ],
+                name="ix_sessions_workspace_created",
+            ),
             IndexModel(
                 [("student_id", ASCENDING)],
                 name="ix_sessions_student_id",
