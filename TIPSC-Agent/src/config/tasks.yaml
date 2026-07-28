@@ -336,6 +336,30 @@ followup_task:
 
     Follow these rules STRICTLY.
 
+    Rule 0  ← START HERE
+
+    Read the TIPSC Evaluation JSON above and locate the missing_criteria list.
+
+    This list contains the ONLY dimensions you are allowed to ask about.
+
+    If missing_criteria is empty, return needs_followup = false and questions = [].
+
+    Your question MUST target one of the dimensions in missing_criteria.
+
+    For the chosen dimension, read its reason field (e.g. S_reason, P_reason,
+    T_reason, I_reason) to understand the SPECIFIC evidence gap that caused
+    the RED or YELLOW score. Your question must address that specific gap.
+
+    S (Solvable) can be weak for many reasons: missing technical capability,
+    no execution plan, unclear team composition, lack of key partnerships, or
+    a compliance gap. Read S_reason carefully — ask about whatever capability
+    is actually missing, not compliance by default.
+
+    Only ask a compliance or regulatory question if the reason field
+    explicitly identifies compliance as the missing capability.
+
+    ------------------------------------------------------
+
     Rule 1
 
     The Follow-up History contains a section called:
@@ -350,7 +374,9 @@ followup_task:
 
     Rule 2
 
-    Only ask about criteria that are currently preventing a stronger TIPSC score.
+    Only ask about dimensions that appear in missing_criteria.
+    Do not ask about any dimension that is not in that list, even if you
+    think it could improve the score.
 
     ------------------------------------------------------
 
