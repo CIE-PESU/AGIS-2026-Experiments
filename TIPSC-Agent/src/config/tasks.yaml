@@ -268,7 +268,7 @@ tipsc_task:
 
     Inside tips_rag_scores include exactly this JSON object structure:
 
-    {
+    {{
       "T": "GREEN|YELLOW|RED",
       "T_reason": "one sentence explaining exactly why T got this score",
       "I": "GREEN|YELLOW|RED",
@@ -277,11 +277,11 @@ tipsc_task:
       "P_reason": "one sentence explaining exactly why P got this score",
       "S": "GREEN|YELLOW|RED",
       "S_reason": "one sentence explaining exactly why S got this score"
-    }
+    }}
 
     CRITICAL: The object must be FLAT — 8 sibling keys. Do NOT nest reason keys under score keys.
-    WRONG:  { "I": { "I_reason": "..." } }
-    RIGHT:  { "I": "GREEN", "I_reason": "..." }
+    WRONG:  {{ "I": {{ "I_reason": "..." }} }}
+    RIGHT:  {{ "I": "GREEN", "I_reason": "..." }}
 
     Do not rename any key. Do not omit any key. Use only the exact keys shown above.
     Do not return markdown. Do not return explanations. Return ONLY the JSON object.
