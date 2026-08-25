@@ -1,195 +1,291 @@
-# AGIS Setup, Workflow & Deployment Guide
+# AGIS — Setup, Workflow & Running Guide
 
-This document provides a comprehensive, step-by-step guide for setting up, configuring, and running the AGIS platform (FastAPI backend, React frontend, Kafka workers, MongoDB, and CrewAI agents) on any fresh system.
-
----
-
-## 1. System Requirements & Prerequisites
-
-Ensure the target system has the following software installed:
-
-* **Python**: `v3.12+`
-* **Node.js**: `v18+` & `npm`
-* **Docker & Docker Compose**: Installed and running
-* **Local LLM Server (LM Studio / Ollama / vLLM)**:
-  * Local OpenAI-compatible server running at `http://127.0.0.1:1234/v1`
-  * Model loaded (e.g., `qwen2.5-32b-instruct` or `bonsai-8b`)
-* **Serper API Key**: For web search capabilities in CrewAI agents (get from [serper.dev](https://serper.dev)).
+> **Fresh clone? Start here.** This is the single source of truth for getting
+> the full AGIS platform running locally after pulling the repo.
 
 ---
 
-## 2. Infrastructure Setup (Docker)
+## 1. System Prerequisites
 
-Start MongoDB and Apache Kafka using Docker Compose:
+| Tool | Version | Notes |
+|---|---|---|
+| Python | `3.12+` | Check: `python3 --version` |
+| Node.js & npm | `18+` | Check: `node --version` |
+| Docker & Docker Compose | Latest | Must be running |
+| LLM Server | — | LM Studio / Ollama / NVIDIA NIM (see §3) |
+
+---
+
+## 2. First-Time Setup
+
+All commands run from the **project root** unless stated otherwise.
+
+### Step 1 — Clone & enter repo
 
 ```bash
-# Navigate to workspace root
-cd "/Users/saicharanbk/Documents/Github Projects/AGIS-2026-Experiments"
-
-# Launch MongoDB (27017) and Kafka (9092) in detached mode
-docker compose up -d
+git clone <repo-url>
+cd AGIS-2026-Experiments
 ```
 
-### Services Started:
+### Step 2 — Create a single root virtual environment
 
-* **MongoDB**: `mongodb://localhost:27017`
-* **Kafka Broker**: `localhost:9092`
-* **Zookeeper**: `localhost:2181`
-
----
-
-## 3. Environment Configuration (`.env`)
-
-### A. Backend Configuration (`backend/.env`)
-
-Copy the template environment file:
+> **Changed**: there is now **one** shared `requirements.txt` at the project
+> root. You no longer need separate venvs per submodule.
 
 ```bash
-cd backend
+# Create venv (only once)
+python3 -m venv .venv
+
+# Activate it (do this in EVERY terminal you open for Python)
+source .venv/bin/activate          # macOS / Linux
+# .venv\Scripts\activate           # Windows
+```
+
+### Step 3 — Install all Python dependencies
+
+```bash
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+### Step 4 — Install frontend dependencies
+
+```bash
+cd frontend
+npm install
+cd ..
+```
+
+### Step 5 — Configure environment variables
+
+The repo ships a fully documented template at the root:
+
+```bash
 cp .env.example .env
 ```
 
-Ensure `backend/.env` contains:
+Then open `.env` and fill in **at minimum** these values:
 
 ```env
-# Database & Messaging
-MONGODB_URI=mongodb://localhost:27017
-MONGODB_DB_NAME=pesu_agis
-KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+# --- Auth (generate any 32+ char random string) ---
+JWT_SECRET=CHANGE_ME_TO_A_LONG_RANDOM_SECRET_AT_LEAST_32_CHARACTERS
+WORKER_INTERNAL_SECRET=CHANGE_ME_TO_A_LONG_RANDOM_WORKER_SECRET
 
-# Auth & Secrets
-JWT_SECRET_KEY=your-super-secret-jwt-key-min-32-chars
-JWT_ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=60
-REFRESH_TOKEN_EXPIRE_DAYS=7
-WORKER_INTERNAL_SECRET=your-shared-internal-worker-secret
+# --- LLM (choose one block) ---
 
-# LLM & Search
-LM_STUDIO_URL=http://localhost:1234/v1
-OPENAI_API_KEY=lm-studio
-OPENAI_MODEL_NAME=qwen2.5-32b-instruct
-SERPER_API_KEY=your_serper_api_key_here
+# Option A: NVIDIA NIM (default)
+OPENAI_API_KEY=YOUR_NVIDIA_API_KEY
+OPENAI_MODEL_NAME=openai/nvidia/nemotron-3-ultra-550b-a55b
+LM_STUDIO_URL=https://integrate.api.nvidia.com/v1
 
-# App Settings
-ENVIRONMENT=development
-LOG_LEVEL=INFO
+# Option B: Local LM Studio
+# OPENAI_API_KEY=lm-studio
+# OPENAI_MODEL_NAME=openai/qwen/qwen3.5-9b
+# LM_STUDIO_URL=http://localhost:1234/v1
+
+# --- Search APIs (at least one required for agents) ---
+SERPER_API_KEY=YOUR_SERPER_API_KEY
+TAVILY_API_KEY=YOUR_TAVILY_API_KEY
 ```
 
-### B. Agent Environment Configuration (`DFV-agent/.env`, `TIPSC-Agent/.env`)
+Everything else in `.env` has sensible defaults for local development.
 
-Ensure agent directories have `.env` configured pointing to the same LLM and Serper key:
+---
 
-```env
-LM_STUDIO_URL=http://localhost:1234/v1
-OPENAI_API_KEY=lm-studio
-OPENAI_MODEL_NAME=qwen2.5-32b-instruct
-SERPER_API_KEY=your_serper_api_key_here
+## 3. Infrastructure — Start Docker Services
+
+The `docker-compose.yml` lives in `backend/`. It starts **Kafka** (KRaft mode,
+no Zookeeper) and optionally MongoDB if you add it.
+
+```bash
+# From project root
+docker compose -f backend/docker-compose.yml up -d
+```
+
+> **Note**: MongoDB is **not** in the compose file — the app connects to
+> `mongodb://localhost:27017` by default. Install MongoDB locally or add a
+> `mongo` service to the compose file if needed.
+
+### Services started
+
+| Service | Port | URI |
+|---|---|---|
+| Kafka (KRaft) | `9092` | `localhost:9092` |
+| MongoDB (local) | `27017` | `mongodb://localhost:27017` |
+
+To stop:
+```bash
+docker compose -f backend/docker-compose.yml down
 ```
 
 ---
 
-## 4. One-Time Database Migration
+## 4. Running the Platform
 
-Run the session team synchronization script to align any historical diverged `Session.team_id` records with `User.team_id`:
+Open **5 terminal windows**, each with the venv activated:
 
 ```bash
-# From workspace root
+# In each terminal:
+source .venv/bin/activate
+```
+
+---
+
+### Terminal 1 — LLM Server
+
+**Option A — Local LM Studio**
+1. Open LM Studio → load a model (e.g. `qwen3.5-9b`)
+2. Start the local server → it listens on `http://127.0.0.1:1234/v1`
+
+**Option B — NVIDIA NIM / cloud**
+- Nothing to start locally; just ensure `OPENAI_API_KEY` is set in `.env`
+
+---
+
+### Terminal 2 — FastAPI Backend
+
+```bash
+source .venv/bin/activate
+cd backend
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+- API docs: **http://localhost:8000/docs**
+- Health check: **http://localhost:8000/health**
+
+---
+
+### Terminal 3 — Combined Agent Worker (DFV + Discovery)
+
+```bash
+source .venv/bin/activate
+cd backend
+python -m workers.combined_agent_worker
+```
+
+Consumes from Kafka topics:
+- `userSession.dfv`
+- `userSession.discovery`
+
+---
+
+### Terminal 4 — Notification Worker
+
+```bash
+source .venv/bin/activate
+cd backend
+python -m workers.notification_worker
+```
+
+---
+
+### Terminal 5 — React Frontend
+
+```bash
+cd frontend
+npm run dev
+```
+
+- Web app: **http://localhost:5173**
+
+---
+
+## 5. One-Time Database Migration
+
+Only needed if you have pre-existing data from an older schema:
+
+```bash
+source .venv/bin/activate
 python backend/scripts/migrate_session_teams.py
 ```
 
 ---
 
-## 5. Execution Commands (Services Setup)
+## 6. Verification & Testing
 
-Run each of the following components in separate terminal windows:
-
-### Terminal 1: Local LLM Server (LM Studio / Ollama)
-
-1. Open LM Studio (or your local LLM host).
-2. Load model (e.g. `qwen2.5-32b-instruct`).
-3. Start local server at `http://127.0.0.1:1234/v1`.
-
-### Terminal 2: FastAPI Backend Server
+### Run unit tests
 
 ```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-
-# Run Uvicorn server
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
-```
-
-* Backend API documentation will be accessible at `http://localhost:8000/docs`.
-
-### Terminal 3: React Frontend Application
-
-```bash
-cd frontend
-npm install
-
-# Start Vite development server
-npm run dev
-```
-
-* Web application will be accessible at `http://localhost:5173`.
-
-### Terminal 4: Combined Agent Worker (DFV & Discovery)
-
-```bash
-cd backend
 source .venv/bin/activate
-python -m workers.combined_agent_worker
+pytest tests/
 ```
 
----
-
-## 6. Verification & Testing Commands
-
-### A. Run Automated Unit Tests
-
-Run the Pytest suite covering authorization, team reassignment, and comment services:
+### Run API smoke tests (requires backend running)
 
 ```bash
-# From workspace root
-pytest backend/tests
-```
-
-### B. Run API Smoke Tests
-
-Run end-to-end API verification against a running backend instance:
-
-```bash
+source .venv/bin/activate
 python backend/scripts/smoke_test.py
 python backend/scripts/test_api_comments.py
 ```
 
+### Check DB state
+
+```bash
+source .venv/bin/activate
+python backend/scripts/check_db.py
+```
+
 ---
 
-## 7. Operational Workflow & Architecture
+## 7. System Architecture
 
 ```
-User Browser (React Frontend :5173)
+User Browser (React :5173)
         │
-        ▼ HTTP REST / JWT
+        ▼  HTTP REST / JWT
 FastAPI Backend (:8000) ──────────────► MongoDB (:27017)
-        │                                  ▲
-        ▼ Kafka Event                      │ DB Direct Write
-Kafka Topics ──────────────────────────────┤
-  • userSession.dfv                        │
-  • userSession.discovery                  │
-        │                                  │
-        ▼ Kafka Consumer                   │
-Background Workers ────────────────────────┘
-  • combined_agent_worker.py
+        │                                    ▲
+        ▼  Kafka Events                      │
+  Kafka (:9092) ──────────────────────────── ┤
+    • userSession.tipsc                      │
+    • userSession.dfv                        │
+    • userSession.discovery                  │
+        │                                    │
+        ▼  Kafka Consumers                   │
+  Background Workers ─────────────────────── ┘
+    • combined_agent_worker.py
+    • notification_worker.py
         │
-        ▼ Local LLM API
-LM Studio / Ollama (:1234/v1)
+        ▼  OpenAI-compatible API
+  LLM Server (LM Studio / NVIDIA NIM)
 ```
 
-1. **Session Creation**: Student creates a session via Frontend -> Backend writes to MongoDB (`status: queued`) and emits Kafka event to `userSession.tipsc`.
-2. **TIPSC Evaluation**: `tipsc_worker.py` uses asyncio event, invokes CrewAI TIPSC agents against LM Studio, and updates session to `tipsc_completed`.
-3. **DFV Evaluation**: Student triggers DFV -> Backend emits to `userSession.dfv` -> `combined_agent_worker.py` evaluates Desirability, Feasibility, Viability and sets status to `dfv_completed`.
-4. **Customer Discovery Planning**: Student triggers Discovery -> Backend emits to `userSession.discovery` -> Worker generates JTBD interview guide and sets status to `completed`.
-5. **Real-time Status Sync**: Frontend polls `GET /api/v1/sessions/{id}` to display progress dynamically.
+### Request flow
+
+1. **Session Created** → Frontend → Backend writes to MongoDB (`status: queued`) → emits `userSession.tipsc`
+2. **TIPSC Evaluation** → `TIPSC-Agent` picks up event, runs CrewAI crew against LLM, updates session → `tipsc_completed`
+3. **DFV Evaluation** → Student triggers DFV → Backend emits `userSession.dfv` → `combined_agent_worker` evaluates Desirability / Feasibility / Viability → `dfv_completed`
+4. **Customer Discovery** → Student triggers Discovery → Backend emits `userSession.discovery` → Worker generates JTBD interview guide → `completed`
+5. **Real-time Updates** → Frontend polls `GET /api/v1/sessions/{id}` to show live progress
+
+---
+
+## 8. Quick-Reference Cheat Sheet
+
+```bash
+# === ONCE (fresh clone) ===
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env          # then edit .env
+cd frontend && npm install && cd ..
+
+# === EVERY SESSION ===
+docker compose -f backend/docker-compose.yml up -d   # T0: infra
+source .venv/bin/activate && cd backend && uvicorn main:app --reload --port 8000   # T2: API
+source .venv/bin/activate && cd backend && python -m workers.combined_agent_worker # T3: DFV worker
+source .venv/bin/activate && cd backend && python -m workers.notification_worker   # T4: notifs
+cd frontend && npm run dev                                                           # T5: UI
+```
+
+---
+
+## 9. Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| `ModuleNotFoundError` | Make sure venv is activated: `source .venv/bin/activate` |
+| `Connection refused` on port 9092 | `docker compose -f backend/docker-compose.yml up -d` |
+| `Connection refused` on port 27017 | Start MongoDB locally or add it to docker-compose |
+| LLM agent times out | Verify your LLM server is running and `LM_STUDIO_URL` / `OPENAI_API_KEY` are set correctly in `.env` |
+| `JWT_SECRET` error on startup | Ensure `.env` has a 32+ character `JWT_SECRET` value |
+| Frontend can't reach backend | Check `CORS_ALLOWED_ORIGINS=http://localhost:5173` is in `.env` |
