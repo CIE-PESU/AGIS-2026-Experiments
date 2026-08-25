@@ -35,7 +35,7 @@ from exceptions.base import (
 
 from models.audit import AuditEvent
 from repositories.session_repo import session_repo
-from schemas.auth import CurrentUser
+from schemas.auth import CurrentUser, OwnerContext
 from schemas.session import (
     SessionListResponse,
     SessionResponse,
@@ -61,8 +61,8 @@ class SessionService:
 
     async def create_session(
         self,
-        student_id: str,
-        team_id: str,
+        student_id: Optional[str],
+        team_id: Optional[str],
         problem_statement: str,
         customer_segment: str,
         consequence: str,
@@ -72,6 +72,7 @@ class SessionService:
         industry_sector: str,
         idempotency_key: str,
         background_tasks: BackgroundTasks,
+        workspace_id: Optional[str] = None,
     ) -> SessionResponse:
 
         # ── 1. Idempotency ────────────────────────────────────────────────
@@ -96,16 +97,24 @@ class SessionService:
 
         # ── 2. Active session guard ───────────────────────────────────────
 
-        active = await session_repo.find_active_by_student(
-            student_id
-        )
+        if workspace_id:
+            active = await session_repo.find_active_by_owner(
+                OwnerContext(workspace_id=workspace_id)
+            )
+        elif student_id:
+            active = await session_repo.find_active_by_student(
+                student_id
+            )
+        else:
+            active = None
 
         if active:
 
             logger.info(
                 "Active session exists | "
-                "student_id=%s | session_id=%s | status=%s",
+                "student_id=%s | workspace_id=%s | session_id=%s | status=%s",
                 student_id,
+                workspace_id,
                 active.id,
                 active.status,
             )
@@ -132,6 +141,7 @@ class SessionService:
             {
                 "student_id": student_id,
                 "team_id": team_id,
+                "workspace_id": workspace_id,
 
                 # Compatibility fields used by DFV / Discovery
                 "problem_statement": problem_statement,
@@ -166,10 +176,12 @@ class SessionService:
             audit_service.log_event,
             event=AuditEvent.SESSION_CREATED,
             actor=student_id,
-            actor_role="student",
+            actor_role="student" if student_id else "mentor_workspace",
             session_id=session_id,
+            workspace_id=workspace_id,
             metadata={
                 "team_id": team_id,
+                "workspace_id": workspace_id,
                 "idempotency_key": idempotency_key,
             },
         )
@@ -272,10 +284,12 @@ class SessionService:
             audit_service.log_event,
             event=AuditEvent.TIPSC_TRIGGERED,
             actor=student_id,
-            actor_role="student",
+            actor_role="student" if student_id else "mentor_workspace",
             session_id=session_id,
+            workspace_id=workspace_id,
             metadata={
                 "correlation_id": correlation_id,
+                "workspace_id": workspace_id,
                 "execution": "direct_async_task",
             },
         )
@@ -337,7 +351,16 @@ class SessionService:
 
                 session = raw
 
-        else:
+        elif current_user.is_mentor_workspace:
+
+            raw = await session_repo.find_by_id(
+                session_id
+            )
+
+            if raw is not None and raw.workspace_id == current_user.workspace_id:
+                session = raw
+
+        elif current_user.is_admin:
 
             session = await session_repo.find_by_id(
                 session_id
@@ -382,6 +405,19 @@ class SessionService:
             if len(sessions) == limit:
                 total = page * limit + 1
 
+        elif current_user.is_mentor_workspace:
+
+            sessions = await session_repo.find_all_by_owner(
+                owner=current_user.owner_context,
+                page=page,
+                limit=limit,
+            )
+
+            total = len(sessions)
+
+            if len(sessions) == limit:
+                total = page * limit + 1
+
         elif current_user.is_mentor:
 
             team_ids = (
@@ -401,7 +437,7 @@ class SessionService:
             if len(sessions) == limit:
                 total = page * limit + 1
 
-        else:
+        elif current_user.is_admin:
 
             sessions = (
                 await session_repo.find_all_admin(
@@ -415,6 +451,10 @@ class SessionService:
 
             if len(sessions) == limit:
                 total = page * limit + 1
+
+        else:
+            sessions = []
+            total = 0
 
         items = [
             SessionListResponse.from_document(
@@ -480,6 +520,7 @@ class SessionService:
             actor=current_user.user_id,
             actor_role=current_user.role,
             session_id=session_id,
+            workspace_id=current_user.workspace_id,
             metadata={
                 "previous_status": previous_status,
             },

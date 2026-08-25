@@ -111,8 +111,26 @@ class MeResponse(BaseModel):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Internal — CurrentUser (used by dependency injector)
+# Internal — OwnerContext & CurrentUser (used by dependency injector)
 # ─────────────────────────────────────────────────────────────────────────────
+
+class OwnerContext(BaseModel):
+    """
+    Encapsulates ownership context for session repository lookups and creation.
+    """
+
+    user_id: Optional[str] = None
+    workspace_id: Optional[str] = None
+    role: str = ""
+
+    @property
+    def is_student(self) -> bool:
+        return self.role == "student"
+
+    @property
+    def is_workspace_guest(self) -> bool:
+        return self.role in ("mentor_workspace", "demo_workspace", "external_workspace")
+
 
 class CurrentUser(BaseModel):
     """
@@ -126,6 +144,7 @@ class CurrentUser(BaseModel):
     role: str
     name: str = "Unknown"
     team_id: Optional[str] = None
+    workspace_id: Optional[str] = None
     mentor_team_ids: list[str] = []
 
     @property
@@ -137,5 +156,17 @@ class CurrentUser(BaseModel):
         return self.role == "mentor"
 
     @property
+    def is_mentor_workspace(self) -> bool:
+        return self.role == "mentor_workspace"
+
+    @property
     def is_admin(self) -> bool:
         return self.role == "admin"
+
+    @property
+    def owner_context(self) -> OwnerContext:
+        return OwnerContext(
+            user_id=self.user_id if self.is_student else None,
+            workspace_id=self.workspace_id,
+            role=self.role,
+        )

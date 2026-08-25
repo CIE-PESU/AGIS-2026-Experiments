@@ -111,6 +111,61 @@
       "team_id": "6a625d8e0bcce50ed1e90d44",
       "mentor_team_ids": [],
       "created_at": "2026-07-23 18:43:33.931000"
+    },
+    {
+      "id": "6a62f5bb33b3f91a7da993fc",
+      "srn": "PES1UG24CS115",
+      "name": "BHAVESH VELLURU",
+      "email": "bhaveshvelluru@gmail.com",
+      "role": "student",
+      "encrypted_password": null,
+      "team_id": null,
+      "mentor_team_ids": [],
+      "created_at": "2026-07-24 05:18:51.226000"
+    },
+    {
+      "id": "6a62f5e933b3f91a7da993fe",
+      "srn": "PES1UG24CS312",
+      "name": "Palash Agarwal",
+      "email": "agarwalpalash03@gmail.com",
+      "role": "student",
+      "encrypted_password": null,
+      "team_id": null,
+      "mentor_team_ids": [],
+      "created_at": "2026-07-24 05:19:37.367000"
+    },
+    {
+      "id": "6a62f65533b3f91a7da99402",
+      "srn": "RD@GMAIL.COM",
+      "name": "RD Sir",
+      "email": "rd@gmail.com",
+      "role": "mentor",
+      "encrypted_password": "gAAAAABqYvZVttZ984n5rERkZOsxTL4DsdCK6CDkRvmEBhMMENR-ptgR9DC-Ns1qWvRHqV6l1yEfDltTEmfyVjhWE4GxP7tzlA==",
+      "team_id": null,
+      "mentor_team_ids": [],
+      "created_at": "2026-07-24 05:21:25.903000"
+    },
+    {
+      "id": "6a674191d532dc2fa4784392",
+      "srn": "TEST_984559@AGIS.LOCAL",
+      "name": "Test",
+      "email": "test_984559@agis.local",
+      "role": "mentor",
+      "encrypted_password": null,
+      "team_id": null,
+      "mentor_team_ids": [],
+      "created_at": "2026-07-27 11:31:29.465000"
+    },
+    {
+      "id": "6a6755bd1a97e3b1accecbd4",
+      "srn": "SURYA_9755A2@AGIS.LOCAL",
+      "name": "Surya",
+      "email": "surya_9755a2@agis.local",
+      "role": "mentor",
+      "encrypted_password": null,
+      "team_id": null,
+      "mentor_team_ids": [],
+      "created_at": "2026-07-27 12:57:33.186000"
     }
   ],
   "teams": [

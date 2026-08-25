@@ -86,11 +86,13 @@ export function StudentWorkspace() {
     toast.success("Session archived. You can start a new session from TIPSC.");
   }
 
+  const titleName = user?.role === "mentor_workspace" ? (user?.name || "Mentor Workspace") : firstName;
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-primary">Welcome, {firstName}</h1>
+          <h1 className="text-3xl font-bold text-primary">Welcome, {titleName}</h1>
           <p className="mt-1 text-muted-foreground">Move through TIPSC, DFV, and Customer Discovery in sequence.</p>
           {serverStatus && <p className="mt-1 text-xs text-muted-foreground">Session status: {serverStatus.replace(/_/g, " ")}</p>}
         </div>

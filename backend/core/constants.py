@@ -33,6 +33,7 @@ class UserRole:
 
     STUDENT = "student"
     MENTOR = "mentor"
+    MENTOR_WORKSPACE = "mentor_workspace"
     ADMIN = "admin"
     WORKER = "worker"
 

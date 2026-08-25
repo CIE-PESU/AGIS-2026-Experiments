@@ -52,11 +52,21 @@ async def get_current_user(
 
     payload = decode_token(credentials.credentials)  # raises TokenExpiredError or TokenInvalidError
 
+    role = payload.get("role", "")
+    workspace_id = payload.get("workspace_id")
+
+    if role == UserRole.MENTOR_WORKSPACE and workspace_id:
+        from repositories.workspace_repo import workspace_repo
+        workspace = await workspace_repo.find_by_id(workspace_id)
+        if not workspace or not workspace.is_active or workspace.revoked_at is not None:
+            raise TokenInvalidError("Workspace has been revoked or is inactive.")
+
     return CurrentUser(
         user_id=payload["sub"],
-        role=payload.get("role", ""),
+        role=role,
         name=payload.get("name", "Unknown"),
         team_id=payload.get("team_id"),
+        workspace_id=workspace_id,
         mentor_team_ids=payload.get("mentor_team_ids", []),
     )
 
@@ -98,14 +108,20 @@ def require_student():
 def require_mentor():
     return require_role(UserRole.MENTOR)
 
+def require_mentor_workspace():
+    return require_role(UserRole.MENTOR_WORKSPACE)
+
 def require_admin():
     return require_role(UserRole.ADMIN)
 
 def require_student_or_admin():
     return require_role(UserRole.STUDENT, UserRole.ADMIN)
 
+def require_student_or_workspace():
+    return require_role(UserRole.STUDENT, UserRole.MENTOR_WORKSPACE)
+
 def require_mentor_or_admin():
     return require_role(UserRole.MENTOR, UserRole.ADMIN)
 
 def require_any_authenticated():
-    return require_role(UserRole.STUDENT, UserRole.MENTOR, UserRole.ADMIN)
+    return require_role(UserRole.STUDENT, UserRole.MENTOR, UserRole.MENTOR_WORKSPACE, UserRole.ADMIN)

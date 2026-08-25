@@ -10,6 +10,7 @@ import { TIPSCFlow } from "@/pages/TIPSCFlow";
 import { DFVFlow } from "@/pages/DFVFlow";
 import { DiscoveryFlow } from "@/pages/DiscoveryFlow";
 import { MentorDashboard } from "@/pages/MentorDashboard";
+import { MentorMagicLinkHandler } from "@/pages/MentorMagicLinkHandler";
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/workspace/:token" element={<MentorMagicLinkHandler />} />
           <Route path="/workspace" element={<WorkspaceLayout />}>
             <Route index element={<StudentWorkspace />} />
             <Route path="tipsc" element={<TIPSCFlow />} />

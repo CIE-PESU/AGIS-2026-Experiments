@@ -51,7 +51,7 @@ router = APIRouter(prefix="/sessions", tags=["Sessions"])
     status_code=status.HTTP_201_CREATED,
     summary="Create a new coaching session",
     description=(
-        "Creates a new session for the authenticated student. "
+        "Creates a new session for the authenticated student or workspace mentor. "
         "Publishes a TIPSC evaluation event to Kafka. "
         "Requires an `Idempotency-Key` header (UUID4) to prevent duplicate submissions. "
         "Re-submitting the same Idempotency-Key returns the original session (no new session created)."
@@ -61,7 +61,7 @@ async def create_session(
     request: Request,
     body: SessionCreateRequest,
     background_tasks: BackgroundTasks,
-    current_user: Annotated[CurrentUser, Depends(require_role(UserRole.STUDENT))],
+    current_user: Annotated[CurrentUser, Depends(require_role(UserRole.STUDENT, UserRole.MENTOR_WORKSPACE))],
     idempotency_key: Annotated[
         Optional[str],
         Header(
@@ -71,18 +71,10 @@ async def create_session(
     ] = None,
 ):
     """
-    POST /sessions (student only)
+    POST /sessions (student or mentor workspace)
 
     Creates a session and triggers the TIPSC Kafka event.
     Returns the session with status: queued once Kafka publish succeeds.
-
-    Request headers:
-      Idempotency-Key: <uuid4>  — Required. Re-using the same key returns the original session.
-
-    Errors:
-      400 VALIDATION_ERROR             — missing or invalid Idempotency-Key header
-      409 ACTIVE_SESSION_EXISTS        — student already has a non-archived session
-      503 KAFKA_UNAVAILABLE            — Kafka publish failed (session created but not queued)
     """
     if not idempotency_key:
         raise ValidationException(
@@ -101,11 +93,11 @@ async def create_session(
     resolved_team_id = (
         body.team_id
         or current_user.team_id
-        or f"team_{current_user.user_id[-6:]}"
+        or (f"team_{current_user.user_id[-6:]}" if current_user.user_id else None)
     )
     
     session = await session_service.create_session(
-        student_id=current_user.user_id,
+        student_id=current_user.user_id if current_user.is_student else None,
         team_id=resolved_team_id,
         problem_statement=body.problem_statement,
         customer_segment=body.customer_segment,
@@ -116,6 +108,7 @@ async def create_session(
         industry_sector=body.industry_sector,
         idempotency_key=idempotency_key,
         background_tasks=background_tasks,
+        workspace_id=current_user.workspace_id,
     )
     
     return success_response(
@@ -183,11 +176,15 @@ async def get_active_session_by_user(
 ):
     from repositories.session_repo import session_repo
     
-    if current_user.user_id != student_id and current_user.role == UserRole.STUDENT:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot access session of another user.")
+    if current_user.is_mentor_workspace:
+        session = await session_repo.find_active_by_owner(current_user.owner_context)
+    else:
+        if current_user.user_id != student_id and current_user.role == UserRole.STUDENT:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot access session of another user.")
 
-    session = await session_repo.find_active_by_student(student_id)
+        session = await session_repo.find_active_by_student(student_id)
+
     if not session:
         from fastapi import HTTPException
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No active session found for user.")
@@ -485,11 +482,24 @@ async def stream_session(
     if token:
         try:
             payload = decode_token(token)
-            # Verify the session belongs to this user (decode_token returns a payload dict)
-            session_check = await session_repo.find_by_id_and_student(session_id, payload["sub"])
-            if session_check is None:
-                from fastapi import HTTPException
-                raise HTTPException(403, "Session not found or access denied")
+            role = payload.get("role", "")
+            workspace_id = payload.get("workspace_id")
+            # Workspace users: verify session belongs to this workspace
+            if role == "mentor_workspace" and workspace_id:
+                raw = await session_repo.find_by_id(session_id)
+                if raw is None or raw.workspace_id != workspace_id:
+                    from fastapi import HTTPException
+                    raise HTTPException(403, "Session not found or access denied")
+            else:
+                # Student/other: verify session belongs to this user
+                session_check = await session_repo.find_by_id_and_student(session_id, payload["sub"])
+                if session_check is None:
+                    # Fallback: check team membership
+                    raw = await session_repo.find_by_id(session_id)
+                    team_id = payload.get("team_id")
+                    if not raw or not team_id or raw.team_id != team_id:
+                        from fastapi import HTTPException
+                        raise HTTPException(403, "Session not found or access denied")
         except (TokenInvalidError, TokenExpiredError):
             from fastapi import HTTPException
             raise HTTPException(401, "Invalid or expired token")

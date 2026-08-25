@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { Navigate } from "react-router-dom";
-import { Plus, Trash2, Edit, Users, UserCheck, BookOpen, Layers, Settings, ShieldAlert, LogOut } from "lucide-react";
+import { Plus, Trash2, Edit, Users, UserCheck, BookOpen, Layers, Settings, ShieldAlert, LogOut, Copy, Link2, RefreshCw, Ban, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,9 +14,13 @@ import {
   getMentors,
   getTeams,
   getStudents,
+  getWorkspaces,
+  createWorkspace,
+  revokeWorkspace,
   Student,
   Team,
-  Mentor
+  Mentor,
+  AdminWorkspace
 } from "@/utils/adminData";
 
 export function AdminDashboard() {
@@ -25,6 +29,8 @@ export function AdminDashboard() {
   const [mentors, setMentors] = useState<Mentor[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
+  const [workspaces, setWorkspaces] = useState<AdminWorkspace[]>([]);
+  const [magicTokens, setMagicTokens] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState("teams");
 
   // Dialog State: Team
@@ -37,24 +43,94 @@ export function AdminDashboard() {
   const [dialogUnassignedPool, setDialogUnassignedPool] = useState<Student[]>([]);
   const [selectedStudentSRN, setSelectedStudentSRN] = useState("");
 
-  // Dialog State: Mentor
+  // Dialog State: Advisor / Mentor
   const [isMentorDialogOpen, setIsMentorDialogOpen] = useState(false);
   const [isAddMentorMode, setIsAddMentorMode] = useState(false);
+  const [advisorModalType, setAdvisorModalType] = useState<"faculty" | "external" | null>(null);
   const [editingMentor, setEditingMentor] = useState<Mentor | null>(null);
   const [dialogMentorName, setDialogMentorName] = useState("");
   const [dialogMentorEmail, setDialogMentorEmail] = useState("");
   const [dialogMentorPassword, setDialogMentorPassword] = useState("");
+  const [dialogMentorOrganisation, setDialogMentorOrganisation] = useState("");
+  const [dialogMentorRoleTitle, setDialogMentorRoleTitle] = useState("");
 
   // Load and refresh data
   const refreshData = async () => {
     setMentors(await getMentors());
     setTeams(await getTeams());
     setStudents(await getStudents());
+    setWorkspaces(await getWorkspaces());
   };
 
   useEffect(() => {
     refreshData();
   }, []);
+
+  const saveTokenCache = (wsId: string, rawToken: string) => {
+    setMagicTokens(prev => ({ ...prev, [wsId]: rawToken }));
+  };
+
+  const getMentorWorkspace = (mentorName: string, mentorId?: string): AdminWorkspace | undefined => {
+    return workspaces.find(w => (mentorId && w.mentor_id === mentorId) || w.name === `${mentorName}'s Workspace` || w.name === mentorName);
+  };
+
+  const handleGenerateWorkspace = async (mentorName: string, mentorId?: string) => {
+    try {
+      const { workspace, raw_token } = await createWorkspace(`${mentorName}'s Workspace`, mentorId);
+      saveTokenCache(workspace.workspace_id, raw_token);
+      await refreshData();
+
+      const magicUrl = `${window.location.origin}/workspace/${raw_token}`;
+      navigator.clipboard.writeText(magicUrl);
+      toast.success("Workspace created! Magic link copied to clipboard.", {
+        description: magicUrl
+      });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to generate workspace.");
+    }
+  };
+
+  const handleCopyMagicLink = (workspaceId: string) => {
+    const rawToken = magicTokens[workspaceId];
+    if (!rawToken) {
+      toast.error("Magic link token not available in session cache. Please regenerate the link.");
+      return;
+    }
+    const magicUrl = `${window.location.origin}/workspace/${rawToken}`;
+    navigator.clipboard.writeText(magicUrl);
+    toast.success("Magic link copied to clipboard!");
+  };
+
+  const handleRegenerateWorkspace = async (workspaceId: string, mentorName: string, mentorId?: string) => {
+    if (confirm(`Regenerate magic link for ${mentorName}? The previous magic link will be revoked immediately.`)) {
+      try {
+        await revokeWorkspace(workspaceId);
+        const { workspace, raw_token } = await createWorkspace(`${mentorName}'s Workspace`, mentorId);
+        saveTokenCache(workspace.workspace_id, raw_token);
+        await refreshData();
+
+        const magicUrl = `${window.location.origin}/workspace/${raw_token}`;
+        navigator.clipboard.writeText(magicUrl);
+        toast.success("New magic link generated and copied to clipboard!", {
+          description: magicUrl
+        });
+      } catch (err: any) {
+        toast.error(err.message || "Failed to regenerate workspace.");
+      }
+    }
+  };
+
+  const handleRevokeWorkspace = async (workspaceId: string, mentorName: string) => {
+    if (confirm(`Revoke workspace access for ${mentorName}? Active mentor sessions will be logged out immediately.`)) {
+      try {
+        await revokeWorkspace(workspaceId);
+        await refreshData();
+        toast.success(`Workspace access revoked for ${mentorName}.`);
+      } catch (err: any) {
+        toast.error(err.message || "Failed to revoke workspace.");
+      }
+    }
+  };
 
   // Calculate statistics
   const stats = useMemo(() => {
@@ -179,80 +255,128 @@ export function AdminDashboard() {
     }
   };
 
-  // Handler: Add Mentor Dialog
-  const openAddMentorDialog = () => {
+  // Handler: Add Faculty Mentor Dialog
+  const openAddFacultyMentorDialog = () => {
     setIsAddMentorMode(true);
+    setAdvisorModalType("faculty");
     setEditingMentor(null);
     setDialogMentorName("");
     setDialogMentorEmail("");
     setDialogMentorPassword("");
+    setDialogMentorOrganisation("PES University");
+    setDialogMentorRoleTitle("Faculty Advisor");
+    setIsMentorDialogOpen(true);
+  };
+
+  // Handler: Add External Reviewer Dialog
+  const openAddExternalReviewerDialog = () => {
+    setIsAddMentorMode(true);
+    setAdvisorModalType("external");
+    setEditingMentor(null);
+    setDialogMentorName("");
+    setDialogMentorEmail("");
+    setDialogMentorPassword("");
+    setDialogMentorOrganisation("");
+    setDialogMentorRoleTitle("External Reviewer");
     setIsMentorDialogOpen(true);
   };
 
   // Handler: Edit Mentor Dialog
   const openEditMentorDialog = (mentor: Mentor) => {
     setIsAddMentorMode(false);
+    const isExternal = mentor.type === "external_reviewer" || mentor.email?.endsWith("@agis.local");
+    setAdvisorModalType(isExternal ? "external" : "faculty");
     setEditingMentor(mentor);
     setDialogMentorName(mentor.name);
     setDialogMentorEmail(mentor.email);
     setDialogMentorPassword("");
+    setDialogMentorOrganisation(mentor.organisation || (isExternal ? "External Industry / Reviewer" : "PES University"));
+    setDialogMentorRoleTitle("");
     setIsMentorDialogOpen(true);
   };
 
-  // Dialog Save: Mentor
+  // Dialog Save: Advisor / Mentor
   const saveMentorChanges = async () => {
-    if (!dialogMentorName.trim() || !dialogMentorEmail.trim()) {
-      toast.error("Name and Email are required.");
+    if (!dialogMentorName.trim()) {
+      toast.error("Name is required.");
       return;
     }
 
-    if (isAddMentorMode && !dialogMentorPassword.trim()) {
-      toast.error("Password is required for new mentors.");
-      return;
+    if (isAddMentorMode && advisorModalType === "faculty") {
+      if (!dialogMentorEmail.trim() || !dialogMentorPassword.trim()) {
+        toast.error("Email and Password are required for Faculty Mentors.");
+        return;
+      }
     }
 
     try {
       const url = isAddMentorMode ? "/api/v1/admin/mentors" : `/api/v1/admin/mentors/${editingMentor?.id}`;
       const method = isAddMentorMode ? "POST" : "PUT";
       
+      const bodyPayload: any = {
+        name: dialogMentorName.trim()
+      };
+
+      if (advisorModalType === "faculty" && dialogMentorEmail.trim()) {
+        bodyPayload.email = dialogMentorEmail.trim();
+        if (isAddMentorMode && dialogMentorPassword.trim()) {
+          bodyPayload.password = dialogMentorPassword.trim();
+        }
+      }
+
       const res = await fetch(url, {
         method,
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${localStorage.getItem("agis_access_token")}`
         },
-        body: JSON.stringify({
-          name: dialogMentorName,
-          email: dialogMentorEmail,
-          password: isAddMentorMode ? dialogMentorPassword : undefined,
-        })
+        body: JSON.stringify(bodyPayload)
       });
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "Failed to save mentor in backend");
+        throw new Error(data.error || "Failed to save advisor in backend");
       }
+
+      const responseData = await res.json();
+
+      toast.success(
+        isAddMentorMode
+          ? advisorModalType === "external"
+            ? "External Reviewer created. Click 'Generate Link' when ready to issue an access link."
+            : "Faculty Mentor created successfully"
+          : "Advisor profile updated successfully"
+      );
 
       await refreshData();
       setIsMentorDialogOpen(false);
-      toast.success(isAddMentorMode ? "Mentor added successfully" : "Mentor updated successfully");
     } catch (err: any) {
       toast.error(err.message);
     }
   };
 
-  // Handler: Delete Mentor
+  // Handler: Delete Mentor / Advisor
   const handleDeleteMentor = async (mentorId: string) => {
-    if (confirm("Are you sure you want to delete this mentor? Supervised teams will be unassigned.")) {
+    if (confirm("Are you sure you want to delete this advisor? Associated access links will be revoked and supervised teams unassigned.")) {
       try {
+        // Revoke associated workspace if active
+        const ws = workspaces.find(w => w.mentor_id === mentorId);
+        if (ws && ws.status === "active") {
+          try {
+            await revokeWorkspace(ws.workspace_id);
+          } catch (e) {
+            // Best effort revocation
+          }
+        }
+
         const res = await fetch(`/api/v1/admin/mentors/${mentorId}`, {
           method: "DELETE",
           headers: { "Authorization": `Bearer ${localStorage.getItem("agis_access_token")}` }
         });
-        if (!res.ok) throw new Error("Failed to delete mentor");
+        if (!res.ok) throw new Error("Failed to delete advisor");
         
         await refreshData();
-        toast.success("Mentor deleted successfully");
+        toast.success("Advisor deleted successfully");
       } catch (err: any) {
         toast.error(err.message);
       }
@@ -354,7 +478,7 @@ export function AdminDashboard() {
               onValueChange={setActiveTab}
               options={[
                 { value: "teams", label: "Teams" },
-                { value: "mentors", label: "Mentors" },
+                { value: "advisors", label: "Advisors" },
                 { value: "system", label: "API Endpoints" }
               ]}
             />
@@ -443,44 +567,70 @@ export function AdminDashboard() {
             </div>
           )}
 
-          {/* TAB: MENTORS */}
-          {activeTab === "mentors" && (
+          {/* TAB: ADVISORS */}
+          {(activeTab === "advisors" || activeTab === "mentors") && (
             <div className="mt-6">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-primary">Mentors List</h2>
-                <Button onClick={openAddMentorDialog} variant="secondary" className="flex items-center gap-1">
-                  <Plus className="h-4 w-4" /> Add Mentor
-                </Button>
+                <h2 className="text-xl font-bold text-primary">Advisors List</h2>
+                <div className="flex gap-2">
+                  <Button onClick={openAddFacultyMentorDialog} variant="outline" className="flex items-center gap-1 text-indigo-700 border-indigo-200 hover:bg-indigo-50">
+                    <UserCheck className="h-4 w-4" /> Add Faculty Mentor
+                  </Button>
+                  <Button onClick={openAddExternalReviewerDialog} variant="secondary" className="flex items-center gap-1">
+                    <Plus className="h-4 w-4" /> Add External Reviewer
+                  </Button>
+                </div>
               </div>
 
               <Card className="overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[700px] text-left text-sm">
+                  <table className="w-full min-w-[850px] text-left text-sm">
                     <thead className="bg-muted text-xs uppercase text-muted-foreground">
                       <tr>
-                        <th className="p-4">Mentor Name</th>
-                        <th className="p-4">Email</th>
-                        <th className="p-4">Assigned Teams</th>
+                        <th className="p-4">Name</th>
+                        <th className="p-4">Type</th>
+                        <th className="p-4">Organisation</th>
+                        <th className="p-4">Teams</th>
+                        <th className="p-4">Access</th>
                         <th className="p-4 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {mentors.length === 0 ? (
                         <tr>
-                          <td colSpan={4} className="p-8 text-center text-muted-foreground italic bg-white">
-                            No mentors added yet. Click "Add Mentor" to register one.
+                          <td colSpan={6} className="p-8 text-center text-muted-foreground italic bg-white">
+                            No advisors added yet. Click "Add Faculty Mentor" or "Add External Reviewer" to invite one.
                           </td>
                         </tr>
                       ) : (
                         mentors.map(m => {
+                          const isExternal = m.type === "external_reviewer";
                           const supervised = teams.filter(t => t.mentorId === m.id).map(t => t.name);
+                          const ws = getMentorWorkspace(m.name, m.id);
+                          const hasCachedToken = ws ? !!magicTokens[ws.workspace_id] : false;
+
                           return (
                             <tr key={m.id} className="border-t bg-white hover:bg-slate-50/50">
                               <td className="p-4 font-semibold text-primary">{m.name}</td>
-                              <td className="p-4 text-muted-foreground">{m.email}</td>
                               <td className="p-4">
-                                {supervised.length === 0 ? (
-                                  <span className="text-muted-foreground italic text-xs">No active assignments</span>
+                                {isExternal ? (
+                                  <span className="inline-flex items-center gap-1 font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded text-xs">
+                                    External Reviewer
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 font-semibold text-indigo-800 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded text-xs">
+                                    Faculty Mentor
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-4 text-muted-foreground text-xs">
+                                {m.organisation || (isExternal ? "External Industry / Reviewer" : "PES University")}
+                              </td>
+                              <td className="p-4">
+                                {isExternal ? (
+                                  <span className="text-muted-foreground italic text-xs">—</span>
+                                ) : supervised.length === 0 ? (
+                                  <span className="text-muted-foreground italic text-xs">Unassigned</span>
                                 ) : (
                                   <div className="flex flex-wrap gap-1 max-w-sm">
                                     {supervised.map(name => (
@@ -491,8 +641,69 @@ export function AdminDashboard() {
                                   </div>
                                 )}
                               </td>
+                              <td className="p-4">
+                                {!ws ? (
+                                  <span className="text-muted-foreground italic text-xs bg-slate-100 px-2 py-1 rounded">No Link Issued</span>
+                                ) : ws.status === "active" ? (
+                                  <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded text-xs">
+                                    <CheckCircle2 className="h-3 w-3" /> Access Ready
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 font-semibold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-1 rounded text-xs">
+                                    <Ban className="h-3 w-3" /> Access Revoked
+                                  </span>
+                                )}
+                              </td>
                               <td className="p-4 text-right">
-                                <div className="inline-flex gap-2">
+                                <div className="inline-flex flex-wrap justify-end gap-1.5">
+                                  {!ws ? (
+                                    <Button
+                                      onClick={() => handleGenerateWorkspace(m.name, m.id)}
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-8 text-xs text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                                    >
+                                      <Link2 className="h-3.5 w-3.5 mr-1" /> Generate Link
+                                    </Button>
+                                  ) : ws.status === "active" ? (
+                                    <>
+                                      <Button
+                                        onClick={() => handleCopyMagicLink(ws.workspace_id)}
+                                        disabled={!hasCachedToken}
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 text-xs text-slate-700"
+                                        title={hasCachedToken ? "Copy Magic Link" : "Regenerate link to enable direct copy"}
+                                      >
+                                        <Copy className="h-3.5 w-3.5 mr-1" /> Copy Link
+                                      </Button>
+                                      <Button
+                                        onClick={() => handleRegenerateWorkspace(ws.workspace_id, m.name, m.id)}
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 text-xs text-amber-700 border-amber-200 hover:bg-amber-50"
+                                      >
+                                        <RefreshCw className="h-3.5 w-3.5 mr-1" /> Regenerate
+                                      </Button>
+                                      <Button
+                                        onClick={() => handleRevokeWorkspace(ws.workspace_id, m.name)}
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 text-xs text-destructive hover:bg-destructive/10"
+                                      >
+                                        <Ban className="h-3.5 w-3.5 mr-1" /> Revoke
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <Button
+                                      onClick={() => handleGenerateWorkspace(m.name, m.id)}
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-8 text-xs text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                                    >
+                                      <RefreshCw className="h-3.5 w-3.5 mr-1" /> Regenerate
+                                    </Button>
+                                  )}
                                   <Button onClick={() => openEditMentorDialog(m)} variant="outline" size="sm" className="h-8">
                                     <Edit className="h-3.5 w-3.5" /> Edit
                                   </Button>
@@ -565,11 +776,13 @@ export function AdminDashboard() {
                   className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
                   <option value="unassigned">-- Unassigned --</option>
-                  {mentors.map(m => (
-                    <option key={m.id} value={m.id}>
-                      {m.name} ({m.email})
-                    </option>
-                  ))}
+                  {mentors
+                    .filter(m => m.type === "faculty_mentor")
+                    .map(m => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} ({m.email})
+                      </option>
+                    ))}
                 </select>
               </div>
 
@@ -643,12 +856,16 @@ export function AdminDashboard() {
           </DialogContent>
         </Dialog>
 
-        {/* DIALOG: MENTOR ADD / EDIT */}
+        {/* DIALOG: ADVISOR ADD / EDIT */}
         <Dialog open={isMentorDialogOpen} onOpenChange={setIsMentorDialogOpen}>
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="text-xl text-primary font-bold">
-                {isAddMentorMode ? "Register New Mentor" : "Edit Mentor Profile"}
+                {!isAddMentorMode
+                  ? "Edit Advisor Profile"
+                  : advisorModalType === "faculty"
+                  ? "Register Faculty Mentor"
+                  : "Invite External Reviewer"}
               </DialogTitle>
             </DialogHeader>
 
@@ -658,32 +875,174 @@ export function AdminDashboard() {
                 <Input
                   value={dialogMentorName}
                   onChange={e => setDialogMentorName(e.target.value)}
-                  placeholder="e.g. Dr. Priya Menon"
+                  placeholder={advisorModalType === "faculty" ? "e.g. Dr. Priya Menon" : "e.g. Alex Vance"}
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold mb-1 text-slate-700">Email Address</label>
-                <Input
-                  type="email"
-                  value={dialogMentorEmail}
-                  onChange={e => setDialogMentorEmail(e.target.value)}
-                  placeholder="e.g. mentor@pes.edu"
-                />
-              </div>
+              {advisorModalType === "faculty" && isAddMentorMode && (
+                <>
+                  <div>
+                    <label className="block text-sm font-semibold mb-1 text-slate-700">Email Address</label>
+                    <Input
+                      type="email"
+                      value={dialogMentorEmail}
+                      onChange={e => setDialogMentorEmail(e.target.value)}
+                      placeholder="e.g. pmenon@pes.edu"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-1 text-slate-700">Password</label>
+                    <Input
+                      type="password"
+                      value={dialogMentorPassword}
+                      onChange={e => setDialogMentorPassword(e.target.value)}
+                      placeholder="Enter mentor account password"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Faculty mentors use their email and password to log in directly.</p>
+                  </div>
+                </>
+              )}
 
-              {isAddMentorMode && (
-                <div>
-                  <label className="block text-sm font-semibold mb-1 text-slate-700">Password</label>
-                  <Input
-                    type="password"
-                    value={dialogMentorPassword}
-                    onChange={e => setDialogMentorPassword(e.target.value)}
-                    placeholder="Enter mentor password"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">Required for login. Mentors will use their email to log in.</p>
+              {advisorModalType === "external" && isAddMentorMode && (
+                <>
+                  <div>
+                    <label className="block text-sm font-semibold mb-1 text-slate-700">Organisation / Affiliation</label>
+                    <Input
+                      value={dialogMentorOrganisation}
+                      onChange={e => setDialogMentorOrganisation(e.target.value)}
+                      placeholder="e.g. Sequoia Capital / Angel Investor"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-1 text-slate-700">Title / Role (Optional)</label>
+                    <Input
+                      value={dialogMentorRoleTitle}
+                      onChange={e => setDialogMentorRoleTitle(e.target.value)}
+                      placeholder="e.g. Partner / Startup Coach"
+                    />
+                  </div>
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900">
+                    <strong>Note:</strong> External reviewers receive an isolated Access Link. No login password or institutional credentials required.
+                  </div>
+                </>
+              )}
+
+              {!isAddMentorMode && editingMentor && (
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-semibold text-slate-500">Advisor Type:</span>
+                  {advisorModalType === "external" ? (
+                    <span className="inline-flex items-center gap-1 font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded text-xs">
+                      External Reviewer (Type Locked)
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 font-semibold text-indigo-800 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded text-xs">
+                      Faculty Mentor (Type Locked)
+                    </span>
+                  )}
                 </div>
               )}
+
+              {!isAddMentorMode && editingMentor && (() => {
+                const ws = getMentorWorkspace(editingMentor.name, editingMentor.id);
+                const rawToken = ws ? magicTokens[ws.workspace_id] : null;
+                const magicUrl = rawToken ? `${window.location.origin}/workspace/${rawToken}` : null;
+
+                return (
+                  <div className="border rounded-lg p-4 bg-slate-50 border-slate-200 mt-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-bold text-xs text-primary uppercase tracking-wider">Access Capability</h3>
+                      {!ws ? (
+                        <span className="text-muted-foreground italic text-xs">No Link Issued</span>
+                      ) : ws.status === "active" ? (
+                        <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded text-xs">
+                          <CheckCircle2 className="h-3 w-3" /> Access Ready
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 font-semibold text-rose-700 bg-rose-100 px-2 py-0.5 rounded text-xs">
+                          <Ban className="h-3 w-3" /> Access Revoked
+                        </span>
+                      )}
+                    </div>
+
+                    {!ws ? (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-3">No access link issued yet for this advisor.</p>
+                        <Button
+                          type="button"
+                          onClick={() => handleGenerateWorkspace(editingMentor.name, editingMentor.id)}
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-xs text-indigo-600 border-indigo-200 bg-white hover:bg-indigo-50"
+                        >
+                          <Link2 className="h-3.5 w-3.5 mr-1" /> Generate Access Link
+                        </Button>
+                      </div>
+                    ) : ws.status === "active" ? (
+                      <div className="space-y-2">
+                        {magicUrl ? (
+                          <div>
+                            <label className="block text-xs font-semibold mb-1 text-slate-600">Access Magic URL</label>
+                            <div className="flex gap-1.5">
+                              <Input
+                                readOnly
+                                value={magicUrl}
+                                className="text-xs bg-white font-mono h-8 select-all"
+                              />
+                              <Button
+                                type="button"
+                                onClick={() => handleCopyMagicLink(ws.workspace_id)}
+                                variant="outline"
+                                size="sm"
+                                className="h-8 text-xs shrink-0"
+                              >
+                                <Copy className="h-3.5 w-3.5 mr-1" /> Copy
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-slate-500 italic bg-amber-50 p-2 rounded border border-amber-200">
+                            Access Link is Active. Regenerate link to retrieve a copyable URL.
+                          </p>
+                        )}
+
+                        <div className="flex gap-2 pt-2 border-t border-slate-200">
+                          <Button
+                            type="button"
+                            onClick={() => handleRegenerateWorkspace(ws.workspace_id, editingMentor.name, editingMentor.id)}
+                            variant="outline"
+                            size="sm"
+                            className="flex-1 text-xs text-amber-700 border-amber-200 bg-white hover:bg-amber-50 h-8"
+                          >
+                            <RefreshCw className="h-3.5 w-3.5 mr-1" /> Regenerate
+                          </Button>
+                          <Button
+                            type="button"
+                            onClick={() => handleRevokeWorkspace(ws.workspace_id, editingMentor.name)}
+                            variant="outline"
+                            size="sm"
+                            className="flex-1 text-xs text-destructive border-red-200 bg-white hover:bg-red-50 h-8"
+                          >
+                            <Ban className="h-3.5 w-3.5 mr-1" /> Revoke
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="text-xs text-rose-600 italic mb-2">Access link is revoked. Regenerating will issue a new active link.</p>
+                        <Button
+                          type="button"
+                          onClick={() => handleGenerateWorkspace(editingMentor.name, editingMentor.id)}
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-xs text-indigo-600 border-indigo-200 bg-white hover:bg-indigo-50 h-8"
+                        >
+                          <RefreshCw className="h-3.5 w-3.5 mr-1" /> Regenerate Active Link
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Footer Buttons */}
@@ -692,7 +1051,11 @@ export function AdminDashboard() {
                 Cancel
               </Button>
               <Button variant="secondary" onClick={saveMentorChanges}>
-                {isAddMentorMode ? "Add Mentor" : "Save Changes"}
+                {!isAddMentorMode
+                  ? "Save Changes"
+                  : advisorModalType === "faculty"
+                  ? "Create Faculty Mentor"
+                  : "Invite & Generate Link"}
               </Button>
             </div>
           </DialogContent>

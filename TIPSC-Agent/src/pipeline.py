@@ -6,7 +6,40 @@ from models import PreEvalOutput, TIPSCOutput, FollowUpOutput, EthicsOutput, Val
 
 
 
-search_tool = TavilySearchTool()
+try:
+    search_tool = TavilySearchTool()
+except Exception:
+    search_tool = None
+
+
+def repair_json_keys(text: str) -> str:
+    """
+    Deterministically quotes unquoted object keys and strips bullet prefixes (_ / - / *)
+    emitted by LLMs (e.g. Gemini 3.5 Flash Lite) before colons.
+    Example: `{ _ timely_factor: "..." }` -> `{ "timely_factor": "..." }`
+    """
+    def _quote_key(m: re.Match) -> str:
+        key = m.group(1)
+        return f'"{key}":'
+
+    # First, fix the specific malformed pattern: "I": "I_reason": "..." or similar
+    # where the model emits a duplicate key with nested reason.
+    # Malformed:  "I": "I_reason": "reason text", "I": "GREEN"
+    # We rewrite the first occurrence to use the correct _reason key,
+    # so both keys coexist: "I_reason": "reason text", "I": "GREEN"
+    text = re.sub(
+        r'"([A-Z])":\s*"\1_reason":\s*"([^"]*)"',
+        r'"\1_reason": "\2"',
+        text
+    )
+    # Also handle single-quoted values
+    text = re.sub(
+        r'"([A-Z])":\s*"\1_reason":\s*\'([^\']*)\'',
+        r'"\1_reason": \'\2\'',
+        text
+    )
+
+    return re.sub(r'(?<=[{\s,])(?:[_\-\*]\s*)?([a-zA-Z_][a-zA-Z0-9_]*)\s*:(?!\s*//)', _quote_key, text)
 
 
 def clean_json(text: str) -> str:
@@ -68,11 +101,11 @@ def clean_json(text: str) -> str:
     )
 
 JSON_SYSTEM_PREFIX = (
-    "You are a JSON-only output machine. "
+    "You are a strict RFC8259 JSON-only output machine. "
     "You MUST respond with a single valid JSON object and nothing else. "
+    "Every key MUST be double-quoted (e.g. \"key\": \"value\"). Never emit unquoted keys or bullet points inside JSON. "
     "No markdown. No code fences. No explanation. No preamble. No trailing text. "
     "Your entire response is parsed directly by json.loads(). "
-    "If you add anything outside the JSON object, the system will crash. "
     "Start your response with { and end it with }."
 )
 
@@ -684,9 +717,16 @@ def build_compliance_context(ethics: EthicsOutput, regulatory: "RegulatoryOutput
     return "\n".join(lines)
 
 
+import pydantic
+
 def parse_pydantic_result(result, model):
-    if result.pydantic and isinstance(result.pydantic, model):
+    if hasattr(result, "pydantic") and result.pydantic and isinstance(result.pydantic, model):
         return result.pydantic
- 
-    raw = clean_json(result.raw)
-    return model.model_validate_json(raw)
+
+    raw_text = getattr(result, "raw", str(result))
+    raw = clean_json(raw_text)
+    try:
+        return model.model_validate_json(raw)
+    except (pydantic.ValidationError, ValueError, TypeError):
+        repaired = repair_json_keys(raw)
+        return model.model_validate_json(repaired)

@@ -226,8 +226,9 @@ class SessionCreateRequest(BaseModel):
 class SessionResponse(BaseModel):
     session_id: str
 
-    student_id: str
-    team_id: str
+    student_id: Optional[str] = None
+    team_id: Optional[str] = None
+    workspace_id: Optional[str] = None
 
     problem_statement: str
     idea: str
@@ -297,18 +298,14 @@ class SessionResponse(BaseModel):
         cls,
         session: Any,
     ) -> "SessionResponse":
-        print("TIPSC TYPE:", type(session.tipsc))
-
-        if session.tipsc:
-            print("MODEL DUMP TYPE:", type(session.tipsc.model_dump()))
-            print("MODEL DUMP:", session.tipsc.model_dump())
-
         return cls(
             session_id=str(session.id),
 
             student_id=session.student_id,
 
             team_id=session.team_id,
+
+            workspace_id=session.workspace_id,
 
             problem_statement=session.problem_statement,
 

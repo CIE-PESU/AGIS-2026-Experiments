@@ -17,11 +17,39 @@ export interface Team {
   mentorId: string | null;
 }
 
+/**
+ * Phase 1 advisor categories.
+ *
+ * ARCHITECTURAL GUARDRAIL:
+ * Do NOT extend this union with additional participant types
+ * (e.g. Judge, Investor, Coach, Alumni, etc.).
+ *
+ * If AGIS requires more than these two categories,
+ * migrate to the planned People → Roles → Capabilities model
+ * rather than extending this enum.
+ *
+ * TODO (Phase 2): Replace AdvisorType with Person + Role assignments
+ * once AGIS supports more than two participant categories.
+ */
+export type AdvisorType = "faculty_mentor" | "external_reviewer";
+
 export interface Mentor {
   id: string;
   srn?: string;
   name: string;
   email: string;
+  type: AdvisorType;
+  organisation?: string;
+}
+
+export interface AdminWorkspace {
+  workspace_id: string;
+  name: string;
+  type: string;
+  status: "active" | "revoked";
+  mentor_id?: string;
+  created_at: string;
+  revoked_at?: string | null;
 }
 
 const getAuthHeaders = () => ({
@@ -29,16 +57,58 @@ const getAuthHeaders = () => ({
   "Authorization": `Bearer ${localStorage.getItem("agis_access_token")}`
 });
 
+export async function getWorkspaces(): Promise<AdminWorkspace[]> {
+  const res = await fetch("/api/v1/admin/workspaces", { headers: getAuthHeaders() });
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.data || [];
+}
+
+export async function createWorkspace(name: string, mentorId?: string): Promise<{ workspace: AdminWorkspace; raw_token: string }> {
+  const res = await fetch("/api/v1/admin/workspaces", {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ name, mentor_id: mentorId })
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error?.message || err.detail || "Failed to create workspace");
+  }
+  const data = await res.json();
+  return {
+    workspace: data.data,
+    raw_token: data.meta?.raw_token
+  };
+}
+
+export async function revokeWorkspace(workspaceId: string): Promise<AdminWorkspace> {
+  const res = await fetch(`/api/v1/admin/workspaces/${workspaceId}`, {
+    method: "DELETE",
+    headers: getAuthHeaders()
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error?.message || err.detail || "Failed to revoke workspace");
+  }
+  const data = await res.json();
+  return data.data;
+}
+
 export async function getMentors(): Promise<Mentor[]> {
   const res = await fetch("/api/v1/admin/mentors", { headers: getAuthHeaders() });
   if (!res.ok) return [];
   const data = await res.json();
-  return data.data.map((m: any) => ({
-    id: m._id || m.id,
-    srn: m.srn,
-    name: m.name,
-    email: m.email
-  }));
+  return data.data.map((m: any) => {
+    const isExternal = m.type === "external_reviewer" || m.email?.endsWith("@agis.local");
+    return {
+      id: m._id || m.id,
+      srn: m.srn,
+      name: m.name,
+      email: m.email,
+      type: isExternal ? "external_reviewer" : "faculty_mentor",
+      organisation: m.organisation || (isExternal ? "External Industry / Reviewer" : "PES University")
+    };
+  });
 }
 
 export async function getTeams(): Promise<Team[]> {

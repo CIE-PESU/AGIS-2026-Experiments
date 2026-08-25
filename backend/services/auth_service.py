@@ -74,8 +74,12 @@ class AuthService:
                 team_id=team_id,
             )
 
-        # Step 3: Generate tokens
-        if user.role == "mentor":
+        # Step 3: Generate tokens & student workspace
+        workspace_id = None
+        if user.role == "student":
+            workspace_id = await self._get_or_create_student_workspace(user)
+            mentor_team_ids = user.mentor_team_ids
+        elif user.role == "mentor":
             from services.mentor_service import sync_mentor_teams
             mentor_team_ids = await sync_mentor_teams(str(user.id))
         else:
@@ -87,6 +91,7 @@ class AuthService:
             name=user.name,
             team_id=user.team_id,
             mentor_team_ids=mentor_team_ids,
+            workspace_id=workspace_id,
         )
         raw_refresh, hashed_refresh = create_refresh_token()
 
@@ -95,6 +100,7 @@ class AuthService:
             user_id=str(user.id),
             token_hash=hashed_refresh,
             expiry_days=settings.REFRESH_TOKEN_EXPIRY_DAYS,
+            workspace_id=workspace_id,
         )
         await token_doc.insert()
 
@@ -286,8 +292,25 @@ class AuthService:
             if verify_refresh_token(raw_token, candidate.token_hash):
                 return candidate
 
-        raise RefreshTokenInvalidError()
+        raise RefreshTokenInvalidError("Invalid or revoked refresh token.")
 
+    async def _get_or_create_student_workspace(self, user: User) -> str:
+        """Find or lazily create a Workspace for a student user."""
+        from models.workspace import Workspace, WorkspaceType
+        from repositories.workspace_repo import workspace_repo
+
+        user_id_str = str(user.id)
+        existing = await workspace_repo.find_by_student_user_id(user_id_str)
+        if existing:
+            return existing.workspace_id
+
+        new_workspace = await workspace_repo.create(
+            name=f"{user.name}'s Workspace",
+            type=WorkspaceType.STUDENT,
+            student_user_id=user_id_str,
+        )
+        logger.info("Created lazy student workspace: workspace_id=%s student_id=%s", new_workspace.workspace_id, user_id_str)
+        return new_workspace.workspace_id
 
 # Module-level singleton
 auth_service = AuthService()

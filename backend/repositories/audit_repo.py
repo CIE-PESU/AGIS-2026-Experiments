@@ -17,21 +17,28 @@ class AuditRepository(BaseRepository[AuditLog]):
     async def create_event(
         self,
         event: AuditEvent | str,
-        actor: str,
-        actor_role: str,
+        actor: Optional[str] = None,
+        actor_role: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
         session_id: Optional[str] = None,
+        workspace_id: Optional[str] = None,
     ) -> AuditLog:
         """
         Write an immutable audit log entry.
-        session_id is optional — auth events (login, logout) are not tied to a session.
+        session_id and actor are optional — supports workspace guest access and system actions.
         """
+        meta = metadata or {}
+        resolved_workspace_id = workspace_id or meta.get("workspace_id")
+        resolved_actor = actor or (f"ws_{resolved_workspace_id}" if resolved_workspace_id else "system")
+        resolved_role = actor_role or ("mentor_workspace" if resolved_workspace_id else "system")
+
         log = AuditLog(
             session_id=session_id,
             event=event,  # type: ignore[arg-type]
-            actor=actor,
-            actor_role=actor_role,
-            metadata=metadata or {},
+            actor=resolved_actor,
+            actor_role=resolved_role,
+            workspace_id=resolved_workspace_id,
+            metadata=meta,
             timestamp=datetime.utcnow(),
         )
         await log.insert()

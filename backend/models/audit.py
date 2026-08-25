@@ -31,8 +31,9 @@ class AuditEvent(str, Enum):
 class AuditLog(Document):
     session_id: Optional[str] = None   # null for auth events (login, logout)
     event: AuditEvent                  # Event enum
-    actor: str                          # user_id or "system" or "worker_tipsc"
-    actor_role: str                     # "student" | "mentor" | "admin" | "worker" | "system"
+    actor: Optional[str] = None        # user_id or "system" or "ws_{workspace_id}"
+    actor_role: Optional[str] = "system" # "student" | "mentor" | "mentor_workspace" | "admin" | "worker" | "system"
+    workspace_id: Optional[str] = None # Workspace ID for External Reviewers / guest workspace sessions
     metadata: dict[str, Any] = Field(default_factory=dict)
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 

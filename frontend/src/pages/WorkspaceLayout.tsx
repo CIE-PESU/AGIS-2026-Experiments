@@ -94,7 +94,7 @@ export function WorkspaceLayout() {
   };
 
   if (!user) return <Navigate to="/login" replace />;
-  if (user.role !== "student") return <Navigate to={getRoleHome(user.role)} replace />;
+  if (user.role !== "student" && user.role !== "mentor_workspace") return <Navigate to={getRoleHome(user.role)} replace />;
 
   return (
     <div className="min-h-screen bg-muted/50 relative overflow-x-hidden">

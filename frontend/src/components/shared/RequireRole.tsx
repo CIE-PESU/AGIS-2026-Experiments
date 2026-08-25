@@ -5,6 +5,7 @@ import type { Role } from "@/types/api";
 const roleHome: Record<Role, string> = {
   student: "/workspace",
   mentor: "/mentor",
+  mentor_workspace: "/workspace",
   admin: "/admin"
 };
 

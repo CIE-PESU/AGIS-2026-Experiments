@@ -266,20 +266,25 @@ tipsc_task:
     - profitability_pivot
     - solvability_constraint
 
-    Inside tips_rag_scores include:
+    Inside tips_rag_scores include exactly this JSON object structure:
 
-    - T: GREEN, YELLOW, or RED
-    - T_reason: one sentence explaining exactly why T got this score
-    - I: GREEN, YELLOW, or RED
-    - I_reason: one sentence explaining exactly why I got this score
-    - P: GREEN, YELLOW, or RED
-    - P_reason: one sentence explaining exactly why P got this score
-    - S: GREEN, YELLOW, or RED
-    - S_reason: one sentence explaining exactly why S got this score
+    {{
+      "T": "GREEN|YELLOW|RED",
+      "T_reason": "one sentence explaining exactly why T got this score",
+      "I": "GREEN|YELLOW|RED",
+      "I_reason": "one sentence explaining exactly why I got this score",
+      "P": "GREEN|YELLOW|RED",
+      "P_reason": "one sentence explaining exactly why P got this score",
+      "S": "GREEN|YELLOW|RED",
+      "S_reason": "one sentence explaining exactly why S got this score"
+    }}
 
-    Do not rename any key. Do not omit any key.
-    Do not return markdown. Do not return explanations.
-    Return ONLY the JSON object.
+    CRITICAL: The object must be FLAT — 8 sibling keys. Do NOT nest reason keys under score keys.
+    WRONG:  {{ "I": {{ "I_reason": "..." }} }}
+    RIGHT:  {{ "I": "GREEN", "I_reason": "..." }}
+
+    Do not rename any key. Do not omit any key. Use only the exact keys shown above.
+    Do not return markdown. Do not return explanations. Return ONLY the JSON object.
     Also include these three fields at the top level:
 
     - needs_followup: true if any dimension is RED or YELLOW due to
@@ -295,13 +300,13 @@ tipsc_task:
         - unclear (for RED)
         This above mentioned mapping is just for criteria_state only and not for tips_rag_scores
 
-      Example mapping:
-        T -> resolved
-        I -> resolved
-        P -> weak
-        S -> unclear
+      Example mapping (strict JSON):
+        "T": "resolved",
+        "I": "resolved",
+        "P": "weak",
+        "S": "unclear"
 
-  expected_output: "Return ONLY valid JSON matching the TIPSCOutput schema. No markdown, no extra keys."
+  expected_output: "Return ONLY valid RFC8259 JSON matching the TIPSCOutput schema. Every key must be double-quoted. No markdown, no extra keys."
 
 followup_task:
   description: |
@@ -331,6 +336,30 @@ followup_task:
 
     Follow these rules STRICTLY.
 
+    Rule 0  ← START HERE
+
+    Read the TIPSC Evaluation JSON above and locate the missing_criteria list.
+
+    This list contains the ONLY dimensions you are allowed to ask about.
+
+    If missing_criteria is empty, return needs_followup = false and questions = [].
+
+    Your question MUST target one of the dimensions in missing_criteria.
+
+    For the chosen dimension, read its reason field (e.g. S_reason, P_reason,
+    T_reason, I_reason) to understand the SPECIFIC evidence gap that caused
+    the RED or YELLOW score. Your question must address that specific gap.
+
+    S (Solvable) can be weak for many reasons: missing technical capability,
+    no execution plan, unclear team composition, lack of key partnerships, or
+    a compliance gap. Read S_reason carefully — ask about whatever capability
+    is actually missing, not compliance by default.
+
+    Only ask a compliance or regulatory question if the reason field
+    explicitly identifies compliance as the missing capability.
+
+    ------------------------------------------------------
+
     Rule 1
 
     The Follow-up History contains a section called:
@@ -345,7 +374,9 @@ followup_task:
 
     Rule 2
 
-    Only ask about criteria that are currently preventing a stronger TIPSC score.
+    Only ask about dimensions that appear in missing_criteria.
+    Do not ask about any dimension that is not in that list, even if you
+    think it could improve the score.
 
     ------------------------------------------------------
 

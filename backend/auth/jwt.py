@@ -54,16 +54,18 @@ def create_access_token(
     name: str,
     team_id: str | None = None,
     mentor_team_ids: list[str] | None = None,
+    workspace_id: str | None = None,
 ) -> str:
     """
     Create a signed JWT access token.
 
     Args:
         user_id: The user's unique ID (stored in MongoDB as _id or a prefixed string).
-        role: One of "student", "mentor", "admin".
+        role: One of "student", "mentor", "admin", "mentor_workspace".
         name: The user's name.
         team_id: The student's team ID (None for non-students).
         mentor_team_ids: List of team IDs the mentor supervises (None for non-mentors).
+        workspace_id: Workspace ID associated with this user session.
 
     Returns:
         A signed JWT string valid for JWT_EXPIRY_MINUTES minutes.
@@ -76,6 +78,7 @@ def create_access_token(
         "role": role,
         "name": name,
         "team_id": team_id,
+        "workspace_id": workspace_id,
         "mentor_team_ids": mentor_team_ids or [],
         "iat": now,                            # Issued-at
         "exp": expire,                         # Expiry — ALWAYS present
