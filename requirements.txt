@@ -1,0 +1,59 @@
+# =============================================================================
+# Project-level requirements — consolidated from all submodules
+# Sources:
+#   - backend/requirements.txt
+#   - customer-interview-planner-agent/requirements.txt
+#   - customer-interview-planner-agent/pyproject.toml
+#   - DFV-agent/pyproject.toml
+#   - TIPSC-Agent/pyproject.toml
+# =============================================================================
+
+# ── Web Framework ─────────────────────────────────────────────────────────────
+fastapi>=0.115.5
+uvicorn[standard]>=0.32.1
+
+# ── Pydantic ──────────────────────────────────────────────────────────────────
+pydantic>=2.11.9,<2.13
+pydantic-settings>=2.10.1,<2.11
+
+# ── Environment ───────────────────────────────────────────────────────────────
+python-dotenv>=1.2.2,<2
+
+# ── MongoDB ───────────────────────────────────────────────────────────────────
+motor>=3.6.0
+beanie==1.27.0
+pymongo>=4.8.0,<5
+
+# ── Auth ──────────────────────────────────────────────────────────────────────
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt<5
+cryptography>=42.0.0,<44
+
+# ── HTTP Client ───────────────────────────────────────────────────────────────
+httpx>=0.28.1,<0.29
+
+# ── Kafka ─────────────────────────────────────────────────────────────────────
+aiokafka>=0.11.0
+kafka-python>=3.0.7
+
+# ── Agent Framework ───────────────────────────────────────────────────────────
+crewai[litellm,tools]>=1.15.2
+crewai-tools>=1.15.1
+litellm>=1.91.0
+
+# ── LLM / Search ──────────────────────────────────────────────────────────────
+langchain-openai>=0.3.0
+tavily-python>=0.7.26
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+python-multipart==0.0.12
+ulid-py==1.1.0
+pyyaml>=6.0,<7
+
+# ── Dev / Test ────────────────────────────────────────────────────────────────
+pytest==8.3.4
+pytest-asyncio==0.24.0
+pytest-cov==5.0.0
+ruff==0.8.3
+mypy==1.13.0

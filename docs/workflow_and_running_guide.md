@@ -23,8 +23,8 @@ Ensure the target system has the following software installed:
 Start MongoDB and Apache Kafka using Docker Compose:
 
 ```bash
-# Navigate to workspace root
-cd "/Users/saicharanbk/Documents/Github Projects/AGIS-2026-Experiments"
+# Navigate to the backend directory
+cd backend
 
 # Launch MongoDB (27017) and Kafka (9092) in detached mode
 docker compose up -d
