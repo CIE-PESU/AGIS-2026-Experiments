@@ -38,3 +38,8 @@ export function mapDiscoveryOutput(backend: any): JTBDResult | null {
   if (!backend || !backend.output) return null;
   return backend.output as JTBDResult;
 }
+
+export function mapPmfOutput(backend: any): any | null {
+  if (!backend) return null;
+  return backend.output || backend;
+}

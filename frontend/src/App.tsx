@@ -9,6 +9,7 @@ import { StudentWorkspace } from "@/pages/StudentWorkspace";
 import { TIPSCFlow } from "@/pages/TIPSCFlow";
 import { DFVFlow } from "@/pages/DFVFlow";
 import { DiscoveryFlow } from "@/pages/DiscoveryFlow";
+import { PMFFlow } from "@/pages/PMFFlow";
 import { MentorDashboard } from "@/pages/MentorDashboard";
 import { MentorMagicLinkHandler } from "@/pages/MentorMagicLinkHandler";
 
@@ -26,6 +27,7 @@ export default function App() {
             <Route path="dfv" element={<DFVFlow />} />
             <Route path="discovery" element={<DiscoveryFlow />} />
             <Route path="jtbd" element={<Navigate to="/workspace/discovery" replace />} />
+            <Route path="pmf" element={<PMFFlow />} />
           </Route>
           <Route path="/mentor" element={<MentorDashboard />} />
           <Route path="/admin" element={<AdminDashboard />} />

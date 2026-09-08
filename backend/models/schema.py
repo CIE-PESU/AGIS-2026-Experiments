@@ -89,14 +89,34 @@ class DiscoveryJobMessage(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Outbound: userSession.notifications (shared by DFV and Discovery workers)
+# Inbound: userSession.pmf
+# ---------------------------------------------------------------------------
+
+class PMFJobPayload(BaseModel):
+    idea_name:         str = ""
+    problem_statement: str = ""
+    proposed_solution: str = ""
+    customer_segment:  str = ""
+
+
+class PMFJobMessage(BaseModel):
+    """Message published by backend on POST /sessions/{id}/trigger/pmf."""
+    userSession_id: str = Field(..., description="MongoDB _id string of the session")
+    correlation_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    retry_count:    int = Field(default=0)
+    payload:        PMFJobPayload
+    published_at:   datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+# ---------------------------------------------------------------------------
+# Outbound: userSession.notifications (shared by DFV, Discovery, PMF workers)
 # ---------------------------------------------------------------------------
 
 class NotificationMessage(BaseModel):
     """Published by any worker on completion or failure."""
     userSession_id: str
     correlation_id: str
-    flow:           str             # "dfv" | "discovery" | "tipsc"
+    flow:           str             # "dfv" | "discovery" | "pmf" | "tipsc"
     status:         FlowStatus
     idea_name:      Optional[str]  = None
     error:          Optional[str]  = None

@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Archive, Download, Target, TrendingUp, Users, Clock, Eye } from "lucide-react";
+import { Archive, Download, Target, TrendingUp, Users, Clock, Eye, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -60,7 +60,8 @@ export function StudentWorkspace() {
   const modules = [
     { key: "tipsc" as const, title: "TIPSC Evaluation", icon: Target, color: "text-secondary", path: "/workspace/tipsc", description: "Assess timely, importance, profitable, and solvable strength." },
     { key: "dfv" as const, title: "DFV Analysis", icon: TrendingUp, color: "text-primary", path: "/workspace/dfv", description: "Validate desirability, feasibility, and viability before moving ahead." },
-    { key: "discovery" as const, title: "Customer Discovery", icon: Users, color: "text-accent", path: "/workspace/discovery", description: "Generate customer jobs, interview plans, and discovery recommendations." }
+    { key: "discovery" as const, title: "Customer Discovery", icon: Users, color: "text-accent", path: "/workspace/discovery", description: "Generate customer jobs, interview plans, and discovery recommendations." },
+    { key: "pmf" as const, title: "PMF Analysis", icon: BarChart3, color: "text-emerald-600", path: "/workspace/pmf", description: "Evaluate product-market fit score, target market demand, and risk profile." }
   ];
 
   const exportReport = () =>
@@ -114,12 +115,12 @@ export function StudentWorkspace() {
           </AlertDialog>
         </div>
       </div>
-      <div className="mt-8 grid grid-cols-3 gap-2 rounded-lg bg-white p-2 shadow-sm">
-        {(["tipsc", "dfv", "discovery"] as const).map((key) => (
+      <div className="mt-8 grid grid-cols-4 gap-2 rounded-lg bg-white p-2 shadow-sm">
+        {(["tipsc", "dfv", "discovery", "pmf"] as const).map((key) => (
           <div key={key} className={`h-3 rounded-full ${session[key] === "completed" ? "bg-emerald-500" : session[key] === "locked" ? "bg-muted" : "bg-secondary"}`} />
         ))}
       </div>
-      <div className="mt-8 grid gap-6 md:grid-cols-3">
+      <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {modules.map(({ key, title, icon: Icon, color, path, description }) => {
           const status = session[key];
           return (
@@ -144,7 +145,7 @@ export function StudentWorkspace() {
         })}
       </div>
       <div className="mt-8 rounded-lg border border-secondary/20 bg-secondary/10 p-4 text-sm font-semibold text-secondary">
-        Sequential Evaluation: TIPSC unlocks DFV, and DFV unlocks Customer Discovery.
+        Sequential Pipeline: TIPSC → DFV → Customer Discovery → PMF Viability Analysis.
       </div>
 
       {/* Team Progress Monitor — powered by live team session progress API */}

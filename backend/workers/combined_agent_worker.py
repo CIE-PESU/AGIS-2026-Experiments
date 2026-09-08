@@ -59,6 +59,7 @@ from kafka.topics import KafkaTopic
 from models.schema import (
     DFVJobMessage,
     DiscoveryJobMessage,
+    PMFJobMessage,
 )
 
 
@@ -189,19 +190,34 @@ def _load_discovery_agent():
         raise
 
 
-# Load agents before restoring backend models.
+def _load_pmf_agent():
+    pmf_path = os.path.join(
+        PROJECT_ROOT,
+        "pmf-agent",
+        "main.py",
+    )
 
-run_dfv_analysis = _load_dfv_agent()
+    try:
+        module = _load_module(
+            "agis_pmf_agent_main",
+            pmf_path,
+        )
 
-_clear_conflicting_modules()
+        logger.info(
+            "PMF agent loaded from %s",
+            pmf_path,
+        )
 
-# Restore backend root as highest priority.
-if BACKEND_ROOT in sys.path:
-    sys.path.remove(BACKEND_ROOT)
+        return module.run_pmf_analysis
 
-sys.path.insert(0, BACKEND_ROOT)
+    except Exception:
+        logger.exception(
+            "Failed to load PMF agent"
+        )
+        raise
 
-run_discovery_analysis = _load_discovery_agent()
+
+run_pmf_analysis = _load_pmf_agent()
 
 _clear_conflicting_modules()
 
@@ -302,14 +318,13 @@ class CombinedAgentWorker:
 
         self.consumer_discovery: AIOKafkaConsumer | None = None
 
+        self.consumer_pmf: AIOKafkaConsumer | None = None
+
         self.producer: AIOKafkaProducer | None = None
 
         self.http_client: httpx.AsyncClient | None = None
 
         # Only ONE agent workload may execute at a time.
-        #
-        # DFV and Discovery use the same local LLM infrastructure.
-        # This prevents simultaneous CrewAI workloads.
         self._agent_lock = asyncio.Lock()
 
 
@@ -350,6 +365,12 @@ class CombinedAgentWorker:
             **consumer_options,
         )
 
+        self.consumer_pmf = AIOKafkaConsumer(
+            KafkaTopic.USER_SESSION_PMF,
+            group_id="combined_agent_worker_group_pmf",
+            **consumer_options,
+        )
+
         self.producer = AIOKafkaProducer(
             bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS,
         )
@@ -373,13 +394,17 @@ class CombinedAgentWorker:
 
         await self.consumer_discovery.start()
         print("Discovery consumer started")
+
+        await self.consumer_pmf.start()
+        print("PMF consumer started")
         await self.producer.start()
         print("Producer started")
 
         logger.info(
-            "Combined worker started | DFV=%s | Discovery=%s",
+            "Combined worker started | DFV=%s | Discovery=%s | PMF=%s",
             KafkaTopic.USER_SESSION_DFV,
             KafkaTopic.USER_SESSION_DISCOVERY,
+            KafkaTopic.USER_SESSION_PMF,
         )
 
 
@@ -394,6 +419,9 @@ class CombinedAgentWorker:
 
         if self.consumer_discovery is not None:
             await self.consumer_discovery.stop()
+
+        if self.consumer_pmf is not None:
+            await self.consumer_pmf.stop()
 
         if self.producer is not None:
             await self.producer.stop()
@@ -626,6 +654,60 @@ class CombinedAgentWorker:
 
 
     # =========================================================================
+    # PMF
+    # =========================================================================
+
+    async def _process_pmf(
+        self,
+        job: PMFJobMessage,
+    ) -> None:
+
+        started_at = datetime.now(timezone.utc)
+        start_time = time.monotonic()
+
+        _log(
+            job.correlation_id,
+            "Starting Product-Market Fit analysis",
+        )
+
+        async with self._agent_lock:
+            result = await asyncio.wait_for(
+                asyncio.to_thread(
+                    run_pmf_analysis,
+                    job.payload.model_dump(),
+                ),
+                timeout=settings.AGENT_TIMEOUT_SECONDS,
+            )
+
+        parsed = _parse_agent_output(result)
+        completed_at = datetime.now(timezone.utc)
+        duration = time.monotonic() - start_time
+
+        pmf_output = {
+            "correlation_id": job.correlation_id,
+            "status": "done",
+            "output": parsed,
+            "error": None,
+            "retry_count": job.retry_count,
+            "started_at": started_at.isoformat(),
+            "completed_at": completed_at.isoformat(),
+        }
+
+        await self._report_success(
+            session_id=job.userSession_id,
+            correlation_id=job.correlation_id,
+            flow="pmf",
+            output=pmf_output,
+            duration_seconds=duration,
+        )
+
+        _log(
+            job.correlation_id,
+            f"Product-Market Fit completed | duration={duration:.2f}s",
+        )
+
+
+    # =========================================================================
     # MESSAGE HANDLERS (SINGLE-SHOT EXECUTORS)
     # =========================================================================
 
@@ -705,6 +787,44 @@ class CombinedAgentWorker:
                 )
 
 
+    async def _handle_pmf(
+        self,
+        raw_value: dict[str, Any],
+    ) -> None:
+
+        try:
+            job = PMFJobMessage(**raw_value)
+        except ValidationError as exc:
+            logger.error(
+                "Malformed PMF Kafka message: %s",
+                exc,
+            )
+            return
+
+        try:
+            await self._process_pmf(job)
+        except Exception as exc:
+            _log(
+                job.correlation_id,
+                f"PMF failed: {exc}",
+                level="error",
+            )
+            try:
+                await self._report_failure(
+                    session_id=job.userSession_id,
+                    correlation_id=job.correlation_id,
+                    flow="pmf",
+                    error_code="PMF_AGENT_FAILED",
+                    error_message=str(exc),
+                    retry_count=job.retry_count,
+                )
+            except Exception as report_exc:
+                logger.error(
+                    "Failed to report PMF failure to backend: %s",
+                    report_exc,
+                )
+
+
     # =========================================================================
     # CONSUMER LOOPS
     # =========================================================================
@@ -751,6 +871,26 @@ class CombinedAgentWorker:
                 await self.consumer_discovery.commit()
 
 
+    async def _consume_pmf(self) -> None:
+
+        if self.consumer_pmf is None:
+            raise RuntimeError(
+                "PMF consumer is not initialized"
+            )
+
+        async for message in self.consumer_pmf:
+            try:
+                await self._handle_pmf(
+                    message.value
+                )
+            except Exception:
+                logger.exception(
+                    "Unexpected PMF consumer error"
+                )
+            finally:
+                await self.consumer_pmf.commit()
+
+
     # =========================================================================
     # RUN
     # =========================================================================
@@ -764,6 +904,7 @@ class CombinedAgentWorker:
             await asyncio.gather(
                 self._consume_dfv(),
                 self._consume_discovery(),
+                self._consume_pmf(),
             )
 
         finally:

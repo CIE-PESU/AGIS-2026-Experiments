@@ -3,13 +3,13 @@ import { clearTokens, getRefreshToken } from "@/services/apiClient";
 import { login as apiLogin, logout as apiLogout, getActiveSession } from "@/services/authSessions";
 import { deriveStageAccess } from "@/hooks/useSessionPolling";
 import type { DFVResult, JTBDResult, StageStatus, TIPSCResult } from "@/data/mockData";
-import type { Role, SessionDocument, SessionStatus } from "@/types/api";
+import type { PMFResult, Role, SessionDocument, SessionStatus } from "@/types/api";
 import { getStudents } from "@/utils/adminData";
-import { mapTipscOutput, mapDfvOutput, mapDiscoveryOutput } from "@/utils/mapSessionResults";
+import { mapTipscOutput, mapDfvOutput, mapDiscoveryOutput, mapPmfOutput } from "@/utils/mapSessionResults";
 
 export type AppUser = { userId: string; srn: string; name: string; role: Role; teamId: string | null };
-export type SessionState = { tipsc: StageStatus; dfv: StageStatus; discovery: StageStatus };
-export type SessionResults = { tips: TIPSCResult | null; dfv: DFVResult | null; discovery: JTBDResult | null };
+export type SessionState = { tipsc: StageStatus; dfv: StageStatus; discovery: StageStatus; pmf: StageStatus };
+export type SessionResults = { tips: TIPSCResult | null; dfv: DFVResult | null; discovery: JTBDResult | null; pmf: PMFResult | null };
 export type TimelineEvent = { label: string; timestamp: string };
 export type FormDataMap = Record<string, string>;
 
@@ -37,8 +37,8 @@ type AuthContextValue = {
 
 };
 
-const defaultSession: SessionState = { tipsc: "available", dfv: "locked", discovery: "locked" };
-const defaultResults: SessionResults = { tips: null, dfv: null, discovery: null };
+const defaultSession: SessionState = { tipsc: "available", dfv: "locked", discovery: "locked", pmf: "locked" };
+const defaultResults: SessionResults = { tips: null, dfv: null, discovery: null, pmf: null };
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 const timestamp = () =>
@@ -205,13 +205,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const discoveryData = doc.discovery;
       setResults(prev => ({ ...prev, discovery: mapDiscoveryOutput(discoveryData) }));
     }
+    if (doc.pmf) {
+      const pmfData = doc.pmf;
+      setResults(prev => ({ ...prev, pmf: mapPmfOutput(pmfData) }));
+    }
   }, []);
 
   const unlockNext = useCallback((completed: keyof SessionState) => {
     setSession((current) => {
       if (completed === "tipsc") return { ...current, tipsc: "completed", dfv: "available" };
       if (completed === "dfv") return { ...current, dfv: "completed", discovery: "available" };
-      return { ...current, discovery: "completed" };
+      if (completed === "discovery") return { ...current, discovery: "completed", pmf: "available" };
+      return { ...current, pmf: "completed" };
     });
   }, []);
 

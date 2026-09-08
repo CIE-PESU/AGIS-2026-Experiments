@@ -127,6 +127,7 @@ ALLOWED_TRANSITIONS: dict[
 
     SessionStatus.DISCOVERY_WAITING: frozenset({
         SessionStatus.DISCOVERY_RUNNING,
+        SessionStatus.PMF_WAITING,
         SessionStatus.COMPLETED, 
         SessionStatus.DISCOVERY_FAILED,
         SessionStatus.FAILED,
@@ -134,6 +135,7 @@ ALLOWED_TRANSITIONS: dict[
     }),
 
     SessionStatus.DISCOVERY_RUNNING: frozenset({
+        SessionStatus.PMF_WAITING,
         SessionStatus.COMPLETED,
         SessionStatus.DISCOVERY_FAILED,
         SessionStatus.FAILED,
@@ -145,11 +147,39 @@ ALLOWED_TRANSITIONS: dict[
         SessionStatus.DFV_WAITING,
     }),
     # ──────────────────────────────────────────────────────────────────────
+    # PMF
+    # ──────────────────────────────────────────────────────────────────────
+
+    SessionStatus.PMF_WAITING: frozenset({
+        SessionStatus.PMF_WAITING,
+        SessionStatus.PMF_RUNNING,
+        SessionStatus.PMF_COMPLETED,
+        SessionStatus.PMF_FAILED,
+        SessionStatus.FAILED,
+    }),
+
+    SessionStatus.PMF_RUNNING: frozenset({
+        SessionStatus.PMF_COMPLETED,
+        SessionStatus.PMF_FAILED,
+        SessionStatus.FAILED,
+    }),
+
+    SessionStatus.PMF_COMPLETED: frozenset({
+        SessionStatus.COMPLETED,
+        SessionStatus.ARCHIVED,
+    }),
+
+    SessionStatus.PMF_FAILED: frozenset({
+        SessionStatus.PMF_WAITING,
+        SessionStatus.ARCHIVED,
+    }),
+    # ──────────────────────────────────────────────────────────────────────
     # Global terminal states
     # ──────────────────────────────────────────────────────────────────────
 
     SessionStatus.COMPLETED: frozenset({
         SessionStatus.DFV_WAITING,
+        SessionStatus.PMF_WAITING,
     }),
 
     SessionStatus.FAILED: frozenset({

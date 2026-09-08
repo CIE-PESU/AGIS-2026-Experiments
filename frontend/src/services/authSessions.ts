@@ -71,6 +71,10 @@ export async function triggerDiscovery(sessionId: string, payload: any) {
   return apiRequest(`/sessions/${sessionId}/trigger/discovery`, { method: "POST", body: payload });
 }
 
+export async function triggerPmf(sessionId: string) {
+  return apiRequest(`/sessions/${sessionId}/trigger/pmf`, { method: "POST" });
+}
+
 export async function submitFollowup(sessionId: string, answer: string): Promise<any> {
   return apiRequest(`/sessions/${sessionId}/followup`, { method: "POST", body: { answer } });
 }

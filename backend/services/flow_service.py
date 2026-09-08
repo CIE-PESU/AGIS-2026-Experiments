@@ -27,6 +27,8 @@ from models.schema import (
     DFVJobPayload,
     DiscoveryJobMessage,
     DiscoveryJobPayload,
+    PMFJobMessage,
+    PMFJobPayload,
 )
 from kafka.topics import KafkaTopic
 
@@ -48,6 +50,7 @@ from state_machine.validator import validate_transition
 
 DFV_TOPIC = KafkaTopic.USER_SESSION_DFV
 DISCOVERY_TOPIC = KafkaTopic.USER_SESSION_DISCOVERY
+PMF_TOPIC = KafkaTopic.USER_SESSION_PMF
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -683,6 +686,78 @@ class FlowService:
             "session_id": str(session.id),
             "flow": "discovery",
             "status": SessionStatus.DISCOVERY_WAITING.value,
+            "correlation_id": correlation_id,
+            "triggered_at": _now_iso(),
+        }
+
+
+    # ──────────────────────────────────────────────────────────────────────
+    # PMF
+    # ──────────────────────────────────────────────────────────────────────
+
+
+    async def trigger_pmf(
+        self,
+        session_id: str,
+        student_id: Optional[str] = None,
+        workspace_id: Optional[str] = None,
+    ) -> dict:
+
+        session = await self._load_session(
+            session_id,
+            student_id=student_id,
+            workspace_id=workspace_id,
+        )
+
+        correlation_id = _new_correlation_id()
+
+        cas_won = await self._session_repo.atomic_start_pmf_flow(
+            session_id=session_id,
+            correlation_id=correlation_id,
+        )
+
+        if not cas_won:
+            current = await self._load_session(session_id, student_id=student_id, workspace_id=workspace_id)
+            return {
+                "session_id": str(current.id),
+                "flow": "pmf",
+                "status": current.status.value,
+                "correlation_id": current.correlation_id or correlation_id,
+                "triggered_at": _now_iso(),
+            }
+
+        payload = PMFJobMessage(
+            userSession_id=str(session.id),
+            correlation_id=correlation_id,
+            retry_count=0,
+            payload=PMFJobPayload(
+                idea_name=session.idea or "",
+                problem_statement=session.problem_statement or "",
+                proposed_solution=session.idea or "",
+                customer_segment=session.customer_segment or "",
+            ),
+        )
+
+        await self._publish_or_raise(
+            PMF_TOPIC,
+            payload.model_dump(),
+            "pmf",
+        )
+
+        await self._audit.log_event(
+            session_id=session_id,
+            event="PMF_TRIGGERED",
+            actor=student_id or (f"ws_{workspace_id}" if workspace_id else "system"),
+            actor_role="student" if student_id else "mentor_workspace",
+            metadata={
+                "correlation_id": correlation_id,
+            },
+        )
+
+        return {
+            "session_id": str(session.id),
+            "flow": "pmf",
+            "status": SessionStatus.PMF_WAITING.value,
             "correlation_id": correlation_id,
             "triggered_at": _now_iso(),
         }

@@ -62,11 +62,13 @@ def _get_flow_service() -> FlowService:
             from models.schema import (
                 DFVJobMessage,
                 DiscoveryJobMessage,
+                PMFJobMessage,
             )
 
             topic_to_model = {
                 KafkaTopic.USER_SESSION_DFV: DFVJobMessage,
                 KafkaTopic.USER_SESSION_DISCOVERY: DiscoveryJobMessage,
+                KafkaTopic.USER_SESSION_PMF: PMFJobMessage,
             }
 
             if isinstance(payload, BaseModel):
@@ -320,6 +322,58 @@ async def trigger_discovery(
         session_id=session_id,
         student_id=current_user.user_id if current_user.is_student else None,
         discovery_inputs=body.model_dump(),
+        workspace_id=current_user.workspace_id,
+    )
+
+    return success_response(
+        data=result,
+        request=request,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PMF
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@router.post(
+    "/{session_id}/trigger/pmf",
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Trigger PMF evaluation",
+)
+async def trigger_pmf(
+    request: Request,
+    session_id: str,
+    current_user: Annotated[
+        CurrentUser,
+        Depends(require_role(UserRole.STUDENT, UserRole.MENTOR_WORKSPACE)),
+    ],
+    idempotency_key: Annotated[
+        Optional[str],
+        Header(alias="Idempotency-Key"),
+    ] = None,
+):
+    validate_object_id(session_id)
+
+    if idempotency_key:
+        session = await session_repo.find_by_id(session_id)
+        if session and session.correlation_id and session.status.value == "pmf_waiting":
+            return success_response(
+                data={
+                    "session_id": session_id,
+                    "flow": "pmf",
+                    "status": session.status.value,
+                    "correlation_id": session.correlation_id,
+                    "triggered_at": session.updated_at.isoformat(),
+                },
+                request=request,
+            )
+
+    flow_service = _get_flow_service()
+
+    result = await flow_service.trigger_pmf(
+        session_id=session_id,
+        student_id=current_user.user_id if current_user.is_student else None,
         workspace_id=current_user.workspace_id,
     )
 

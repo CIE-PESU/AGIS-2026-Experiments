@@ -627,6 +627,42 @@ class SessionRepository(BaseRepository[Session]):
         modified = getattr(result, "modified_count", 0)
         return matched == 1 or modified == 1
 
+    async def atomic_start_pmf_flow(
+        self,
+        session_id: str,
+        correlation_id: str,
+    ) -> bool:
+        """
+        Atomically transition session from allowed pre-PMF status (DISCOVERY_COMPLETED, COMPLETED, PMF_FAILED)
+        to PMF_WAITING.
+        """
+        now = utc_now()
+        allowed_statuses = [
+            SessionStatus.DISCOVERY_WAITING.value,
+            SessionStatus.DISCOVERY_RUNNING.value,
+            SessionStatus.COMPLETED.value,
+            SessionStatus.PMF_FAILED.value,
+        ]
+        result = await Session.find_one(
+            Session.id == PydanticObjectId(session_id),
+            In("status", allowed_statuses),
+        ).update(
+            {
+                "$set": {
+                    "correlation_id": correlation_id,
+                    "status": SessionStatus.PMF_WAITING.value,
+                    "flow_started_at": now,
+                    "updated_at": now,
+                },
+                "$inc": {"version": 1},
+            }
+        )
+        if result is None:
+            return False
+        matched = getattr(result, "matched_count", 0)
+        modified = getattr(result, "modified_count", 0)
+        return matched == 1 or modified == 1
+
     async def set_correlation_id(
         self,
         session_id: str,

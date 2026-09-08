@@ -216,6 +216,22 @@ class DiscoveryOutput(BaseModel):
     completed_at: Optional[datetime] = None
 
 
+class PMFOutput(BaseModel):
+    correlation_id: str = ""
+
+    status: str = ""
+
+    output: Optional[dict[str, Any]] = None
+
+    error: Optional[str] = None
+
+    retry_count: int = 0
+
+    started_at: Optional[datetime] = None
+
+    completed_at: Optional[datetime] = None
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Worker failure metadata
 # ─────────────────────────────────────────────────────────────────────────────
@@ -286,6 +302,8 @@ class Session(Document):
     dfv: Optional[DFVOutput] = None
 
     discovery: Optional[DiscoveryOutput] = None
+
+    pmf: Optional[PMFOutput] = None
 
     # ── DFV founder context ────────────────────────────────────────────────
 

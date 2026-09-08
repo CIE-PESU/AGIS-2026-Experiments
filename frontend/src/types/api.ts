@@ -19,6 +19,10 @@ export type SessionStatus =
 | "discovery_waiting"
 | "discovery_running"
 | "discovery_failed"
+| "pmf_waiting"
+| "pmf_running"
+| "pmf_completed"
+| "pmf_failed"
 | "completed"
 | "failed"
 | "archived";
@@ -228,6 +232,66 @@ findings: string[];
 next_steps: string[];
 }
 
+export interface SeanEllisTest {
+  very_disappointed_percentage: number;
+  meets_target: boolean;
+  analysis: string;
+}
+
+export interface NetPromoterScore {
+  nps_score: number;
+  meets_target: boolean;
+  promoters_ratio: string;
+}
+
+export interface RetentionAnalysis {
+  curve_trajectory: "Flattening" | "Smile Curve" | "Decaying" | string;
+  value_creation_signal: "STRONG" | "MODERATE" | "WEAK" | string;
+  summary: string;
+}
+
+export interface PMFMetrics {
+  pmf_score: number;
+  product_market_alignment: string;
+  target_market_demand: string;
+  value_proposition_strength: string;
+  defensibility: string;
+  sean_ellis_test?: SeanEllisTest;
+  net_promoter_score?: NetPromoterScore;
+  retention_analysis?: RetentionAnalysis;
+}
+
+export interface RiskAssessment {
+  risk_level: "LOW" | "MODERATE" | "HIGH" | "CRITICAL";
+  key_risks: string[];
+}
+
+export interface PMFResult {
+  correlation_id?: string;
+  status?: string;
+  output?: {
+    pmf_metrics?: PMFMetrics;
+    sean_ellis_test?: SeanEllisTest;
+    net_promoter_score?: NetPromoterScore;
+    retention_analysis?: RetentionAnalysis;
+    executive_summary?: string;
+    risk_assessment?: RiskAssessment;
+    recommendations?: string[];
+    raw?: string;
+  };
+  pmf_metrics?: PMFMetrics;
+  sean_ellis_test?: SeanEllisTest;
+  net_promoter_score?: NetPromoterScore;
+  retention_analysis?: RetentionAnalysis;
+  executive_summary?: string;
+  risk_assessment?: RiskAssessment;
+  recommendations?: string[];
+  raw?: string;
+  error?: string | null;
+  started_at?: string;
+  completed_at?: string;
+}
+
 export type SessionDocument = {
 session_id: string;
 team_id?: string | null;
@@ -252,6 +316,7 @@ compliance_context?: string | null;
 tipsc?: TIPSCResult | null;
 dfv?: DFVResult | null;
 discovery?: DiscoveryResult | null;
+pmf?: PMFResult | null;
 
 pending_question?: string | null;
 followup_turn?: number;

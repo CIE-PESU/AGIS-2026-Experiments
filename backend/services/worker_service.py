@@ -11,7 +11,7 @@ from exceptions.base import (
     CorrelationIDMismatchError,
     InvalidOutputSchemaError,
 )
-from models.session import TIPSCOutput, DFVOutput, DiscoveryOutput
+from models.session import TIPSCOutput, DFVOutput, DiscoveryOutput, PMFOutput
 from models.audit import AuditEvent
 from repositories.session_repo import session_repo
 from services.audit_service import audit_service
@@ -87,6 +87,13 @@ class WorkerService:
                 audit_event = AuditEvent.DISCOVERY_COMPLETED
             except ValidationError as e:
                 raise InvalidOutputSchemaError(f"Invalid Discovery output schema: {e}")
+        elif flow == "pmf":
+            try:
+                parsed_output = PMFOutput(**output)
+                target_status = SessionStatus.PMF_COMPLETED
+                audit_event = AuditEvent.PMF_COMPLETED
+            except ValidationError as e:
+                raise InvalidOutputSchemaError(f"Invalid PMF output schema: {e}")
         else:
             raise InvalidOutputSchemaError(f"Unknown flow: {flow}")
 
@@ -141,6 +148,9 @@ class WorkerService:
         elif flow == "discovery":
             target_status = SessionStatus.DISCOVERY_FAILED
             audit_event = AuditEvent.DISCOVERY_FAILED
+        elif flow == "pmf":
+            target_status = SessionStatus.PMF_FAILED
+            audit_event = AuditEvent.PMF_FAILED
         else:
             raise ValueError(f"Unknown flow: {flow}")
             

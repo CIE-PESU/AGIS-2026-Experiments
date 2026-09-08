@@ -491,10 +491,10 @@ export function TIPSCFlow() {
           <div className="mt-2 text-sm">
             <ReactMarkdown
               components={{
-                p: ({node, ...props}) => <p className="mb-2 last:mb-0 whitespace-pre-wrap" {...props} />,
-                ul: ({node, ...props}) => <ul className="list-disc pl-5 mb-2" {...props} />,
-                li: ({node, ...props}) => <li className="mb-1" {...props} />,
-                strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
+                p: ({node, ...props}: any) => <p className="mb-2 last:mb-0 whitespace-pre-wrap" {...props} />,
+                ul: ({node, ...props}: any) => <ul className="list-disc pl-5 mb-2" {...props} />,
+                li: ({node, ...props}: any) => <li className="mb-1" {...props} />,
+                strong: ({node, ...props}: any) => <strong className="font-semibold" {...props} />,
               }}
             >
               {tips.reasoning}
@@ -649,10 +649,10 @@ function ScoreGrid({ tips }: { tips: TIPSCResult }) {
         <div className="text-sm text-muted-foreground">
           <ReactMarkdown
             components={{
-              p: ({node, ...props}) => <p className="mb-2 last:mb-0 whitespace-pre-wrap" {...props} />,
-              ul: ({node, ...props}) => <ul className="list-disc pl-5 mb-2" {...props} />,
-              li: ({node, ...props}) => <li className="mb-1" {...props} />,
-              strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
+              p: ({node, ...props}: any) => <p className="mb-2 last:mb-0 whitespace-pre-wrap" {...props} />,
+              ul: ({node, ...props}: any) => <ul className="list-disc pl-5 mb-2" {...props} />,
+              li: ({node, ...props}: any) => <li className="mb-1" {...props} />,
+              strong: ({node, ...props}: any) => <strong className="font-semibold" {...props} />,
             }}
           >
             {tips.reasoning}

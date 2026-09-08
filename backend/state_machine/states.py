@@ -37,6 +37,12 @@ class SessionStatus(str, Enum):
     DISCOVERY_RUNNING = "discovery_running"
     DISCOVERY_FAILED = "discovery_failed"
 
+    # PMF
+    PMF_WAITING = "pmf_waiting"
+    PMF_RUNNING = "pmf_running"
+    PMF_COMPLETED = "pmf_completed"
+    PMF_FAILED = "pmf_failed"
+
     # Global terminal states
     COMPLETED = "completed"
     FAILED = "failed"
@@ -53,6 +59,7 @@ RUNNING_STATES = frozenset(
         SessionStatus.TIPSC_REEVALUATION,
         SessionStatus.DFV_RUNNING,
         SessionStatus.DISCOVERY_RUNNING,
+        SessionStatus.PMF_RUNNING,
     }
 )
 
