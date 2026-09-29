@@ -1,0 +1,57 @@
+evaluate_idea:
+  description: |
+    Evaluate the following startup idea across 10 parameters.
+
+    INPUT:
+    - Problem: {problem}
+    - Customer: {customer}
+    - Solution: {solution}
+    - Consequence if unsolved: {consequence}
+    - Business model / who pays: {business_model}
+    - Urgency / timeline: {urgency}
+    - Biggest hurdles: {hurdles}
+
+    For each parameter, apply the rubric from QUICKSTART_SKILL.md. Use tools ONLY when
+    external evidence is needed (market size, regulations, competitor data). Max 1 tool
+    call per parameter.
+
+    CRITICAL: Output ONLY a valid JSON object matching this EXACT schema:
+    {
+      "parameters": [
+        {"name": "harm_vector", "rating": "GREEN|YELLOW|RED", "reason": "one sentence."},
+        {"name": "legal_risk", "rating": "GREEN|YELLOW|RED", "reason": "one sentence."},
+        {"name": "problem_solution_integrity", "rating": "GREEN|RED", "reason": "one sentence."},
+        {"name": "timely", "rating": "GREEN|YELLOW|RED", "reason": "one sentence."},
+        {"name": "important", "rating": "GREEN|YELLOW|RED", "reason": "one sentence."},
+        {"name": "profitable", "rating": "GREEN|YELLOW|RED", "reason": "one sentence."},
+        {"name": "solvable", "rating": "GREEN|YELLOW|RED", "reason": "one sentence."},
+        {"name": "desirability", "rating": "GREEN|YELLOW|RED", "reason": "one sentence."},
+        {"name": "feasibility", "rating": "GREEN|YELLOW|RED", "reason": "one sentence."},
+        {"name": "viability", "rating": "GREEN|YELLOW|RED", "reason": "one sentence."}
+      ],
+      "parameter_advice": {
+        "harm_vector": "advice or empty",
+        "legal_risk": "advice or empty",
+        "problem_solution_integrity": "advice or empty",
+        "timely": "advice or empty",
+        "important": "advice or empty",
+        "profitable": "advice or empty",
+        "solvable": "advice or empty",
+        "desirability": "advice or empty",
+        "feasibility": "advice or empty",
+        "viability": "advice or empty"
+      },
+      "priority_advice": ["step 1", "step 2", "step 3"]
+    }
+
+    Rules:
+    - All 10 parameters MUST be present in the exact order above
+    - Parameter names MUST match exactly: harm_vector, legal_risk, problem_solution_integrity, timely, important, profitable, solvable, desirability, feasibility, viability
+    - Ratings must be exactly: GREEN, YELLOW, or RED (uppercase)
+    - problem_solution_integrity only uses GREEN or RED (no YELLOW)
+    - Every reason must be a single sentence ending with a period
+    - No markdown, no code fences, no extra keys
+  expected_output: |
+    A valid JSON object with exactly the structure shown above.
+  agent: quickstart_evaluator
+  async_execution: false

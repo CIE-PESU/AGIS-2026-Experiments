@@ -62,7 +62,8 @@ export function deriveStageAccess(doc: any | null) {
   return {
     tipsc: toStageStatus(access.tipsc),
     dfv: toStageStatus(access.dfv),
-    discovery: toStageStatus(access.discovery)
+    discovery: toStageStatus(access.discovery),
+    quickstart: toStageStatus(access.quickstart)
   };
 }
 

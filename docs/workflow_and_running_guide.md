@@ -7,12 +7,12 @@
 
 ## 1. System Prerequisites
 
-| Tool | Version | Notes |
-|---|---|---|
-| Python | `3.12+` | Check: `python3 --version` |
-| Node.js & npm | `18+` | Check: `node --version` |
-| Docker & Docker Compose | Latest | Must be running |
-| LLM Server | — | LM Studio / Ollama / NVIDIA NIM (see §3) |
+| Tool                    | Version   | Notes                                     |
+| ----------------------- | --------- | ----------------------------------------- |
+| Python                  | `3.12+` | Check:`python3 --version`               |
+| Node.js & npm           | `18+`   | Check:`node --version`                  |
+| Docker & Docker Compose | Latest    | Must be running                           |
+| LLM Server              | —        | LM Studio / Ollama / NVIDIA NIM (see §3) |
 
 ---
 
@@ -108,12 +108,13 @@ docker compose -f backend/docker-compose.yml up -d
 
 ### Services started
 
-| Service | Port | URI |
-|---|---|---|
-| Kafka (KRaft) | `9092` | `localhost:9092` |
+| Service         | Port      | URI                           |
+| --------------- | --------- | ----------------------------- |
+| Kafka (KRaft)   | `9092`  | `localhost:9092`            |
 | MongoDB (local) | `27017` | `mongodb://localhost:27017` |
 
 To stop:
+
 ```bash
 docker compose -f backend/docker-compose.yml down
 ```
@@ -134,10 +135,12 @@ source .venv/bin/activate
 ### Terminal 1 — LLM Server
 
 **Option A — Local LM Studio**
+
 1. Open LM Studio → load a model (e.g. `qwen3.5-9b`)
 2. Start the local server → it listens on `http://127.0.0.1:1234/v1`
 
 **Option B — NVIDIA NIM / cloud**
+
 - Nothing to start locally; just ensure `OPENAI_API_KEY` is set in `.env`
 
 ---
@@ -152,6 +155,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 - API docs: **http://localhost:8000/docs**
 - Health check: **http://localhost:8000/health**
+- Quickstart evaluation: `POST /api/v1/quickstart/evaluate` (in-process, no worker needed)
 
 ---
 
@@ -164,6 +168,7 @@ python -m workers.combined_agent_worker
 ```
 
 Consumes from Kafka topics:
+
 - `userSession.dfv`
 - `userSession.discovery`
 
@@ -252,11 +257,12 @@ FastAPI Backend (:8000) ──────────────► MongoDB (:
 
 ### Request flow
 
-1. **Session Created** → Frontend → Backend writes to MongoDB (`status: queued`) → emits `userSession.tipsc`
-2. **TIPSC Evaluation** → `TIPSC-Agent` picks up event, runs CrewAI crew against LLM, updates session → `tipsc_completed`
-3. **DFV Evaluation** → Student triggers DFV → Backend emits `userSession.dfv` → `combined_agent_worker` evaluates Desirability / Feasibility / Viability → `dfv_completed`
-4. **Customer Discovery** → Student triggers Discovery → Backend emits `userSession.discovery` → Worker generates JTBD interview guide → `completed`
-5. **Real-time Updates** → Frontend polls `GET /api/v1/sessions/{id}` to show live progress
+1. **Quickstart Evaluation (Optional)** → Frontend → `POST /api/v1/quickstart/evaluate` → Quickstart Agent (Ethics + TIPSC + DFV lite) runs in-process, returns 10 parameter ratings with GREEN/YELLOW/RED traffic lights
+2. **Session Created** → Frontend → Backend writes to MongoDB (`status: queued`) → emits `userSession.tipsc`
+3. **TIPSC Evaluation** → `TIPSC-Agent` picks up event, runs CrewAI crew against LLM, updates session → `tipsc_completed`
+4. **DFV Evaluation** → Student triggers DFV → Backend emits `userSession.dfv` → `combined_agent_worker` evaluates Desirability / Feasibility / Viability → `dfv_completed`
+5. **Customer Discovery** → Student triggers Discovery → Backend emits `userSession.discovery` → Worker generates JTBD interview guide → `completed`
+6. **Real-time Updates** → Frontend polls `GET /api/v1/sessions/{id}` to show live progress
 
 ---
 
@@ -281,11 +287,11 @@ cd frontend && npm run dev                                                      
 
 ## 9. Troubleshooting
 
-| Symptom | Fix |
-|---|---|
-| `ModuleNotFoundError` | Make sure venv is activated: `source .venv/bin/activate` |
-| `Connection refused` on port 9092 | `docker compose -f backend/docker-compose.yml up -d` |
-| `Connection refused` on port 27017 | Start MongoDB locally or add it to docker-compose |
-| LLM agent times out | Verify your LLM server is running and `LM_STUDIO_URL` / `OPENAI_API_KEY` are set correctly in `.env` |
-| `JWT_SECRET` error on startup | Ensure `.env` has a 32+ character `JWT_SECRET` value |
-| Frontend can't reach backend | Check `CORS_ALLOWED_ORIGINS=http://localhost:5173` is in `.env` |
+| Symptom                              | Fix                                                                                                       |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| `ModuleNotFoundError`              | Make sure venv is activated:`source .venv/bin/activate`                                                 |
+| `Connection refused` on port 9092  | `docker compose -f backend/docker-compose.yml up -d`                                                    |
+| `Connection refused` on port 27017 | Start MongoDB locally or add it to docker-compose                                                         |
+| LLM agent times out                  | Verify your LLM server is running and`LM_STUDIO_URL` / `OPENAI_API_KEY` are set correctly in `.env` |
+| `JWT_SECRET` error on startup      | Ensure`.env` has a 32+ character `JWT_SECRET` value                                                   |
+| Frontend can't reach backend         | Check`CORS_ALLOWED_ORIGINS=http://localhost:5173` is in `.env`                                        |

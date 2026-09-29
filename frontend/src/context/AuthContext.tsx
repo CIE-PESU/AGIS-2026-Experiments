@@ -8,7 +8,7 @@ import { getStudents } from "@/utils/adminData";
 import { mapTipscOutput, mapDfvOutput, mapDiscoveryOutput } from "@/utils/mapSessionResults";
 
 export type AppUser = { userId: string; srn: string; name: string; role: Role; teamId: string | null };
-export type SessionState = { tipsc: StageStatus; dfv: StageStatus; discovery: StageStatus };
+export type SessionState = { tipsc: StageStatus; dfv: StageStatus; discovery: StageStatus; quickstart: StageStatus };
 export type SessionResults = { tips: TIPSCResult | null; dfv: DFVResult | null; discovery: JTBDResult | null };
 export type TimelineEvent = { label: string; timestamp: string };
 export type FormDataMap = Record<string, string>;
@@ -37,7 +37,7 @@ type AuthContextValue = {
 
 };
 
-const defaultSession: SessionState = { tipsc: "available", dfv: "locked", discovery: "locked" };
+const defaultSession: SessionState = { tipsc: "available", dfv: "locked", discovery: "locked", quickstart: "available" };
 const defaultResults: SessionResults = { tips: null, dfv: null, discovery: null };
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -211,6 +211,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSession((current) => {
       if (completed === "tipsc") return { ...current, tipsc: "completed", dfv: "available" };
       if (completed === "dfv") return { ...current, dfv: "completed", discovery: "available" };
+      if (completed === "quickstart") return { ...current, quickstart: "completed", tipsc: "available" };
       return { ...current, discovery: "completed" };
     });
   }, []);

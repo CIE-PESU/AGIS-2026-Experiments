@@ -21,6 +21,8 @@ from __future__ import annotations
 
 import logging
 import logging.config
+import os
+import sys
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -28,6 +30,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from core.config import settings
+
+# Add quickstart-agent to Python path for agent imports
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+QUICKSTART_AGENT_PATH = os.path.join(PROJECT_ROOT, "quickstart-agent")
+if QUICKSTART_AGENT_PATH not in sys.path:
+    sys.path.insert(0, QUICKSTART_AGENT_PATH)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Logging configuration (must be set up before any module-level loggers fire)

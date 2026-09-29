@@ -1,6 +1,6 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Logos } from "@/components/shared/Logos";
@@ -10,12 +10,18 @@ import { useAuth } from "@/context/AuthContext";
 export function Login() {
   const { user, login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get("redirect") || null;
+  
   const [srn, setSrn] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  if (user) return <Navigate to={getRoleHome(user.role)} replace />;
+  if (user) {
+    const destination = redirectTo || getRoleHome(user.role);
+    return <Navigate to={destination} replace />;
+  }
 
   const nonStudentRoles = ["admin", "ashwin", "bhavesh", "urav"];
   const isStudent = !nonStudentRoles.includes(srn.toLowerCase()) && !srn.includes("@");
@@ -30,7 +36,8 @@ export function Login() {
     setLoading(true);
     try {
       const role = await login(srn, password);
-      navigate(getRoleHome(role));
+      const destination = redirectTo || getRoleHome(role);
+      navigate(destination);
     } catch {
       setError("Login failed. Check your credentials and try again.");
     } finally {

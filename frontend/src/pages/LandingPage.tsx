@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Menu, Rocket, X, Lightbulb, Cpu, Target, Brain, Instagram, Linkedin, Youtube} from "lucide-react";
+import { ArrowRight, Menu, Rocket, X, Lightbulb, Cpu, Target, Brain, Instagram, Linkedin, Youtube, Zap, Sparkles, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logos } from "@/components/shared/Logos";
 import { PES_LOGO_WHITE } from "@/constants"
@@ -529,14 +529,83 @@ export function LandingPage() {
                 ))}
               </ul>
             </div>
-          </div>
-        </div>
-      </section>
+</div>
+         </div>
+       </section>
 
-      {/* ══════════════════════════════════════════════
-          CTA
-      ══════════════════════════════════════════════ */}
-      <section className="bg-muted py-16">
+       {/* ══════════════════════════════════════════════
+           QUICKSTART EVALUATION
+       ══════════════════════════════════════════════ */}
+       <section id="quickstart" className="bg-white py-20">
+         <div className="mx-auto max-w-7xl px-6">
+           <p className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[1.5px] text-accent">
+             <span className="block h-0.5 w-5 rounded-full bg-accent" />Quickstart
+           </p>
+           <h2 className="font-poppins text-[clamp(26px,3.5vw,40px)] font-extrabold leading-[1.15] tracking-tight text-primary">
+             Not ready for the full pipeline?<br />Get a rapid AI evaluation in minutes.
+           </h2>
+           <div className="mt-10 grid gap-5 md:grid-cols-3">
+             <div className="rounded-2xl border border-[#c4e6f0] bg-[#f0f8fb] p-8">
+               <div className="flex items-center gap-3 mb-4">
+                 <div className="h-12 w-12 flex items-center justify-center rounded-xl bg-[#3999c2]/10">
+                   <Zap className="h-6 w-6 text-[#3999c2]" />
+                 </div>
+                 <span className="inline-block rounded-full bg-[#3999c2]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[1px] text-[#3999c2]">Speed</span>
+               </div>
+               <h3 className="font-poppins mb-3 text-lg font-bold text-primary">7 Questions, 10 Parameters</h3>
+               <p className="text-[13.5px] text-muted-foreground mb-6">
+                 Answer 7 focused questions about your idea. Get instant ratings across Ethics (3), TIPSC (4), and DFV (3) — each with a GREEN/YELLOW/RED traffic light and a one-sentence reason.
+               </p>
+               <ul className="flex flex-col gap-2 text-[12px] text-muted-foreground">
+                 <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-[#3999c2]" />Ethics: Harm Vector, Legal Risk, Integrity</li>
+                 <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-[#2b9eb3]" />TIPSC: Timely, Important, Profitable, Solvable</li>
+                 <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-[#7c6fc4]" />DFV: Desirability, Feasibility, Viability</li>
+               </ul>
+             </div>
+             <div className="rounded-2xl border border-[#e9d8f0] bg-[#f8f4fa] p-8 relative overflow-hidden">
+               <div className="flex items-center gap-3 mb-4">
+                 <div className="h-12 w-12 flex items-center justify-center rounded-xl bg-[#7c6fc4]/10">
+                   <Sparkles className="h-6 w-6 text-[#7c6fc4]" />
+                 </div>
+                 <span className="inline-block rounded-full bg-[#7c6fc4]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[1px] text-[#7c6fc4]">Insight</span>
+               </div>
+               <h3 className="font-poppins mb-3 text-lg font-bold text-primary">Actionable Startup Advice</h3>
+               <p className="text-[13.5px] text-muted-foreground mb-6">
+                 Every YELLOW or RED parameter comes with specific, actionable advice. Plus 3 priority next steps ranked by impact — so you know exactly what to fix first.
+               </p>
+               <ul className="flex flex-col gap-2 text-[12px] text-muted-foreground">
+                 <li className="flex items-center gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-[#7c6fc4]" />Red flags get fix-it-now guidance</li>
+                 <li className="flex items-center gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-[#7c6fc4]" />Yellow flags get mitigation suggestions</li>
+                 <li className="flex items-center gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-[#7c6fc4]" />Priority steps ranked by severity</li>
+               </ul>
+             </div>
+             <div className="rounded-2xl border border-[#e9a800] bg-[#fffbf4] p-8 flex flex-col justify-between">
+               <div>
+                 <div className="flex items-center gap-3 mb-4">
+                   <div className="h-12 w-12 flex items-center justify-center rounded-xl bg-[#e9a800]/10">
+                     <ArrowRight className="h-6 w-6 text-[#e9a800]" />
+                   </div>
+                   <span className="inline-block rounded-full bg-[#e9a800]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[1px] text-[#e9a800]">Path</span>
+                 </div>
+                 <h3 className="font-poppins mb-3 text-lg font-bold text-primary">Seamless Full Pipeline</h3>
+                 <p className="text-[13.5px] text-muted-foreground">
+                   Quickstart isn't a dead end — it's a gateway. After your rapid evaluation, proceed directly to the full TIPSC → DFV → Discovery pipeline with one click. Your answers carry forward.
+                 </p>
+               </div>
+<Button asChild variant="accent" size="lg" className="mt-6 w-full rounded-full">
+                  <Link to="/login?redirect=/quickstart" className="inline-flex items-center justify-center gap-2">
+                    <Sparkles className="h-4 w-4" /> Try Quickstart Evaluation
+                  </Link>
+                </Button>
+             </div>
+           </div>
+         </div>
+       </section>
+
+       {/* ══════════════════════════════════════════════
+           CTA
+       ══════════════════════════════════════════════ */}
+       <section className="bg-muted py-16">
         <div className="mx-auto max-w-4xl px-6">
           <div className="gradient-cta rounded-2xl px-10 py-12 text-center text-white shadow-xl">
             <Rocket className="mx-auto h-10 w-10" />

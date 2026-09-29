@@ -6,6 +6,7 @@ export interface SessionStageAccess {
   tipsc: SessionStageState;
   dfv: SessionStageState;
   discovery: SessionStageState;
+  quickstart: SessionStageState;
   dfvDecision?: "GO" | "NO-GO" | string | null;
 }
 
@@ -15,36 +16,35 @@ export interface SessionStageAccess {
  */
 const CANONICAL_STAGE_MAP: Record<
   string,
-  { tipsc: SessionStageState; dfv: SessionStageState; discovery: SessionStageState }
+  { tipsc: SessionStageState; dfv: SessionStageState; discovery: SessionStageState; quickstart: SessionStageState }
 > = {
   // Session creation & TIPSC Pipeline
-  created: { tipsc: "in_progress", dfv: "locked", discovery: "locked" },
-  queued: { tipsc: "in_progress", dfv: "locked", discovery: "locked" },
-  pre_eval: { tipsc: "in_progress", dfv: "locked", discovery: "locked" },
-  validation_running: { tipsc: "in_progress", dfv: "locked", discovery: "locked" },
-  regulatory_running: { tipsc: "in_progress", dfv: "locked", discovery: "locked" },
-  ethics_running: { tipsc: "in_progress", dfv: "locked", discovery: "locked" },
-  tipsc_running: { tipsc: "in_progress", dfv: "locked", discovery: "locked" },
-  waiting_for_founder: { tipsc: "in_progress", dfv: "locked", discovery: "locked" },
-  tipsc_reevaluation: { tipsc: "in_progress", dfv: "locked", discovery: "locked" },
-  tipsc_failed: { tipsc: "failed", dfv: "locked", discovery: "locked" },
+  created: { tipsc: "in_progress", dfv: "locked", discovery: "locked", quickstart: "available" },
+  queued: { tipsc: "in_progress", dfv: "locked", discovery: "locked", quickstart: "available" },
+  pre_eval: { tipsc: "in_progress", dfv: "locked", discovery: "locked", quickstart: "available" },
+  validation_running: { tipsc: "in_progress", dfv: "locked", discovery: "locked", quickstart: "available" },
+  regulatory_running: { tipsc: "in_progress", dfv: "locked", discovery: "locked", quickstart: "available" },
+  tipsc_running: { tipsc: "in_progress", dfv: "locked", discovery: "locked", quickstart: "available" },
+  waiting_for_founder: { tipsc: "in_progress", dfv: "locked", discovery: "locked", quickstart: "available" },
+  tipsc_reevaluation: { tipsc: "in_progress", dfv: "locked", discovery: "locked", quickstart: "available" },
+  tipsc_failed: { tipsc: "failed", dfv: "locked", discovery: "locked", quickstart: "available" },
 
   // TIPSC Complete & DFV Pipeline
-  tipsc_completed: { tipsc: "completed", dfv: "available", discovery: "locked" },
-  dfv_waiting: { tipsc: "completed", dfv: "in_progress", discovery: "locked" },
-  dfv_running: { tipsc: "completed", dfv: "in_progress", discovery: "locked" },
-  dfv_failed: { tipsc: "completed", dfv: "failed", discovery: "locked" },
+  tipsc_completed: { tipsc: "completed", dfv: "available", discovery: "locked", quickstart: "completed" },
+  dfv_waiting: { tipsc: "completed", dfv: "in_progress", discovery: "locked", quickstart: "completed" },
+  dfv_running: { tipsc: "completed", dfv: "in_progress", discovery: "locked", quickstart: "completed" },
+  dfv_failed: { tipsc: "completed", dfv: "failed", discovery: "locked", quickstart: "completed" },
 
   // DFV Complete & Discovery Pipeline
-  dfv_completed: { tipsc: "completed", dfv: "completed", discovery: "available" },
-  discovery_waiting: { tipsc: "completed", dfv: "completed", discovery: "in_progress" },
-  discovery_running: { tipsc: "completed", dfv: "completed", discovery: "in_progress" },
-  discovery_failed: { tipsc: "completed", dfv: "completed", discovery: "failed" },
+  dfv_completed: { tipsc: "completed", dfv: "completed", discovery: "available", quickstart: "completed" },
+  discovery_waiting: { tipsc: "completed", dfv: "completed", discovery: "in_progress", quickstart: "completed" },
+  discovery_running: { tipsc: "completed", dfv: "completed", discovery: "in_progress", quickstart: "completed" },
+  discovery_failed: { tipsc: "completed", dfv: "completed", discovery: "failed", quickstart: "completed" },
 
   // Terminal & Global states
-  completed: { tipsc: "completed", dfv: "completed", discovery: "completed" },
-  failed: { tipsc: "failed", dfv: "locked", discovery: "locked" },
-  archived: { tipsc: "available", dfv: "locked", discovery: "locked" }
+  completed: { tipsc: "completed", dfv: "completed", discovery: "completed", quickstart: "completed" },
+  failed: { tipsc: "failed", dfv: "locked", discovery: "locked", quickstart: "available" },
+  archived: { tipsc: "available", dfv: "locked", discovery: "locked", quickstart: "available" }
 };
 
 /**
@@ -60,6 +60,7 @@ export function deriveCanonicalStageAccess(doc: any | null): SessionStageAccess 
       tipsc: "available",
       dfv: "locked",
       discovery: "locked",
+      quickstart: "available",
       dfvDecision: null
     };
   }
@@ -72,7 +73,8 @@ export function deriveCanonicalStageAccess(doc: any | null): SessionStageAccess 
   const mapped = CANONICAL_STAGE_MAP[status] || {
     tipsc: "available",
     dfv: "locked",
-    discovery: "locked"
+    discovery: "locked",
+    quickstart: "available"
   };
 
   let dfvStageState = mapped.dfv;
@@ -104,6 +106,7 @@ export function deriveCanonicalStageAccess(doc: any | null): SessionStageAccess 
     tipsc: mapped.tipsc,
     dfv: dfvState,
     discovery: discoveryState,
+    quickstart: mapped.quickstart,
     dfvDecision
   };
 }

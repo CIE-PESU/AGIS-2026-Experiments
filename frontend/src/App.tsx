@@ -11,6 +11,7 @@ import { DFVFlow } from "@/pages/DFVFlow";
 import { DiscoveryFlow } from "@/pages/DiscoveryFlow";
 import { MentorDashboard } from "@/pages/MentorDashboard";
 import { MentorMagicLinkHandler } from "@/pages/MentorMagicLinkHandler";
+import { QuickstartFlow } from "@/pages/QuickstartFlow";
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
             <Route path="discovery" element={<DiscoveryFlow />} />
             <Route path="jtbd" element={<Navigate to="/workspace/discovery" replace />} />
           </Route>
+          <Route path="/quickstart" element={<QuickstartFlow />} />
           <Route path="/mentor" element={<MentorDashboard />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -5,6 +5,8 @@ import type {
   CreateSessionResponse,
   LoginResponse,
   MentorComment,
+  QuickstartInput,
+  QuickstartOutput,
   RefreshResponse,
   SessionDocument,
   TriggerDfvRequest
@@ -123,6 +125,13 @@ export async function getMentorTeams() {
 
 export async function getTeamProgress(): Promise<any[]> {
   return apiRequest<any[]>("/sessions/team/progress");
+}
+
+export async function evaluateQuickstart(payload: QuickstartInput): Promise<QuickstartOutput> {
+  return apiRequest<QuickstartOutput>("/quickstart/evaluate", {
+    method: "POST",
+    body: payload,
+  });
 }
 
 export type { RefreshResponse };

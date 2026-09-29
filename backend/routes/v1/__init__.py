@@ -20,11 +20,13 @@ from routes.v1.admin import router as admin_router
 from routes.v1.comments import router as comments_router
 from routes.v1.mentor import router as mentor_router
 from routes.v1.workspace import router as workspace_router
+from routes.v1.quickstart import router as quickstart_router
 
 v1_router = APIRouter()
 
 v1_router.include_router(auth_router)
 v1_router.include_router(workspace_router)
+v1_router.include_router(quickstart_router)
 v1_router.include_router(sessions_router)
 v1_router.include_router(flows_router)
 v1_router.include_router(history_router)

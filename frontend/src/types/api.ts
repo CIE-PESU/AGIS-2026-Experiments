@@ -264,8 +264,43 @@ updated_at: string;
 };
 
 export type MentorComment = {
-comment_id: string;
-mentor_name: string;
-comment: string;
-created_at: string;
+  comment_id: string;
+  mentor_name: string;
+  comment: string;
+  created_at: string;
 };
+
+export interface QuickstartParameterRating {
+  name: string;
+  rating: "GREEN" | "YELLOW" | "RED";
+  reason: string;
+}
+
+export interface QuickstartOutput {
+  input: {
+    problem: string;
+    customer: string;
+    solution: string;
+    consequence: string;
+    business_model: string;
+    urgency: string;
+    hurdles: string;
+  };
+  parameters: QuickstartParameterRating[];
+  red_count: number;
+  yellow_count: number;
+  green_count: number;
+  parameter_advice: Record<string, string>;
+  priority_advice: string[];
+  timestamp: string;
+}
+
+export interface QuickstartInput {
+  problem: string;
+  customer: string;
+  solution: string;
+  consequence: string;
+  business_model: string;
+  urgency: string;
+  hurdles: string;
+}
