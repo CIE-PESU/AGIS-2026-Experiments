@@ -31,7 +31,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Optional, Protocol
 
-from exceptions.base import (
+from services.comment_exceptions import (
     CommentNotFoundError,
     InsufficientPermissionsError,
     SessionNotFoundError,

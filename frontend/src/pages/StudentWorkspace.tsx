@@ -88,7 +88,7 @@ export function StudentWorkspace() {
 
   const titleName = user?.role === "mentor_workspace" ? (user?.name || "Mentor Workspace") : firstName;
 
-  return (
+return (
     <main className="mx-auto max-w-7xl px-4 py-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
@@ -114,7 +114,7 @@ export function StudentWorkspace() {
           </AlertDialog>
         </div>
       </div>
-      <div className="mt-8 grid grid-cols-3 gap-2 rounded-lg bg-white p-2 shadow-sm">
+      <div className="mt-8 grid grid-cols-3 gap-2 rounded-lg bg-background p-2 shadow-sm">
         {(["tipsc", "dfv", "discovery"] as const).map((key) => (
           <div key={key} className={`h-3 rounded-full ${session[key] === "completed" ? "bg-emerald-500" : session[key] === "locked" ? "bg-muted" : "bg-secondary"}`} />
         ))}
@@ -171,7 +171,7 @@ export function StudentWorkspace() {
                   {teammates.map((student) => {
                     const access = deriveStageAccess(student);
                     return (
-                      <tr key={student.srn} className="border-t bg-white">
+                      <tr key={student.srn} className="border-t bg-background">
                         <td className="p-4">
                           <p className="font-semibold">{student.name}</p>
                           <p className="text-muted-foreground text-xs">
@@ -199,7 +199,7 @@ export function StudentWorkspace() {
                           ) : access.dfv === "available" ? (
                             <StatusBadge type="available" label="Pending" />
                           ) : (
-                            <span className={student.dfv === "GO" ? "font-bold text-emerald-700" : student.dfv === "NO-GO" ? "font-bold text-red-700" : "font-semibold text-slate-700"}>
+                            <span className={student.dfv === "GO" ? "font-bold text-emerald-700" : student.dfv === "NO-GO" ? "font-bold text-red-700" : "font-semibold text-foreground"}>
                               {student.dfv}
                             </span>
                           )}
@@ -215,31 +215,31 @@ export function StudentWorkspace() {
                             <StatusBadge type="available" label="Pending" />
                           )}
                         </td>
-                      <td className="p-4 text-muted-foreground">
-                        <span className="flex items-center gap-1 text-xs">
-                          <Clock className="h-4 w-4" />
-                          {student.lastActive}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex gap-2">
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button variant="outline" size="sm">
-                                <Eye className="h-4 w-4 mr-1" /> View
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-                              <DialogHeader>
-                                <DialogTitle>{student.name}</DialogTitle>
-                              </DialogHeader>
-                              <DetailedProgressView student={student} />
-                            </DialogContent>
-                          </Dialog>
-                        </div>
-                      </td>
-                    </tr>
-                  );
+                        <td className="p-4 text-muted-foreground">
+                          <span className="flex items-center gap-1 text-xs">
+                            <Clock className="h-4 w-4" />
+                            {student.lastActive}
+                          </span>
+                        </td>
+                        <td className="p-4">
+                          <div className="flex gap-2">
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button variant="outline" size="sm">
+                                  <Eye className="h-4 w-4 mr-1" /> View
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+                                <DialogHeader>
+                                  <DialogTitle>{student.name}</DialogTitle>
+                                </DialogHeader>
+                                <DetailedProgressView student={student} />
+                              </DialogContent>
+                            </Dialog>
+                          </div>
+                        </td>
+                      </tr>
+                    );
                   })}
                 </tbody>
               </table>

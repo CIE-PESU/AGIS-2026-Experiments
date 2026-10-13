@@ -112,7 +112,7 @@ async def test_student_cannot_add_comment():
     service, *_ = build_service({SESSION.session_id: SESSION})
     student = FakeUser(user_id="stu_1", role="student")
 
-    with pytest.raises(InsufficientPermissionsError):
+    with pytest.raises(InsufficientPermissionsError, match="Only mentors and admins can comment"):
         await service.add_comment(SESSION.session_id, student, "a" * 20)
 
 
@@ -121,7 +121,7 @@ async def test_mentor_on_unassigned_team_cannot_add_comment():
     service, *_ = build_service({SESSION.session_id: SESSION})
     mentor = FakeUser(user_id="mentor_1", role="mentor", mentor_team_ids=["team_2"])
 
-    with pytest.raises(InsufficientPermissionsError):
+    with pytest.raises(InsufficientPermissionsError, match="You are not assigned to this session's team"):
         await service.add_comment(SESSION.session_id, mentor, "a" * 20)
 
 
@@ -177,7 +177,7 @@ async def test_student_cannot_view_other_students_session_comments():
     service, *_ = build_service({SESSION.session_id: SESSION})
     other_student = FakeUser(user_id="stu_2", role="student")
 
-    with pytest.raises(SessionNotFoundError):
+    with pytest.raises(SessionNotFoundError, match="No session found"):
         await service.get_comments(SESSION.session_id, other_student)
 
 

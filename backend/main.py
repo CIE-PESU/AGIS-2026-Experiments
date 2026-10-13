@@ -238,9 +238,9 @@ def create_app() -> FastAPI:
 
     # ── Routers ────────────────────────────────────────────────────────────────
 
-    # Health endpoints — available at both root AND /api/v1 (no auth required, no prefix confusion)
+    # Health endpoints — available at /api/v1 (no auth required)
     from routes.v1.health import router as health_router
-    app.include_router(health_router)  # /health, /ready, /live
+    app.include_router(health_router, prefix="/api/v1")  # /api/v1/health, /api/v1/ready, /api/v1/live
 
     # Public API v1 (auth, sessions, flows, etc.)
     from routes.v1 import v1_router

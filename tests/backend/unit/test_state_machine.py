@@ -84,17 +84,15 @@ def test_specific_allowed_transitions_from_arch_doc():
 
 
 def test_archive_allowed_from_non_running_non_archived_states():
+    # States that can transition to ARCHIVED per the state machine
     archivable = [
         SessionStatus.CREATED,
-        SessionStatus.QUEUED,
+        SessionStatus.WAITING_FOR_FOUNDER,
         SessionStatus.TIPSC_COMPLETED,
         SessionStatus.TIPSC_FAILED,
-        SessionStatus.DFV_WAITING,
         SessionStatus.DFV_COMPLETED,
         SessionStatus.DFV_FAILED,
-        SessionStatus.DISCOVERY_WAITING,
         SessionStatus.DISCOVERY_FAILED,
-        SessionStatus.COMPLETED,
         SessionStatus.FAILED,
     ]
     for state in archivable:

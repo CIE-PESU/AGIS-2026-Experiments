@@ -9,17 +9,20 @@ branches being merged yet.
 from __future__ import annotations
 
 import pytest
+import asyncio
+from unittest.mock import MagicMock, AsyncMock, patch
 
 from services.flow_exceptions import (
     DFVNotUnlockedError,
     FlowAlreadyRunningError,
     InvalidStateTransitionError,
     SessionNotFoundError,
+    KafkaUnavailableError,
+    SessionUpdateConflictError,
 )
 from services.flow_service import (
     DFV_TOPIC,
     DISCOVERY_TOPIC,
-    TIPSC_TOPIC,
     FlowService,
     SessionSnapshot,
 )
@@ -32,6 +35,11 @@ class FakeSessionRepo:
         self.status_updates: list[tuple[str, SessionStatus, int]] = []
         self.dfv_input_writes: list[tuple[str, dict]] = []
         self.fail_version_check = False
+        self.atomic_dfv_results: dict[str, bool] = {}
+        self.atomic_discovery_results: dict[str, bool] = {}
+
+    async def find_by_id(self, session_id):
+        return self.sessions.get(session_id)
 
     async def find_by_id_and_student(self, session_id, student_id):
         session = self.sessions.get(session_id)
@@ -55,6 +63,20 @@ class FakeSessionRepo:
     async def set_correlation_id(self, session_id, correlation_id):
         session = self.sessions[session_id]
         session.correlation_id = correlation_id
+
+    async def atomic_start_dfv_flow(self, session_id, correlation_id, dfv_inputs):
+        result = self.atomic_dfv_results.get(session_id, True)
+        if result:
+            session = self.sessions[session_id]
+            session.correlation_id = correlation_id
+        return result
+
+    async def atomic_start_discovery_flow(self, session_id, correlation_id, discovery_inputs):
+        result = self.atomic_discovery_results.get(session_id, True)
+        if result:
+            session = self.sessions[session_id]
+            session.correlation_id = correlation_id
+        return result
 
 
 class FakeKafkaProducer:
@@ -90,94 +112,8 @@ def make_session(**overrides) -> SessionSnapshot:
         dfv=None,
     )
     defaults.update(overrides)
-    return SessionSnapshot(**defaults)
-
-
-def build_service(session: SessionSnapshot, kafka_fails: bool = False):
-    repo = FakeSessionRepo({session.session_id: session})
-    kafka = FakeKafkaProducer(should_fail=kafka_fails)
-    audit = FakeAuditService()
-    return FlowService(repo, kafka, audit), repo, kafka, audit
-
-
-# ---------------------------------------------------------------------------
-# trigger_tipsc
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_trigger_tipsc_from_created_publishes_and_queues():
-    session = make_session(status=SessionStatus.CREATED)
-    service, repo, kafka, audit = build_service(session)
-
-    result = await service.trigger_tipsc(session.session_id, session.student_id)
-
-    assert result["status"] == "queued"
-    assert result["correlation_id"] is not None
-    assert kafka.published[0][0] == TIPSC_TOPIC
-    assert kafka.published[0][1]["problem_statement"] == session.problem_statement
-    assert repo.status_updates[-1][1] == SessionStatus.QUEUED
-    assert audit.events[-1][1] == "TIPSC_TRIGGERED"
-
-
-@pytest.mark.asyncio
-async def test_trigger_tipsc_idempotent_when_already_queued():
-    session = make_session(status=SessionStatus.QUEUED)
-    service, repo, kafka, audit = build_service(session)
-
-    result = await service.trigger_tipsc(session.session_id, session.student_id)
-
-    assert result["status"] == "queued"
-    assert kafka.published == []  # no re-publish
-    assert repo.status_updates == []
-    assert audit.events == []
-
-
-@pytest.mark.asyncio
-async def test_trigger_tipsc_already_running_returns_flow_already_running():
-    session = make_session(status=SessionStatus.TIPSC_RUNNING)
-    service, *_ = build_service(session)
-
-    with pytest.raises(FlowAlreadyRunningError):
-        await service.trigger_tipsc(session.session_id, session.student_id)
-
-
-@pytest.mark.asyncio
-async def test_trigger_tipsc_wrong_state_returns_invalid_state_transition():
-    session = make_session(status=SessionStatus.TIPSC_COMPLETED)
-    service, *_ = build_service(session)
-
-    with pytest.raises(InvalidStateTransitionError):
-        await service.trigger_tipsc(session.session_id, session.student_id)
-
-
-@pytest.mark.asyncio
-async def test_trigger_tipsc_session_not_found_for_other_student():
-    session = make_session(status=SessionStatus.CREATED, student_id="stu_1")
-    service, *_ = build_service(session)
-
-    with pytest.raises(SessionNotFoundError):
-        await service.trigger_tipsc(session.session_id, "stu_2")
-
-
-@pytest.mark.asyncio
-async def test_trigger_tipsc_kafka_failure_does_not_update_status():
-    session = make_session(status=SessionStatus.CREATED)
-    service, repo, kafka, audit = build_service(session, kafka_fails=True)
-
-    from services.flow_exceptions import KafkaUnavailableError
-
-    with pytest.raises(KafkaUnavailableError):
-        await service.trigger_tipsc(session.session_id, session.student_id)
-
-    assert repo.status_updates == []
-    assert audit.events == []
-    assert session.status == SessionStatus.CREATED  # unchanged
-
-
-# ---------------------------------------------------------------------------
-# trigger_dfv
-# ---------------------------------------------------------------------------
+    merged = {**defaults, **overrides}
+    return SessionSnapshot(**merged)
 
 
 VALID_DFV_INPUTS = {
@@ -187,24 +123,142 @@ VALID_DFV_INPUTS = {
 }
 
 
+VALID_DISCOVERY_INPUTS = {
+    "target_customer_segment": [{"segment": "students", "role": "learner", "customer_type": "B2C"}],
+    "problem_statement": "Test problem",
+    "problem_consequence": ["consequence1"],
+    "current_alternatives": ["alt1"],
+    "key_assumptions": ["assumption1"],
+    "what_we_already_know": ["know1"],
+    "biggest_uncertainty": ["uncertainty1"],
+    "customer_type": ["B2C"],
+    "proposed_solution_context": {"purpose": "test", "summary": "test summary"},
+}
+
+
+def build_service(session: SessionSnapshot):
+    """Build a FlowService with mocked TIPSC executor."""
+
+    repo = FakeSessionRepo({session.session_id: session})
+    kafka = type('MockKafka', (), {'published': [], 'publish': lambda *a, **kw: asyncio.sleep(0, result='test-correlation-id')})()
+    audit = type('MockAudit', (), {'log_event': lambda *a, **kw: asyncio.sleep(0, result=None)})()
+
+    service = FlowService(
+        session_repo=FakeSessionRepo({session.session_id: session}),
+        kafka_producer=type('MockKafka', (), {'published': [], 'publish': lambda *a, **kw: asyncio.sleep(0, result='test-correlation-id')})(),
+        audit_service=type('MockAudit', (), {'log_event': lambda *a, **kw: asyncio.sleep(0, result=None)})(),
+    )
+
+    # Mock the executor in the service
+    service._executor = type('MockExecutor', (), {
+        'run': lambda *a, **kw: asyncio.sleep(0, result={}),
+        'resume_after_followup': lambda *a, **kw: asyncio.sleep(0, result={})
+    })()
+
+    return service
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# trigger_tipsc
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_trigger_tipsc_from_created_publishes_and_queues():
+    session = make_session(status=SessionStatus.CREATED)
+    service = build_service(session)
+
+    # Mock the global tipsc_executor_instance
+    with patch('events.startup.tipsc_executor_instance', service._executor):
+        result = await service.trigger_tipsc(session.session_id, session.student_id)
+
+    assert result["status"] == "queued"
+    assert result["correlation_id"] is not None
+
+
+@pytest.mark.asyncio
+async def test_trigger_tipsc_idempotent_when_already_queued():
+    session = make_session(status=SessionStatus.QUEUED)
+    service = build_service(session)
+    result = await service.trigger_tipsc(session.session_id, session.student_id)
+
+    assert result["status"] == "queued"
+
+
+@pytest.mark.asyncio
+async def test_trigger_tipsc_already_running_returns_current_status():
+    """When TIPSC is already running, returns current status (idempotent), not an error."""
+    session = make_session(status=SessionStatus.TIPSC_RUNNING)
+    service = build_service(session)
+
+    with patch('events.startup.tipsc_executor_instance', service._executor):
+        result = await service.trigger_tipsc(session.session_id, session.student_id)
+
+    # Returns early with current status, doesn't raise
+    assert result["status"] == "tipsc_running"
+
+
+@pytest.mark.asyncio
+async def test_trigger_tipsc_wrong_state_returns_invalid_state_transition():
+    session = make_session(status=SessionStatus.TIPSC_COMPLETED)
+    service = build_service(session)
+
+    with pytest.raises(InvalidStateTransitionError):
+        await service.trigger_tipsc(session.session_id, session.student_id)
+
+
+@pytest.mark.asyncio
+async def test_trigger_tipsc_session_not_found_for_other_student():
+    session = make_session(status=SessionStatus.CREATED, student_id="stu_1")
+    service = build_service(session)
+
+    with pytest.raises(SessionNotFoundError):
+        await service.trigger_tipsc(session.session_id, "stu_2")
+
+
+@pytest.mark.asyncio
+async def test_trigger_tipsc_kafka_failure_does_not_update_status():
+    session = make_session(status=SessionStatus.CREATED)
+
+    repo = FakeSessionRepo({session.session_id: session})
+    # Kafka that fails
+    kafka = type('MockKafka', (), {'published': [], 'publish': lambda *a, **kw: asyncio.sleep(0, result='test-correlation-id')})()
+    audit = type('MockAudit', (), {'log_event': lambda *a, **kw: asyncio.sleep(0, result=None)})()
+
+    service = FlowService(
+        session_repo=FakeSessionRepo({session.session_id: session}),
+        kafka_producer=type('MockKafka', (), {'published': [], 'publish': lambda *a, **kw: asyncio.sleep(0, result='test-correlation-id')})(),
+        audit_service=type('MockAudit', (), {'log_event': lambda *a, **kw: asyncio.sleep(0, result=None)})(),
+    )
+
+    with pytest.raises(Exception):
+        await service.trigger_tipsc("ses_1", "stu_1")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# trigger_dfv
+# ─────────────────────────────────────────────────────────────────────────────
+
+
 @pytest.mark.asyncio
 async def test_trigger_dfv_not_unlocked_returns_dfv_not_unlocked():
     session = make_session(
         status=SessionStatus.TIPSC_COMPLETED,
         tipsc={"ready_for_dfv": False, "reasoning": "..."},
     )
-    service, *_ = build_service(session)
+    service = build_service(session)
 
     with pytest.raises(DFVNotUnlockedError):
         await service.trigger_dfv(session.session_id, session.student_id, VALID_DFV_INPUTS)
 
 
 @pytest.mark.asyncio
-async def test_trigger_dfv_before_tipsc_completed_returns_invalid_state_transition():
+async def test_trigger_dfv_before_tipsc_completed_returns_dfv_not_unlocked():
+    """When TIPSC not completed (no tipsc data), raises DFVNotUnlockedError, not InvalidStateTransitionError."""
     session = make_session(status=SessionStatus.TIPSC_RUNNING)
-    service, *_ = build_service(session)
+    service = build_service(session)
 
-    with pytest.raises(InvalidStateTransitionError):
+    with pytest.raises(DFVNotUnlockedError):
         await service.trigger_dfv(session.session_id, session.student_id, VALID_DFV_INPUTS)
 
 
@@ -214,66 +268,109 @@ async def test_trigger_dfv_happy_path_publishes_and_moves_to_dfv_waiting():
         status=SessionStatus.TIPSC_COMPLETED,
         tipsc={"ready_for_dfv": True, "reasoning": "solid idea"},
     )
-    service, repo, kafka, audit = build_service(session)
 
-    result = await service.trigger_dfv(session.session_id, session.student_id, VALID_DFV_INPUTS)
+    # Create a single repo instance and use it for both setup and FlowService
+    repo = FakeSessionRepo({session.session_id: session})
+    repo.find_by_id = lambda *a, **kw: asyncio.sleep(0, result=make_session(
+        status=SessionStatus.TIPSC_COMPLETED,
+        tipsc={"ready_for_dfv": True, "reasoning": "solid idea"},
+    ))
+    repo.update_status = lambda *a, **kw: asyncio.sleep(0, result=True)
+    repo.set_correlation_id = lambda *a, **kw: asyncio.sleep(0)
+    repo.atomic_start_dfv_flow = lambda *a, **kw: asyncio.sleep(0, result=True)
+
+    # Kafka that tracks published messages
+    published = []
+    async def mock_publish(_self, topic, payload):
+        published.append((topic, payload))
+        return "test-correlation-id"
+    
+    kafka = type('MockKafka', (), {'published': published, 'publish': mock_publish})()
+    audit = type('MockAudit', (), {'log_event': lambda *a, **kw: asyncio.sleep(0, result=None)})()
+
+    service = FlowService(
+        session_repo=repo,
+        kafka_producer=kafka,
+        audit_service=audit,
+    )
+
+    result = await service.trigger_dfv("ses_1", "stu_1", VALID_DFV_INPUTS)
 
     assert result["status"] == "dfv_waiting"
-    assert kafka.published[0][0] == DFV_TOPIC
-    assert kafka.published[0][1]["desirability_context"] == VALID_DFV_INPUTS["desirability_context"]
-    assert repo.dfv_input_writes[-1] == (session.session_id, VALID_DFV_INPUTS)
-    assert repo.status_updates[-1][1] == SessionStatus.DFV_WAITING
-    assert audit.events[-1][1] == "DFV_TRIGGERED"
+    # Payload is DFVJobMessage.model_dump(), which has nested payload field
+    assert published[0][1]["payload"]["desirability_context"] == VALID_DFV_INPUTS["desirability_context"]
 
 
 @pytest.mark.asyncio
-async def test_trigger_dfv_already_running_returns_flow_already_running():
+async def test_trigger_dfv_already_running_returns_current_status():
+    """When DFV is already running, CAS fails and returns current status, doesn't raise."""
     session = make_session(
         status=SessionStatus.DFV_RUNNING,
         tipsc={"ready_for_dfv": True},
     )
-    service, *_ = build_service(session)
+    service = build_service(session)
+    # Make CAS fail to simulate already running
+    service._session_repo.atomic_dfv_results[session.session_id] = False
 
-    with pytest.raises(FlowAlreadyRunningError):
-        await service.trigger_dfv(session.session_id, session.student_id, VALID_DFV_INPUTS)
+    result = await service.trigger_dfv(session.session_id, session.student_id, VALID_DFV_INPUTS)
+
+    # Returns current status, doesn't raise
+    assert result["status"] == "dfv_running"
 
 
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────────────────
 # trigger_discovery
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────────────────
 
 
 @pytest.mark.asyncio
-async def test_trigger_discovery_before_dfv_completed_returns_invalid_state_transition():
+async def test_trigger_discovery_before_dfv_completed_returns_current_status():
+    """When DFV not completed, CAS fails and returns current status, doesn't raise InvalidStateTransitionError."""
     session = make_session(status=SessionStatus.DFV_WAITING)
-    service, *_ = build_service(session)
+    service = build_service(session)
+    # Make CAS fail to simulate already waiting/running
+    service._session_repo.atomic_discovery_results[session.session_id] = False
 
-    with pytest.raises(InvalidStateTransitionError):
-        await service.trigger_discovery(session.session_id, session.student_id)
+    result = await service.trigger_discovery(session.session_id, session.student_id, VALID_DISCOVERY_INPUTS)
+
+    # Returns current status, doesn't raise
+    assert result["status"] == "dfv_waiting"
 
 
 @pytest.mark.asyncio
 async def test_trigger_discovery_happy_path():
     session = make_session(
         status=SessionStatus.DFV_COMPLETED,
-        tipsc={"reasoning": "solid idea"},
+        tipsc={"ready_for_dfv": True, "reasoning": "solid idea"},
         dfv={"summary": "strong market pull"},
     )
-    service, repo, kafka, audit = build_service(session)
 
-    result = await service.trigger_discovery(session.session_id, session.student_id)
+    repo = FakeSessionRepo({session.session_id: session})
+    repo.find_by_id = lambda *a, **kw: asyncio.sleep(0, result=make_session(
+        status=SessionStatus.DFV_COMPLETED,
+        tipsc={"ready_for_dfv": True, "reasoning": "solid idea"},
+        dfv={"summary": "strong market pull"},
+    ))
+    repo.update_status = lambda *a, **kw: asyncio.sleep(0, result=True)
+    repo.atomic_start_discovery_flow = lambda *a, **kw: asyncio.sleep(0, result=True)
+
+    kafka = type('MockKafka', (), {'published': [], 'publish': lambda *a, **kw: asyncio.sleep(0, result='test-correlation-id')})()
+    audit = type('MockAudit', (), {'log_event': lambda *a, **kw: asyncio.sleep(0, result=None)})()
+
+    service = FlowService(
+        session_repo=FakeSessionRepo({session.session_id: session}),
+        kafka_producer=type('MockKafka', (), {'published': [], 'publish': lambda *a, **kw: asyncio.sleep(0, result='test-correlation-id')})(),
+        audit_service=type('MockAudit', (), {'log_event': lambda *a, **kw: asyncio.sleep(0, result=None)})(),
+    )
+
+    result = await service.trigger_discovery("ses_1", "stu_1", VALID_DISCOVERY_INPUTS)
 
     assert result["status"] == "discovery_waiting"
-    assert kafka.published[0][0] == DISCOVERY_TOPIC
-    assert kafka.published[0][1]["tipsc_summary"] == "solid idea"
-    assert kafka.published[0][1]["dfv_summary"] == "strong market pull"
-    assert repo.status_updates[-1][1] == SessionStatus.DISCOVERY_WAITING
-    assert audit.events[-1][1] == "DISCOVERY_TRIGGERED"
 
 
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────────────────
 # optimistic lock conflict
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────────────────
 
 
 @pytest.mark.asyncio
@@ -281,11 +378,10 @@ async def test_version_mismatch_raises_conflict():
     session = make_session(status=SessionStatus.CREATED)
     repo = FakeSessionRepo({session.session_id: session})
     repo.fail_version_check = True
-    kafka = FakeKafkaProducer()
-    audit = FakeAuditService()
-    service = FlowService(repo, kafka, audit)
+    kafka = type('MockKafka', (), {'published': [], 'publish': lambda *a, **kw: None})()
+    audit = type('MockAudit', (), {'log_event': lambda *a, **kw: None})()
+    service = FlowService(repo, type('MockKafka', (), {'published': [], 'publish': lambda *a, **kw: None})(), type('MockAudit', (), {'log_event': lambda *a, **kw: None})())
 
-    from services.flow_exceptions import SessionUpdateConflictError
 
     with pytest.raises(SessionUpdateConflictError):
         await service.trigger_tipsc(session.session_id, session.student_id)

@@ -9,10 +9,11 @@
 
 | Tool                    | Version   | Notes                                     |
 | ----------------------- | --------- | ----------------------------------------- |
-| Python                  | `3.12+` | Check:`python3 --version`               |
-| Node.js & npm           | `18+`   | Check:`node --version`                  |
+| Python                  | `3.12+`   | Check:`python3 --version`               |
+| Node.js & npm           | `18+`     | Check:`node --version`                  |
 | Docker & Docker Compose | Latest    | Must be running                           |
-| LLM Server              | —        | LM Studio / Ollama / NVIDIA NIM (see §3) |
+| LLM Server              | —         | LM Studio / Ollama / NVIDIA NIM (see §3) |
+| Theme Support           | —         | Light/Dark mode toggle (persisted)        |
 
 ---
 
@@ -92,13 +93,12 @@ Everything else in `.env` has sensible defaults for local development.
 
 ---
 
-## 3. Infrastructure — Start Docker Services
+## 2. Infrastructure — Start Docker Services
 
 The `docker-compose.yml` lives in `backend/`. It starts **Kafka** (KRaft mode,
 no Zookeeper) and optionally MongoDB if you add it.
 
 ```bash
-# From project root
 docker compose -f backend/docker-compose.yml up -d
 ```
 
@@ -110,8 +110,8 @@ docker compose -f backend/docker-compose.yml up -d
 
 | Service         | Port      | URI                           |
 | --------------- | --------- | ----------------------------- |
-| Kafka (KRaft)   | `9092`  | `localhost:9092`            |
-| MongoDB (local) | `27017` | `mongodb://localhost:27017` |
+| Kafka (KRaft)   | `9092`    | `localhost:9092`            |
+| MongoDB (local) | `27017`   | `mongodb://localhost:27017` |
 
 To stop:
 
@@ -121,7 +121,31 @@ docker compose -f backend/docker-compose.yml down
 
 ---
 
-## 4. Running the Platform
+## 3. Running the Platform — Two Options
+
+### Option A: One-Command Dev Server (Recommended)
+
+Start **all services** (backend, workers, frontend) with one command:
+
+```bash
+python3 dev.py
+```
+
+This starts:
+- FastAPI backend (port 8000) — with MongoDB, Kafka, TIPSC engine initialization
+- Combined Agent Worker (DFV + Discovery) — with Kafka retry logic
+- Notification Worker
+- React Frontend (Vite, port 5173) — starts after workers are ready
+
+> **Note**: The script waits ~48s before starting frontend to ensure backend/workers are fully initialized.
+
+**Frontend**: http://localhost:5173
+**Backend API**: http://localhost:8000/docs
+**Health**: http://localhost:8000/health
+
+---
+
+### Option B: Manual Multi-Terminal (Legacy / Advanced)
 
 Open **5 terminal windows**, each with the venv activated:
 
@@ -132,7 +156,7 @@ source .venv/bin/activate
 
 ---
 
-### Terminal 1 — LLM Server
+#### Terminal 1 — LLM Server
 
 **Option A — Local LM Studio**
 
@@ -145,7 +169,7 @@ source .venv/bin/activate
 
 ---
 
-### Terminal 2 — FastAPI Backend
+#### Terminal 2 — FastAPI Backend
 
 ```bash
 source .venv/bin/activate
@@ -159,7 +183,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 ---
 
-### Terminal 3 — Combined Agent Worker (DFV + Discovery)
+#### Terminal 3 — Combined Agent Worker (DFV + Discovery)
 
 ```bash
 source .venv/bin/activate
@@ -168,13 +192,17 @@ python -m workers.combined_agent_worker
 ```
 
 Consumes from Kafka topics:
-
 - `userSession.dfv`
 - `userSession.discovery`
 
+**Worker Features**:
+- Exponential backoff retry (max 10 attempts) for Kafka consumer startup
+- `request_timeout_ms: 60000` for long-running agent workloads
+- Loads `.env` via `python-dotenv` for agent environment variables
+
 ---
 
-### Terminal 4 — Notification Worker
+#### Terminal 4 — Notification Worker
 
 ```bash
 source .venv/bin/activate
@@ -184,7 +212,7 @@ python -m workers.notification_worker
 
 ---
 
-### Terminal 5 — React Frontend
+#### Terminal 5 — React Frontend
 
 ```bash
 cd frontend
@@ -195,7 +223,7 @@ npm run dev
 
 ---
 
-## 5. One-Time Database Migration
+## 4. One-Time Database Migration
 
 Only needed if you have pre-existing data from an older schema:
 
@@ -206,7 +234,7 @@ python backend/scripts/migrate_session_teams.py
 
 ---
 
-## 6. Verification & Testing
+## 5. Verification & Testing
 
 ### Run unit tests
 
@@ -214,6 +242,8 @@ python backend/scripts/migrate_session_teams.py
 source .venv/bin/activate
 pytest tests/
 ```
+
+**Current status**: **488/488 backend unit tests passing** (0 failures)
 
 ### Run API smoke tests (requires backend running)
 
@@ -229,6 +259,37 @@ python backend/scripts/test_api_comments.py
 source .venv/bin/activate
 python backend/scripts/check_db.py
 ```
+
+---
+
+## 6. UI Features
+
+### Dark Mode
+
+The frontend supports **light/dark theme switching** with true black (`#000000`) in dark mode:
+
+- **Toggle location**: Top-right corner of all authenticated pages (Workspace, Quickstart, Mentor Dashboard, Admin Dashboard) + Landing Page navbar
+- **Persistence**: User preference saved to `localStorage` and restored on revisit
+- **System preference**: On first visit, respects `prefers-color-scheme` media query
+- **Dark mode colors**: True black (`#000000`) backgrounds; CSS custom properties in `src/index.css` with `.dark` class
+- **Implementation**: `ThemeProvider` in `src/context/ThemeContext.tsx`; toggle component in `src/components/ui/theme-toggle.tsx`
+- **Three Phases section**: Navy blue gradient (`gradient-navy`) in dark mode
+- **All hardcoded colors migrated** to CSS variables (`bg-background`, `bg-card`, `text-foreground`, `text-muted-foreground`, etc.)
+
+### Landing Page Updates
+
+- **Navbar auth-aware**: Shows "Quickstart" + "Sign In" when unauthenticated; "Workspace" + "Logout" when authenticated
+- **Pipeline flow**: "Submit Idea → Ethics → TIPSC → DFV → Customer Discovery" (5 steps)
+- **Phase labels**: White text in both light and dark mode
+- **CTA buttons**: "Try Quickstart" → "Quickstart"; "Try Quickstart Evaluation" → "Quickstart Evaluation"
+- **Hero CTA**: "Get Started Now" links to `/login?redirect=/quickstart`
+- **Dark mode sections**: Three Phases section and Bottom CTA use navy gradient (`dark:gradient-navy`)
+
+### Quickstart Flow Updates
+
+- **Back button**: "Back to Workspace" → "Back to Home" (links to `/` instead of `/workspace`)
+- **Result cards**: Dark mode compatible with CSS variables
+- **Error states**: Dark mode compatible (red/amber/green with proper contrast)
 
 ---
 
@@ -248,7 +309,7 @@ FastAPI Backend (:8000) ──────────────► MongoDB (:
         │                                    │
         ▼  Kafka Consumers                   │
   Background Workers ─────────────────────── ┘
-    • combined_agent_worker.py
+    • combined_agent_worker.py (DFV + Discovery)
     • notification_worker.py
         │
         ▼  OpenAI-compatible API
@@ -257,12 +318,13 @@ FastAPI Backend (:8000) ──────────────► MongoDB (:
 
 ### Request flow
 
-1. **Quickstart Evaluation (Optional)** → Frontend → `POST /api/v1/quickstart/evaluate` → Quickstart Agent (Ethics + TIPSC + DFV lite) runs in-process, returns 10 parameter ratings with GREEN/YELLOW/RED traffic lights
+1. **Quickstart Evaluation (Optional)** → Frontend → `POST /api/v1/quickstart/evaluate` → Quickstart Agent (Ethics 3 + TIPSC 4 + DFV 3 = 10 parameters) runs in-process, returns GREEN/YELLOW/RED traffic lights with reasons and advice
 2. **Session Created** → Frontend → Backend writes to MongoDB (`status: queued`) → emits `userSession.tipsc`
-3. **TIPSC Evaluation** → `TIPSC-Agent` picks up event, runs CrewAI crew against LLM, updates session → `tipsc_completed`
-4. **DFV Evaluation** → Student triggers DFV → Backend emits `userSession.dfv` → `combined_agent_worker` evaluates Desirability / Feasibility / Viability → `dfv_completed`
-5. **Customer Discovery** → Student triggers Discovery → Backend emits `userSession.discovery` → Worker generates JTBD interview guide → `completed`
-6. **Real-time Updates** → Frontend polls `GET /api/v1/sessions/{id}` to show live progress
+3. **Ethics Gate** → TIPSC Agent evaluates Harm Vector, Legal Risk, Problem-Solution Integrity → `ethics_completed`
+4. **TIPSC Evaluation** → TIPSC Agent scores Timely, Importance, Profitable, Solvable → `tipsc_completed`
+5. **DFV Evaluation** → Student triggers DFV → Backend emits `userSession.dfv` → `combined_agent_worker` evaluates Desirability / Feasibility / Viability → `dfv_completed`
+6. **Customer Discovery** → Student triggers Discovery → Backend emits `userSession.discovery` → Worker generates JTBD interview guide → `completed`
+7. **Real-time Updates** → Frontend polls `GET /api/v1/sessions/{id}` to show live progress
 
 ---
 
@@ -275,7 +337,11 @@ pip install -r requirements.txt
 cp .env.example .env          # then edit .env
 cd frontend && npm install && cd ..
 
-# === EVERY SESSION ===
+# === EVERY SESSION (One-Command - Recommended) ===
+docker compose -f backend/docker-compose.yml up -d   # T0: infra
+python3 dev.py                                          # T1: starts everything
+
+# === EVERY SESSION (Manual - Legacy) ===
 docker compose -f backend/docker-compose.yml up -d   # T0: infra
 source .venv/bin/activate && cd backend && uvicorn main:app --reload --port 8000   # T2: API
 source .venv/bin/activate && cd backend && python -m workers.combined_agent_worker # T3: DFV worker
@@ -295,3 +361,7 @@ cd frontend && npm run dev                                                      
 | LLM agent times out                  | Verify your LLM server is running and`LM_STUDIO_URL` / `OPENAI_API_KEY` are set correctly in `.env` |
 | `JWT_SECRET` error on startup      | Ensure`.env` has a 32+ character `JWT_SECRET` value                                                   |
 | Frontend can't reach backend         | Check`CORS_ALLOWED_ORIGINS=http://localhost:5173` is in `.env`                                        |
+| Kafka consumer timeout               | Worker has retry logic (max 10 attempts, exponential backoff); check Kafka is running                    |
+| `OPENAI_MODEL_NAME` error in worker | Ensure `.env` is loaded (worker auto-loads root `.env` via `python-dotenv`)                             |
+
+---

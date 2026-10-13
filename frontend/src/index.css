@@ -53,6 +53,43 @@
     --sidebar-ring: 200 52% 51%;
   }
 
+  .dark {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    --muted: 0 0% 8%;
+    --muted-foreground: 0 0% 65%;
+    --popover: 0 0% 3%;
+    --popover-foreground: 0 0% 100%;
+    --border: 0 0% 15%;
+    --input: 0 0% 15%;
+    --card: 0 0% 3%;
+    --card-foreground: 0 0% 100%;
+    --primary: 200 52% 55%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 204 63% 45%;
+    --secondary-foreground: 0 0% 100%;
+    --accent: 14 80% 60%;
+    --accent-foreground: 0 0% 0%;
+    --destructive: 0 85% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --ring: 200 52% 55%;
+    --chart-1: 200 52% 55%;
+    --chart-2: 200 52% 45%;
+    --chart-3: 14 80% 60%;
+    --chart-4: 200 52% 70%;
+    --chart-5: 14 80% 70%;
+    --shadow-color: #000000;
+    --shadow-opacity: 0.4;
+    --sidebar-background: 0 0% 3%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 200 52% 55%;
+    --sidebar-primary-foreground: 0 0% 0%;
+    --sidebar-accent: 0 0% 8%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 0 0% 15%;
+    --sidebar-ring: 200 52% 55%;
+  }
+
   * {
     @apply border-border outline-ring/50;
   }
@@ -77,6 +114,10 @@
 
   .gradient-cta {
     background: linear-gradient(135deg, #3e3965 0%, #2d2a4a 50%, #419dc4 100%);
+  }
+
+  .gradient-navy {
+    background: linear-gradient(135deg, #1e3a5f 0%, #16213e 50%, #0f0f23 100%);
   }
 
   .text-gradient {

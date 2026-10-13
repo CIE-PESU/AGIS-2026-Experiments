@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 
+from database.mongodb import ping_db
 from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse
 
@@ -36,8 +37,6 @@ async def health_check() -> JSONResponse:
     Checks MongoDB ping and Kafka producer state.
     Returns 200 if healthy, 503 if degraded.
     """
-    from database.mongodb import ping_db
-
     mongo_ok = await ping_db()
 
     # Kafka producer health — placeholder until Kafka module is integrated
@@ -80,8 +79,6 @@ async def readiness_probe() -> JSONResponse:
     Used by Kubernetes/load balancer as a readiness probe.
     Returns 200 only when DB is connected and Kafka is ready.
     """
-    from database.mongodb import ping_db
-
     mongo_ok = await ping_db()
     kafka_ok = True  # Placeholder until Kafka module is integrated
 

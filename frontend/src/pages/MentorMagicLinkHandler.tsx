@@ -59,16 +59,16 @@ export function MentorMagicLinkHandler() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white p-4">
-        <div className="max-w-md w-full bg-gray-800 border border-red-500/30 rounded-xl p-6 text-center shadow-xl">
-          <div className="w-12 h-12 rounded-full bg-red-500/10 text-red-400 flex items-center justify-center mx-auto mb-4 text-xl">
+      <div className="min-h-screen flex items-center justify-center bg-muted p-4 dark:bg-background">
+        <div className="max-w-md w-full bg-card border border-destructive/30 rounded-xl p-6 text-center shadow-xl">
+          <div className="w-12 h-12 rounded-full bg-destructive/10 text-destructive flex items-center justify-center mx-auto mb-4 text-xl">
             ⚠️
           </div>
-          <h2 className="text-xl font-bold text-red-400 mb-2">Access Denied</h2>
-          <p className="text-gray-300 text-sm mb-6">{error}</p>
+          <h2 className="text-xl font-bold text-destructive mb-2">Access Denied</h2>
+          <p className="text-muted-foreground text-sm mb-6">{error}</p>
           <button
             onClick={() => navigate("/login")}
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition"
+            className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium rounded-lg transition"
           >
             Go to Login
           </button>
@@ -78,10 +78,10 @@ export function MentorMagicLinkHandler() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">
+    <div className="min-h-screen flex items-center justify-center bg-muted dark:bg-background text-foreground dark:text-foreground">
       <div className="flex flex-col items-center gap-4">
-        <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-gray-400 text-sm font-medium">Entering Workspace...</p>
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-muted-foreground text-sm font-medium">Entering Workspace...</p>
       </div>
     </div>
   );

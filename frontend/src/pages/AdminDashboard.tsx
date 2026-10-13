@@ -10,6 +10,7 @@ import { SegmentedTabs } from "@/components/ui/tabs";
 import { Logos } from "@/components/shared/Logos";
 import { RequireRole } from "@/components/shared/RequireRole";
 import { useAuth } from "@/context/AuthContext";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import {
   getMentors,
   getTeams,
@@ -391,6 +392,7 @@ export function AdminDashboard() {
             <Logos to="/admin" />
             <div className="flex items-center gap-4">
               <p className="text-sm font-semibold">{user.name}</p>
+              <ThemeToggle />
               <Button
                 variant="outline"
                 size="sm"

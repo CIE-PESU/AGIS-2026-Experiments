@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Optional, Protocol
 
+from events import startup
 from models.schema import (
     DFVJobMessage,
     DFVJobPayload,
@@ -367,8 +368,6 @@ class FlowService:
 
 
         # Import here to avoid startup circular imports.
-        from events import startup
-
 
         executor = startup.tipsc_executor_instance
 
@@ -453,10 +452,6 @@ class FlowService:
             session,
             SessionStatus.TIPSC_REEVALUATION,
         )
-
-
-        from events import startup
-
 
         executor = startup.tipsc_executor_instance
 
@@ -571,11 +566,6 @@ class FlowService:
                 "correlation_id": current.correlation_id or correlation_id,
                 "triggered_at": _now_iso(),
             }
-
-        from models.schema import (
-            DFVJobMessage,
-            DFVJobPayload,
-        )
 
         payload = DFVJobMessage(
             userSession_id=str(session.id),

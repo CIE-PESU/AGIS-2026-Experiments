@@ -21,10 +21,12 @@ from auth.jwt import create_access_token, create_refresh_token, verify_refresh_t
 from auth.pes_client import pes_auth_client
 from core.config import settings
 from core.constants import AuditEvent
+from core.security import cipher
 from exceptions.base import RefreshTokenExpiredError, RefreshTokenInvalidError
 from models.refresh_token import RefreshToken
 from models.user import User
 from schemas.auth import LoginResponse, MeResponse, RefreshResponse, UserInfo
+from services.mentor_service import sync_mentor_teams
 
 logger = logging.getLogger(__name__)
 
@@ -49,8 +51,6 @@ class AuthService:
             InvalidCredentialsError  : PES returned 401
             PESAuthUnavailableError  : PES timed out or is down
         """
-        from core.security import cipher
-        
         # Step 0: Check if user exists in DB with an encrypted password (e.g. mentor added by admin)
         user = await User.find_one(User.srn == srn.upper())
         if user and user.encrypted_password:
@@ -80,7 +80,6 @@ class AuthService:
             workspace_id = await self._get_or_create_student_workspace(user)
             mentor_team_ids = user.mentor_team_ids
         elif user.role == "mentor":
-            from services.mentor_service import sync_mentor_teams
             mentor_team_ids = await sync_mentor_teams(str(user.id))
         else:
             mentor_team_ids = user.mentor_team_ids
@@ -151,7 +150,6 @@ class AuthService:
 
         # Issue new tokens
         if user.role == "mentor":
-            from services.mentor_service import sync_mentor_teams
             mentor_team_ids = await sync_mentor_teams(str(user.id))
         else:
             mentor_team_ids = user.mentor_team_ids

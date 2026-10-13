@@ -11,6 +11,7 @@ import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import type { QuickstartInput, QuickstartOutput, QuickstartParameterRating } from "@/types/api";
 import type { ReactNode } from "react";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 const QUESTIONS: { key: keyof QuickstartInput; label: string; prompt: string; type: "input" | "textarea" }[] = [
   { key: "problem", label: "Core Problem", prompt: "What is the core problem you're solving? Be specific.", type: "textarea" },
@@ -191,12 +192,12 @@ export function QuickstartFlow() {
       {submitting && !result && !error && <Loading text="Running quickstart evaluation..." />}
 
       {error && (
-        <Card className="border-red-200">
+        <Card className="border-destructive/20 bg-destructive/5">
           <CardHeader>
-            <CardTitle className="text-red-600">Evaluation Failed</CardTitle>
+            <CardTitle className="text-destructive">Evaluation Failed</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">{error}</div>
+            <div className="rounded-lg bg-destructive/10 p-4 text-sm text-destructive">{error}</div>
             <Button variant="secondary" onClick={retryEvaluation} disabled={submitting}>
               {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Retry Evaluation
@@ -224,9 +225,12 @@ function Header({ title, subtitle }: { title: string; subtitle: string }) {
         <h1 className="text-3xl font-bold text-primary">{title}</h1>
         <p className="text-muted-foreground">{subtitle}</p>
       </div>
-      <Button asChild variant="outline">
-        <Link to="/workspace">Back to Workspace</Link>
-      </Button>
+      <div className="flex items-center gap-3">
+        <ThemeToggle />
+        <Button asChild variant="outline">
+          <Link to="/">Back to Home</Link>
+        </Button>
+      </div>
     </div>
   );
 }
@@ -260,9 +264,9 @@ function ResultView({
     <div className="space-y-6">
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">
-        <SummaryCard count={result.green_count} label="GREEN" color="bg-emerald-100 text-emerald-700" icon={<CheckCircle2 className="h-6 w-6" />} />
-        <SummaryCard count={result.yellow_count} label="YELLOW" color="bg-amber-100 text-amber-700" icon={<Sparkles className="h-6 w-6" />} />
-        <SummaryCard count={result.red_count} label="RED" color="bg-red-100 text-red-700" icon={<XCircle className="h-6 w-6" />} />
+        <SummaryCard count={result.green_count} label="GREEN" color="bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-500/30" icon={<CheckCircle2 className="h-6 w-6" />} />
+        <SummaryCard count={result.yellow_count} label="YELLOW" color="bg-amber-500/10 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400 border border-amber-500/30" icon={<Sparkles className="h-6 w-6" />} />
+        <SummaryCard count={result.red_count} label="RED" color="bg-red-500/10 text-red-700 dark:bg-red-500/20 dark:text-red-400 border border-red-500/30" icon={<XCircle className="h-6 w-6" />} />
       </div>
 
       {/* Group Tabs */}
@@ -273,12 +277,12 @@ function ResultView({
             onClick={() => setActiveGroup(group)}
             className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors flex items-center gap-2 ${
               activeGroup === group
-                ? "bg-secondary text-white shadow-sm"
-                : "bg-white text-muted-foreground hover:bg-slate-50 border border-border"
+                ? "bg-secondary text-secondary-foreground shadow-sm"
+                : "bg-background text-muted-foreground hover:bg-muted border border-border"
             }`}
           >
             <span className={`h-2 w-2 rounded-full ${
-              group === "ethics" ? "bg-accent" : group === "tipsc" ? "bg-[#2b9eb3]" : "bg-[#7c6fc4]"
+              group === "ethics" ? "bg-accent" : group === "tipsc" ? "bg-primary" : "bg-secondary"
             }`} />
             {GROUP_LABELS[group]}
           </button>
@@ -303,9 +307,9 @@ function ResultView({
 
       {/* Priority Advice */}
       {result.priority_advice.length > 0 && (
-        <Card className="border-amber-200 bg-amber-50">
+        <Card className="border-amber-500/30 bg-amber-500/10 dark:bg-amber-500/20">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-amber-800">
+            <CardTitle className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
               <Sparkles className="h-5 w-5" />
               Priority Next Steps
             </CardTitle>

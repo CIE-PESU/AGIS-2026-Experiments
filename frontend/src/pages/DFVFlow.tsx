@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, Navigate } from "react-router-dom";
-import { ArrowRight, CheckCircle2, DollarSign, Heart, Loader2, ThumbsDown, ThumbsUp, Wrench } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, DollarSign, Heart, Loader2, ThumbsDown, ThumbsUp, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -85,7 +85,7 @@ export function DFVFlow() {
         <Card>
           <CardContent className="space-y-6 p-6">
             {serverStatus === "dfv_failed" && (
-              <div className="rounded-lg bg-red-50 p-4 border border-red-200 text-red-700 font-medium text-sm">
+              <div className="rounded-lg bg-destructive/10 p-4 border border-destructive/20 text-destructive font-medium text-sm">
                 DFV Evaluation Failed. Please review your inputs below and click <b>Retry DFV Evaluation</b>.
               </div>
             )}
@@ -162,29 +162,29 @@ export function DFVFlow() {
               </div>
             ) : (result as any).hypotheses ? (
               <div className="mt-6 grid gap-4 md:grid-cols-3">
-                <div className="rounded-lg border p-4 bg-slate-50/50">
+                <div className="rounded-lg border p-4 bg-muted/50">
                   <h3 className="font-bold text-accent mb-2">Desirability</h3>
                   <p className="text-sm text-muted-foreground">{(result as any).hypotheses.desirability_statement}</p>
                   {(result as any).tips_validated_metrics?.importance_metric && (
-                    <div className="mt-3 rounded bg-white p-2 border border-slate-100 text-xs">
+                    <div className="mt-3 rounded bg-background p-2 border border-border text-xs">
                       <b>Validated Metric:</b> {(result as any).tips_validated_metrics.importance_metric}
                     </div>
                   )}
                 </div>
-                <div className="rounded-lg border p-4 bg-slate-50/50">
+                <div className="rounded-lg border p-4 bg-muted/50">
                   <h3 className="font-bold text-secondary mb-2">Feasibility</h3>
                   <p className="text-sm text-muted-foreground">{(result as any).hypotheses.feasibility_statement}</p>
                   {(result as any).tips_validated_metrics?.solvability_constraint && (
-                    <div className="mt-3 rounded bg-white p-2 border border-slate-100 text-xs">
+                    <div className="mt-3 rounded bg-background p-2 border border-border text-xs">
                       <b>Constraint:</b> {(result as any).tips_validated_metrics.solvability_constraint}
                     </div>
                   )}
                 </div>
-                <div className="rounded-lg border p-4 bg-slate-50/50">
+                <div className="rounded-lg border p-4 bg-muted/50">
                   <h3 className="font-bold text-primary mb-2">Viability</h3>
                   <p className="text-sm text-muted-foreground">{(result as any).hypotheses.viability_statement}</p>
                   {(result as any).tips_validated_metrics?.profitability_pivot && (
-                    <div className="mt-3 rounded bg-white p-2 border border-slate-100 text-xs">
+                    <div className="mt-3 rounded bg-background p-2 border border-border text-xs">
                       <b>Pivot Indicator:</b> {(result as any).tips_validated_metrics.profitability_pivot}
                     </div>
                   )}
@@ -234,9 +234,17 @@ function Header({ title }: { title: string }) {
   return (
     <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
       <h1 className="text-3xl font-bold text-primary">{title}</h1>
-      <Button asChild variant="outline">
-        <Link to="/workspace">Back to Workspace</Link>
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button asChild variant="ghost" size="sm">
+          <Link to="/workspace" className="flex items-center gap-1.5">
+            <ArrowLeft className="h-4 w-4" />
+            <span>Back</span>
+          </Link>
+        </Button>
+        <Button asChild variant="outline">
+          <Link to="/workspace">Workspace</Link>
+        </Button>
+      </div>
     </div>
   );
 }

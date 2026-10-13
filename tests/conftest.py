@@ -1,5 +1,4 @@
-"""
-tests/conftest.py — Shared pytest configuration for all AGIS-2026 tests.
+"""tests/conftest.py — Shared pytest configuration for all AGIS-2026 tests.
 
 Adds backend/ to sys.path so all test files can import backend modules
 without needing to set PYTHONPATH manually.

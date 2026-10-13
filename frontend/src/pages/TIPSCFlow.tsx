@@ -305,10 +305,10 @@ export function TIPSCFlow() {
       </div>
 
       {/* White - front, covers most of navy, only the top step peeks */}
-      <div className="relative z-20 -mt-8 rounded-[28px] bg-white shadow-2xl px-6 pt-10 pb-8">
-        <p className="text-base text-[#34305E]">{pendingQuestion}</p>
+      <div className="relative z-20 -mt-8 rounded-[28px] bg-background shadow-2xl px-6 pt-10 pb-8">
+        <p className="text-base text-foreground">{pendingQuestion}</p>
         <Textarea
-          className="mt-4 bg-slate-50 text-base border-slate-200 rounded-2xl focus-visible:ring-[#34305E]"
+          className="mt-4 bg-muted text-base border-border rounded-2xl focus-visible:ring-primary"
           rows={4}
           value={answer}
           onChange={(e) => setAnswer(e.target.value)}
@@ -318,11 +318,11 @@ export function TIPSCFlow() {
       </div>
 
       {/* Orange - behind, peeks below the white card */}
-      <div className="relative z-10 -mt-6 rounded-[28px] bg-[#E75A2D] pt-6">
+      <div className="relative z-10 -mt-6 rounded-[28px] bg-accent pt-6">
         <button
           disabled={!answer.trim() || submitting}
           onClick={sendFollowUp}
-          className="w-full h-14 flex items-center justify-center gap-2 text-white font-semibold text-base disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full h-14 flex items-center justify-center gap-2 text-accent-foreground font-semibold text-base disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
           Submit & Re-evaluate
@@ -340,9 +340,17 @@ export function TIPSCFlow() {
             Pre-Evaluation → Validation → Regulatory → Ethics → TIPSC
           </p>
         </div>
-        <Button asChild variant="outline">
-          <Link to="/workspace">Back to Workspace</Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/workspace" className="flex items-center gap-1.5">
+              <ArrowLeft className="h-4 w-4" />
+              <span>Back</span>
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/workspace">Workspace</Link>
+          </Button>
+        </div>
       </div>
 
       {/* ── Tabs ── */}
@@ -353,8 +361,8 @@ export function TIPSCFlow() {
             onClick={() => selectTab(key)}
             className={`rounded-full px-2 py-2 text-center text-xs font-semibold transition-colors ${
               activeTab === key
-                ? "bg-secondary text-white"
-                : "bg-white text-muted-foreground hover:bg-slate-50"
+                ? "bg-secondary text-secondary-foreground"
+                : "bg-background text-muted-foreground hover:bg-muted"
             }`}
           >
             {label}
@@ -440,15 +448,15 @@ export function TIPSCFlow() {
       )}
 
       {isFailed && (
-        <Card className="border-red-200 mt-4">
+        <Card className="border-destructive/20 bg-destructive/5 mt-4">
           <CardHeader>
-            <CardTitle className="text-red-600">
+            <CardTitle className="text-destructive">
               TIPSC Evaluation Failed
             </CardTitle>
           </CardHeader>
 
           <CardContent className="space-y-4">
-            <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">
+            <div className="rounded-lg bg-destructive/10 p-4 text-sm text-destructive">
               {sessionDoc?.error ??
                 "The evaluation could not be completed."}
             </div>
@@ -481,24 +489,12 @@ export function TIPSCFlow() {
       {/* Ready-for-DFV banner + actions — shown under EVERY tab once TIPSC is final, not just the TIPSC tab */}
       {isFinal && tips && (
         <div
-          className={`mt-4 rounded-lg p-4 ${readyForDFV ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"
+          className={`mt-4 rounded-lg p-4 ${readyForDFV ? "bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-500/30" : "bg-amber-500/10 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400 border border-amber-500/30"
             }`}
         >
           <div className="flex items-center gap-2 font-bold">
             {readyForDFV ? <CheckCircle2 /> : <XCircle />}{" "}
             {readyForDFV ? "Ready for DFV" : "Not Yet Ready"}
-          </div>
-          <div className="mt-2 text-sm">
-            <ReactMarkdown
-              components={{
-                p: ({node, ...props}) => <p className="mb-2 last:mb-0 whitespace-pre-wrap" {...props} />,
-                ul: ({node, ...props}) => <ul className="list-disc pl-5 mb-2" {...props} />,
-                li: ({node, ...props}) => <li className="mb-1" {...props} />,
-                strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
-              }}
-            >
-              {tips.reasoning}
-            </ReactMarkdown>
           </div>
           <div className="mt-4 flex items-center justify-end gap-3">
             {(serverStatus === "tipsc_failed" || session.tipsc === "failed") && (
@@ -567,7 +563,7 @@ function FounderTab({
           .sort((a, b) => (a.turn ?? 0) - (b.turn ?? 0))
           .map((item, index) => (
             <div key={index} className="rounded-lg border p-4">
-              <p className="text-sm font-semibold text-slate-800">Q: {item.question}</p>
+              <p className="text-sm font-semibold text-foreground">Q: {item.question}</p>
               <p className="mt-1 text-sm text-muted-foreground">A: {item.answer}</p>
             </div>
           ))}

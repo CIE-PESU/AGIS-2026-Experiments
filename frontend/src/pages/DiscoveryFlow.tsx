@@ -15,6 +15,7 @@ import {
   PlayCircle,
   BookOpen,
   ArrowRight,
+  ArrowLeft,
   Lightbulb
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -100,8 +101,7 @@ function DiscoveryQuestionsForm({ onSubmit }: { onSubmit: (data: Record<string, 
             <Button
               onClick={() => onSubmit(formData)}
               disabled={!allFilled}
-              className="gap-2 shadow-md text-white"
-              style={{ background: allFilled ? "linear-gradient(135deg, hsl(14 78% 53%) 0%, hsl(14 78% 48%) 100%)" : undefined }}
+              className="gap-2 shadow-md text-accent-foreground bg-accent hover:bg-accent/90"
             >
               Review My Thinking <ArrowRight className="w-4 h-4" />
             </Button>
@@ -122,7 +122,7 @@ function DiscoveryQuestionsForm({ onSubmit }: { onSubmit: (data: Record<string, 
               <DiscoveryGuideBit icon={<Lightbulb className="w-3.5 h-3.5 text-secondary" />} label="Why are we asking this?" text={activeGuide.why} />
               <DiscoveryGuideBit icon={<CheckCircle2 className="w-3.5 h-3.5 text-secondary" />} label="Good example" text={activeGuide.goodExample} italic />
               <DiscoveryGuideBit icon={<AlertTriangle className="w-3.5 h-3.5 text-accent" />} label="Avoid this" text={activeGuide.avoidThis} italic />
-              <div className="rounded-lg p-3 border-l-2 border-secondary" style={{ background: "linear-gradient(135deg, hsl(197 56% 48% / 0.08) 0%, hsl(197 56% 48% / 0.03) 100%)" }}>
+              <div className="rounded-lg p-3 border-l-2 border-secondary bg-secondary/5">
                 <p className="text-[10px] font-bold tracking-wider text-secondary uppercase mb-1">JTBD Tip</p>
                 <p className="text-xs text-muted-foreground leading-relaxed">{activeGuide.jtbdTip}</p>
               </div>
@@ -255,7 +255,7 @@ export function DiscoveryFlow() {
     setChecklistState((prev) => ({ ...prev, [index]: !prev[index] }));
   };
 
-  return (
+return (
     <main className="mx-auto max-w-6xl px-4 py-8">
       {/* Header and Actions */}
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b pb-6">
@@ -265,14 +265,20 @@ export function DiscoveryFlow() {
             Plan, execute, and record structured jobs-to-be-done validation.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {result && (
             <Button onClick={exportDiscoveryPlan} variant="outline" className="flex items-center gap-2">
               <Download className="h-4 w-4" /> Download Discovery Plan (.md)
             </Button>
           )}
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/workspace" className="flex items-center gap-1.5">
+              <ArrowLeft className="h-4 w-4" />
+              <span>Back</span>
+            </Link>
+          </Button>
           <Button asChild variant="outline">
-            <Link to="/workspace">Back to Workspace</Link>
+            <Link to="/workspace">Workspace</Link>
           </Button>
         </div>
       </div>
@@ -316,14 +322,14 @@ export function DiscoveryFlow() {
       {result && (
         <>
           {(result as any).report ? (
-            <Card className="border-slate-200 shadow-sm p-6 md:p-8 bg-white">
+            <Card className="border-border shadow-sm p-6 md:p-8 bg-background">
               <MarkdownRenderer content={(result as any).report} />
             </Card>
           ) : (
             <div className="space-y-10">
               {/* Section 1: Customer Discovery Objectives */}
-              <Card className="border-slate-200 shadow-sm">
-                <CardHeader className="bg-slate-50/50 border-b">
+              <Card className="border-border shadow-sm">
+                <CardHeader className="bg-muted/50 border-b">
                   <div className="flex items-center gap-2">
                     <Compass className="h-5 w-5 text-primary" />
                     <CardTitle className="text-lg">SECTION 1: CUSTOMER DISCOVERY OBJECTIVES</CardTitle>
@@ -335,20 +341,20 @@ export function DiscoveryFlow() {
                 <CardContent className="p-6">
                   <div className="space-y-6">
                     {result.objectives?.map((obj) => (
-                      <div key={obj.id} className="rounded-lg border bg-white p-5 shadow-sm hover:border-slate-300 transition-colors">
-                        <h3 className="font-bold text-slate-800 text-base">{obj.objective}</h3>
+                      <div key={obj.id} className="rounded-lg border bg-background p-5 shadow-sm hover:border-muted transition-colors">
+                        <h3 className="font-bold text-foreground text-base">{obj.objective}</h3>
                         <div className="mt-4 grid gap-4 md:grid-cols-3">
-                          <div className="rounded-md bg-slate-50 p-4">
-                            <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                          <div className="rounded-md bg-muted p-4">
+                            <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">
                               <Info className="h-3.5 w-3.5" /> Why It Matters
                             </h4>
-                            <p className="text-sm text-slate-600 leading-relaxed">{obj.whyItMatters}</p>
+                            <p className="text-sm text-muted-foreground leading-relaxed">{obj.whyItMatters}</p>
                           </div>
-                          <div className="rounded-md bg-slate-50 p-4">
-                            <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                          <div className="rounded-md bg-muted p-4">
+                            <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">
                               Assumptions Validated
                             </h4>
-                            <ul className="space-y-1.5 text-sm text-slate-600">
+                            <ul className="space-y-1.5 text-sm text-muted-foreground">
                               {obj.assumptionsValidated.map((a) => (
                                 <li key={a} className="flex items-start gap-1.5">
                                   <span className="text-primary font-bold mt-0.5">•</span>
@@ -361,7 +367,7 @@ export function DiscoveryFlow() {
                             <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-800 mb-2">
                               Evidence Required
                             </h4>
-                            <ul className="space-y-1.5 text-sm text-slate-600">
+                            <ul className="space-y-1.5 text-sm text-muted-foreground">
                               {obj.evidenceRequired.map((e) => (
                                 <li key={e} className="flex items-start gap-1.5">
                                   <CheckCircle2 className="h-4.5 w-4.5 text-emerald-600 shrink-0 mt-0.5" />
@@ -378,8 +384,8 @@ export function DiscoveryFlow() {
               </Card>
 
               {/* Section 2: Assumption Validation Matrix */}
-              <Card className="border-slate-200 shadow-sm">
-                <CardHeader className="bg-slate-50/50 border-b">
+              <Card className="border-border shadow-sm">
+                <CardHeader className="bg-muted/50 border-b">
                   <div className="flex items-center gap-2">
                     <AlertTriangle className="h-5 w-5 text-amber-600" />
                     <CardTitle className="text-lg">SECTION 2: ASSUMPTION VALIDATION MATRIX</CardTitle>
@@ -391,36 +397,36 @@ export function DiscoveryFlow() {
                 <CardContent className="p-6">
                   <div className="grid gap-6 md:grid-cols-2">
                     {result.assumptions?.map((ass, i) => (
-                      <div key={i} className="flex flex-col rounded-lg border bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
+                      <div key={i} className="flex flex-col rounded-lg border bg-background p-5 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between gap-2 mb-3">
                           <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                             ass.risk === "High Risk"
-                              ? "bg-red-100 text-red-800 border border-red-200"
+                              ? "bg-red-500/10 text-red-700 border border-red-500/30 dark:bg-red-500/20 dark:text-red-400"
                               : ass.risk === "Medium Risk"
-                              ? "bg-amber-100 text-amber-800 border border-amber-200"
-                              : "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                              ? "bg-amber-500/10 text-amber-700 border border-amber-500/30 dark:bg-amber-500/20 dark:text-amber-400"
+                              : "bg-emerald-500/10 text-emerald-700 border border-emerald-500/30 dark:bg-emerald-500/20 dark:text-emerald-400"
                           }`}>
                             {ass.risk}
                           </span>
                         </div>
-                        <h3 className="font-bold text-slate-800 text-base mb-2">{ass.assumption}</h3>
-                        <p className="text-sm text-slate-500 mb-4 leading-relaxed"><span className="font-semibold text-slate-700">Impact: </span>{ass.whyItMatters}</p>
+                        <h3 className="font-bold text-foreground text-base mb-2">{ass.assumption}</h3>
+                        <p className="text-sm text-muted-foreground mb-4 leading-relaxed"><span className="font-semibold text-foreground">Impact: </span>{ass.whyItMatters}</p>
 
                         <div className="mt-auto space-y-3 pt-3 border-t">
                           <div>
-                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Required Evidence</h4>
-                            <ul className="space-y-1 text-xs text-slate-600">
+                            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Required Evidence</h4>
+                            <ul className="space-y-1 text-xs text-muted-foreground">
                               {ass.evidenceRequired.map((e, idx) => (
-                                <li key={idx} className="flex items-start gap-1">
-                                  <span className="text-slate-400 font-bold">•</span>
+                                <li key={idx} className="flex items-start gap-1.5">
+                                  <span className="text-muted-foreground font-bold">•</span>
                                   <span>{e}</span>
                                 </li>
                               ))}
                             </ul>
                           </div>
 
-                          <div className="rounded-md bg-slate-50 p-2.5 space-y-1.5">
-                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Validation Signals</h4>
+                          <div className="rounded-md bg-muted p-2.5 space-y-1.5">
+                            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Validation Signals</h4>
                             {ass.signals.map((sig, idx) => (
                               <div key={idx} className="flex items-start gap-1.5 text-xs">
                                 {sig.type === "validation" ? (
@@ -428,7 +434,7 @@ export function DiscoveryFlow() {
                                 ) : (
                                   <XCircle className="h-3.5 w-3.5 text-rose-500 shrink-0 mt-0.5" />
                                 )}
-                                <span className={sig.type === "validation" ? "text-slate-700 font-medium" : "text-slate-500 italic"}>
+                                <span className={sig.type === "validation" ? "text-foreground font-medium" : "text-muted-foreground italic"}>
                                   {sig.text}
                                 </span>
                               </div>
@@ -442,8 +448,8 @@ export function DiscoveryFlow() {
               </Card>
 
               {/* Section 3: Customer Discovery Interview Guide */}
-              <Card className="border-slate-200 shadow-sm">
-                <CardHeader className="bg-slate-50/50 border-b">
+              <Card className="border-border shadow-sm">
+                <CardHeader className="bg-muted/50 border-b">
                   <div className="flex items-center gap-2">
                     <HelpCircle className="h-5 w-5 text-indigo-600" />
                     <CardTitle className="text-lg">SECTION 3: CUSTOMER DISCOVERY INTERVIEW GUIDE</CardTitle>
@@ -455,20 +461,20 @@ export function DiscoveryFlow() {
                 <CardContent className="p-6">
                   <div className="space-y-4">
                     {result.interviewGuide?.map((guide, i) => (
-                      <div key={i} className="rounded-lg border bg-white p-5 shadow-sm">
+                      <div key={i} className="rounded-lg border bg-background p-5 shadow-sm">
                         <div className="mb-3">
                           <span className="text-xs font-semibold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded">
                             Section {guide.section}
                           </span>
-                          <h3 className="mt-2 text-base font-bold text-slate-800">{guide.subtitle}</h3>
+                          <h3 className="mt-2 text-base font-bold text-foreground">{guide.subtitle}</h3>
                         </div>
                         <div className="space-y-3 pt-3 border-t">
                           {guide.questions.map((q, idx) => (
-                            <div key={idx} className="flex items-start gap-3 rounded-md bg-slate-50 p-3 hover:bg-slate-100 transition-colors">
+                            <div key={idx} className="flex items-start gap-3 rounded-md bg-muted p-3 hover:bg-muted/50 transition-colors">
                               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white">
                                 {idx + 1}
                               </span>
-                              <p className="text-sm font-semibold text-slate-800 leading-relaxed italic">"{q}"</p>
+                              <p className="text-sm font-semibold text-foreground leading-relaxed italic">"{q}"</p>
                             </div>
                           ))}
                         </div>
@@ -480,8 +486,8 @@ export function DiscoveryFlow() {
 
               {/* Section 4: Interview Execution Guide */}
               {result.executionGuide && (
-                <Card className="border-slate-200 shadow-sm">
-                  <CardHeader className="bg-slate-50/50 border-b">
+                <Card className="border-border shadow-sm">
+                  <CardHeader className="bg-muted/50 border-b">
                     <div className="flex items-center gap-2">
                       <PlayCircle className="h-5 w-5 text-emerald-600" />
                       <CardTitle className="text-lg">SECTION 4: INTERVIEW EXECUTION GUIDE</CardTitle>
@@ -492,15 +498,15 @@ export function DiscoveryFlow() {
                   </CardHeader>
                   <CardContent className="p-6">
                     <div className="flex justify-center border-b pb-4 mb-6">
-                      <div className="flex space-x-1 rounded-lg bg-slate-100 p-1">
+                      <div className="flex space-x-1 rounded-lg bg-muted p-1">
                         {(["before", "during", "after"] as const).map((tab) => (
                           <button
                             key={tab}
                             onClick={() => setActiveGuideTab(tab)}
                             className={`rounded-md px-4 py-1.5 text-sm font-medium transition-all ${
                               activeGuideTab === tab
-                                ? "bg-white shadow-sm text-slate-800 font-bold"
-                                : "text-slate-500 hover:text-slate-800"
+                                ? "bg-background shadow-sm text-foreground font-bold"
+                                : "text-muted-foreground hover:text-foreground"
                             }`}
                           >
                             {tab.toUpperCase()} THE INTERVIEW
@@ -511,13 +517,13 @@ export function DiscoveryFlow() {
 
                     <div className="grid gap-6 md:grid-cols-3">
                       {result.executionGuide[activeGuideTab]?.map((guideBlock, idx) => (
-                        <div key={idx} className="rounded-lg border bg-white p-5 shadow-sm">
-                          <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider mb-3 pb-2 border-b">
+                        <div key={idx} className="rounded-lg border bg-background p-5 shadow-sm">
+                          <h3 className="font-bold text-foreground text-sm uppercase tracking-wider mb-3 pb-2 border-b">
                             {guideBlock.title}
                           </h3>
                           <ul className="space-y-2.5">
                             {guideBlock.items.map((item, idy) => (
-                              <li key={idy} className="flex items-start gap-2 text-sm text-slate-600 leading-relaxed">
+                              <li key={idy} className="flex items-start gap-2 text-sm text-muted-foreground leading-relaxed">
                                 <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
                                 <span>{item}</span>
                               </li>
@@ -532,8 +538,8 @@ export function DiscoveryFlow() {
 
               {/* Section 5: Interview Recording Template */}
               {result.recordingTemplate && (
-                <Card className="border-slate-200 shadow-sm">
-                  <CardHeader className="bg-slate-50/50 border-b">
+                <Card className="border-border shadow-sm">
+                  <CardHeader className="bg-muted/50 border-b">
                     <div className="flex items-center gap-2">
                       <FileText className="h-5 w-5 text-blue-600" />
                       <CardTitle className="text-lg">SECTION 5: INTERVIEW RECORDING TEMPLATE</CardTitle>
@@ -542,108 +548,108 @@ export function DiscoveryFlow() {
                       Preview mockup of the post-interview data record.
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="p-6 bg-slate-50/30">
-                    <div className="rounded-lg border bg-white p-6 shadow-md max-w-3xl mx-auto space-y-6">
+                  <CardContent className="p-6 bg-muted/30">
+                    <div className="rounded-lg border bg-background p-6 shadow-md max-w-3xl mx-auto space-y-6">
                       <div className="flex items-center justify-between border-b pb-4">
                         <div>
-                          <h3 className="font-bold text-slate-800">INTERVIEW DOCUMENTATION RECORD</h3>
-                          <p className="text-xs text-slate-500">Document immediately after interview</p>
+                          <h3 className="font-bold text-foreground">INTERVIEW DOCUMENTATION RECORD</h3>
+                          <p className="text-xs text-muted-foreground">Document immediately after interview</p>
                         </div>
-                        <span className="text-[10px] uppercase font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">Mock Template</span>
+                        <span className="text-[10px] uppercase font-bold text-blue-600 bg-blue-500/10 dark:bg-blue-500/20 px-2 py-1 rounded">Mock Template</span>
                       </div>
 
                       <div className="grid gap-4 sm:grid-cols-2">
                         {result.recordingTemplate.profileFields.map((f, i) => (
                           <div key={i} className="space-y-1">
-                            <label className="text-xs font-bold text-slate-500">{f}</label>
+                            <label className="text-xs font-bold text-muted-foreground">{f}</label>
                             <input
                               type="text"
                               disabled
                               placeholder="____________________________"
-                              className="w-full bg-slate-50 rounded border p-2 text-sm text-slate-400 cursor-not-allowed"
+                              className="w-full bg-muted rounded border p-2 text-sm text-muted-foreground cursor-not-allowed"
                             />
                           </div>
                         ))}
                         {result.recordingTemplate.contextFields.map((f, i) => (
                           <div key={i} className="space-y-1">
-                            <label className="text-xs font-bold text-slate-500">{f}</label>
+                            <label className="text-xs font-bold text-muted-foreground">{f}</label>
                             <input
                               type="text"
                               disabled
                               placeholder="____________________________"
-                              className="w-full bg-slate-50 rounded border p-2 text-sm text-slate-400 cursor-not-allowed"
+                              className="w-full bg-muted rounded border p-2 text-sm text-muted-foreground cursor-not-allowed"
                             />
                           </div>
                         ))}
                       </div>
 
                       <div className="space-y-4 pt-4 border-t">
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">Problem & Behavior Records</h4>
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">Problem & Behavior Records</h4>
                         {result.recordingTemplate.problemEvidenceFields.map((f, i) => (
                           <div key={i} className="space-y-1">
-                            <label className="text-xs font-bold text-slate-600">{f.label}</label>
+                            <label className="text-xs font-bold text-muted-foreground">{f.label}</label>
                             <textarea
                               disabled
                               rows={2}
                               placeholder="Write observed answers here..."
-                              className="w-full bg-slate-50 rounded border p-2 text-xs text-slate-400 cursor-not-allowed resize-none"
+                              className="w-full bg-muted rounded border p-2 text-xs text-muted-foreground cursor-not-allowed resize-none"
                             />
                           </div>
                         ))}
                         {result.recordingTemplate.behaviorFields.map((f, i) => (
                           <div key={i} className="space-y-1">
-                            <label className="text-xs font-bold text-slate-600">{f}</label>
+                            <label className="text-xs font-bold text-muted-foreground">{f}</label>
                             <textarea
                               disabled
                               rows={2}
                               placeholder="Write observed answers here..."
-                              className="w-full bg-slate-50 rounded border p-2 text-xs text-slate-400 cursor-not-allowed resize-none"
+                              className="w-full bg-muted rounded border p-2 text-xs text-muted-foreground cursor-not-allowed resize-none"
                             />
                           </div>
                         ))}
                       </div>
 
                       <div className="space-y-4 pt-4 border-t">
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">Motivations & Quotes</h4>
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">Motivations & Quotes</h4>
                         <div className="grid gap-4 sm:grid-cols-2">
                           {result.recordingTemplate.frustrationFields.map((f, i) => (
                             <div key={i} className="space-y-1">
-                              <label className="text-xs font-bold text-slate-600">{f}</label>
+                              <label className="text-xs font-bold text-muted-foreground">{f}</label>
                               <input
                                 type="text"
                                 disabled
                                 placeholder="..."
-                                className="w-full bg-slate-50 rounded border p-2 text-sm text-slate-400 cursor-not-allowed"
+                                className="w-full bg-muted rounded border p-2 text-sm text-muted-foreground cursor-not-allowed"
                               />
                             </div>
                           ))}
                           {result.recordingTemplate.motivationFields.map((f, i) => (
                             <div key={i} className="space-y-1">
-                              <label className="text-xs font-bold text-slate-600">{f}</label>
+                              <label className="text-xs font-bold text-muted-foreground">{f}</label>
                               <input
                                 type="text"
                                 disabled
                                 placeholder="..."
-                                className="w-full bg-slate-50 rounded border p-2 text-sm text-slate-400 cursor-not-allowed"
+                                className="w-full bg-muted rounded border p-2 text-sm text-muted-foreground cursor-not-allowed"
                               />
                             </div>
                           ))}
                         </div>
                         <div className="space-y-2">
-                          <label className="text-xs font-bold text-slate-600">Memorable Direct Quotes</label>
+                          <label className="text-xs font-bold text-muted-foreground">Memorable Direct Quotes</label>
                           {result.recordingTemplate.memorableQuotes.map((q, i) => (
-                            <div key={i} className="rounded bg-slate-50 border p-2.5 text-xs text-slate-400 italic">
+                            <div key={i} className="rounded bg-muted border p-2.5 text-xs text-muted-foreground italic">
                               "{q}..."
                             </div>
                           ))}
                         </div>
                         <div className="space-y-1">
-                          <label className="text-xs font-bold text-slate-600">{result.recordingTemplate.unexpectedInsights}</label>
+                          <label className="text-xs font-bold text-muted-foreground">{result.recordingTemplate.unexpectedInsights}</label>
                           <textarea
                             disabled
                             rows={2}
                             placeholder="..."
-                            className="w-full bg-slate-50 rounded border p-2 text-xs text-slate-400 cursor-not-allowed resize-none"
+                            className="w-full bg-muted rounded border p-2 text-xs text-muted-foreground cursor-not-allowed resize-none"
                           />
                         </div>
                       </div>
@@ -654,8 +660,8 @@ export function DiscoveryFlow() {
 
               {/* Section 6: Evidence Collection Checklist */}
               {result.evidenceChecklist && (
-                <Card className="border-slate-200 shadow-sm">
-                  <CardHeader className="bg-slate-50/50 border-b">
+                <Card className="border-border shadow-sm">
+                  <CardHeader className="bg-muted/50 border-b">
                     <div className="flex items-center gap-2">
                       <ListChecks className="h-5 w-5 text-primary" />
                       <CardTitle className="text-lg">SECTION 6: EVIDENCE COLLECTION CHECKLIST</CardTitle>
@@ -678,7 +684,7 @@ export function DiscoveryFlow() {
                             className={`flex items-start gap-3 rounded-lg border p-4 cursor-pointer transition-all ${
                               isChecked
                                 ? "border-emerald-500 bg-emerald-50/40"
-                                : "border-slate-200 bg-white hover:bg-slate-50"
+                                : "border-border bg-background hover:bg-muted"
                             }`}
                           >
                             <input
@@ -686,13 +692,13 @@ export function DiscoveryFlow() {
                               aria-label={label}
                               checked={isChecked}
                               onChange={() => {}}
-                              className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 mt-0.5 cursor-pointer"
+                              className="h-4 w-4 rounded border-border text-emerald-600 focus:ring-emerald-500 mt-0.5 cursor-pointer"
                             />
                             <div>
-                              <span className={`font-bold text-sm ${isChecked ? "text-emerald-950" : "text-slate-800"}`}>
+                              <span className={`font-bold text-sm ${isChecked ? "text-emerald-950" : "text-foreground"}`}>
                                 {label}:
                               </span>
-                              <p className={`text-sm mt-0.5 ${isChecked ? "text-emerald-900" : "text-slate-500"}`}>
+                              <p className={`text-sm mt-0.5 ${isChecked ? "text-emerald-900" : "text-muted-foreground"}`}>
                                 {detail}
                               </p>
                             </div>
@@ -706,39 +712,39 @@ export function DiscoveryFlow() {
 
               {/* Final Summary Section */}
               {result.finalSummary && (
-                <Card className="border-indigo-150 bg-indigo-50/20 shadow-md">
-                  <CardHeader className="bg-indigo-50/40 border-b border-indigo-100">
+                <Card className="border-indigo-500/30 bg-indigo-500/10 dark:bg-indigo-500/20 shadow-md">
+                  <CardHeader className="bg-indigo-500/20 dark:bg-indigo-500/30 border-b border-indigo-500/30">
                     <div className="flex items-center gap-2">
-                      <BookOpen className="h-5 w-5 text-indigo-700" />
-                      <CardTitle className="text-lg text-indigo-950">FINAL SUMMARY</CardTitle>
+                      <BookOpen className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                      <CardTitle className="text-lg text-indigo-700 dark:text-indigo-400">FINAL SUMMARY</CardTitle>
                     </div>
-                    <CardDescription className="text-indigo-800">
+                    <CardDescription className="text-indigo-600 dark:text-indigo-400">
                       Key strategic focus areas generated for validation workflows.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="p-6">
                     <div className="grid gap-6 md:grid-cols-3">
-                      <div className="rounded-lg border border-indigo-100 bg-white p-5 shadow-sm">
-                        <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider mb-3 pb-2 border-b">
+                      <div className="rounded-lg border border-indigo-500/30 bg-background p-5 shadow-sm">
+                        <h3 className="font-bold text-foreground text-sm uppercase tracking-wider mb-3 pb-2 border-b">
                           Critical Assumptions
                         </h3>
                         <ul className="space-y-2">
                           {result.finalSummary.criticalAssumptions.map((a, i) => (
-                            <li key={i} className="flex items-start gap-2 text-xs text-slate-600 leading-relaxed">
-                              <span className="text-indigo-600 font-bold shrink-0 mt-0.5">•</span>
+                            <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground leading-relaxed">
+                              <span className="text-indigo-600 dark:text-indigo-400 font-bold shrink-0 mt-0.5">•</span>
                               <span>{a}</span>
                             </li>
                           ))}
                         </ul>
                       </div>
 
-                      <div className="rounded-lg border border-red-100 bg-white p-5 shadow-sm">
-                        <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider mb-3 pb-2 border-b">
+                      <div className="rounded-lg border border-red-500/30 bg-background p-5 shadow-sm">
+                        <h3 className="font-bold text-foreground text-sm uppercase tracking-wider mb-3 pb-2 border-b">
                           Biggest Risks
                         </h3>
                         <ul className="space-y-2">
                           {result.finalSummary.biggestRisks.map((r, i) => (
-                            <li key={i} className="flex items-start gap-2 text-xs text-slate-600 leading-relaxed">
+                            <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground leading-relaxed">
                               <span className="text-red-500 font-bold shrink-0 mt-0.5">•</span>
                               <span>{r}</span>
                             </li>
@@ -746,14 +752,14 @@ export function DiscoveryFlow() {
                         </ul>
                       </div>
 
-                      <div className="rounded-lg border border-emerald-100 bg-white p-5 shadow-sm">
-                        <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider mb-3 pb-2 border-b">
+                      <div className="rounded-lg border border-emerald-500/30 bg-background p-5 shadow-sm">
+                        <h3 className="font-bold text-foreground text-sm uppercase tracking-wider mb-3 pb-2 border-b">
                           Successful Outcomes
                         </h3>
                         <ul className="space-y-2">
                           {result.finalSummary.successfulInterviews.map((s, i) => (
-                            <li key={i} className="flex items-start gap-2 text-xs text-slate-600 leading-relaxed">
-                              <span className="text-emerald-600 font-bold shrink-0 mt-0.5">•</span>
+                            <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground leading-relaxed">
+                              <span className="text-emerald-600 dark:text-emerald-400 font-bold shrink-0 mt-0.5">•</span>
                               <span>{s}</span>
                             </li>
                           ))}

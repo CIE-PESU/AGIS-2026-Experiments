@@ -344,7 +344,6 @@ def read_stdin_input() -> QuickstartInput | None:
     if sys.stdin.isatty():
         return None
     try:
-        import json
         content = sys.stdin.read().strip()
         if not content:
             return None

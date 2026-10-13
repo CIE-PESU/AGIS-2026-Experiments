@@ -42,10 +42,11 @@ This frontend application is a React-based web platform for the AGIS (Agentic AI
 frontend/
 ├── src/
 │   ├── components/
-│   │   ├── ui/              # Base UI components (Button, Card, Input, etc.)
+│   │   ├── ui/              # Base UI components (Button, Card, Input, Skeleton, Stepper, EmptyState, ThemeToggle, etc.)
 │   │   └── shared/          # Shared business components (StatusBadge, Timeline, etc.)
 │   ├── context/
-│   │   └── AuthContext.tsx  # Global authentication & session state
+│   │   ├── AuthContext.tsx  # Global authentication & session state
+│   │   └── ThemeContext.tsx # Theme state management (light/dark)
 │   ├── data/
 │   │   └── mockData.ts      # Mock responses for development
 │   ├── hooks/
@@ -60,6 +61,7 @@ frontend/
 │   │   ├── TIPSCFlow.tsx    # TIPSC evaluation flow
 │   │   ├── DFVFlow.tsx      # DFV analysis flow
 │   │   ├── DiscoveryFlow.tsx # Customer discovery flow
+│   │   ├── QuickstartFlow.tsx   # Quickstart evaluation flow
 │   │   ├── MentorDashboard.tsx # Mentor interface
 │   │   └── AdminDashboard.tsx  # Admin interface
 │   ├── services/
@@ -74,11 +76,11 @@ frontend/
 │   ├── App.tsx              # Root component with routing
 │   ├── main.tsx             # Application entry point
 │   ├── constants.ts         # App-wide constants
-│   └── index.css            # Global styles & Tailwind directives
+│   └── index.css            # Global styles & Tailwind directives (includes dark mode CSS variables)
 ├── index.html               # HTML template
 ├── package.json             # Dependencies & scripts
 ├── vite.config.ts           # Vite configuration with proxy
-├── tailwind.config.ts       # Tailwind configuration
+├── tailwind.config.ts       # Tailwind configuration (darkMode: class)
 └── tsconfig.json            # TypeScript configuration
 ```
 
@@ -537,6 +539,12 @@ When backend is unavailable:
 - `alert-dialog.tsx` - Confirmation dialog
 - `tabs.tsx` - Tab navigation
 
+**Layout & Feedback Components:**
+- `skeleton.tsx` - Loading placeholder with pulse animation
+- `stepper.tsx` - Multi-step progress indicator
+- `empty-state.tsx` - Empty state with icon, title, description, and action
+- `theme-toggle.tsx` - Light/dark mode toggle button (Sun/Moon icons)
+
 **Styling Pattern:**
 ```typescript
 const { variant, size, ...props } = props;
@@ -583,11 +591,46 @@ downloadMarkdown(content, filename) - Trigger file download
 - Strict mode enabled
 - Path resolution with @ alias
 - JSX: react-jsx
-
 ### Tailwind Configuration (tailwind.config.ts)
+
 - Custom color scheme (primary, secondary, accent)
 - Animation utilities
 - Content paths for component scanning
+- **Dark mode**: Class-based strategy (`darkMode: ["class"]`) — enables `.dark` class toggle on `<html>` element
+
+### Dark Mode Implementation
+
+The application includes a complete light/dark theme system:
+
+#### Architecture
+- **CSS Variables** (`src/index.css`): All semantic colors defined in `:root` (light) and `.dark` (dark) using HSL values
+- **Theme Context** (`src/context/ThemeContext.tsx`): React Context provider that manages theme state, persists to `localStorage`, and applies `.dark` class to `<html>`
+- **Toggle Component** (`src/components/ui/theme-toggle.tsx`): Accessible button with Sun/Moon icons, outline variant styling
+- **Integration**: Added to all authenticated layout headers (WorkspaceLayout, QuickstartFlow, MentorDashboard, AdminDashboard)
+
+#### Usage
+```tsx
+import { ThemeProvider } from "@/context/ThemeContext";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
+
+// Wrap app in main.tsx
+<ThemeProvider>
+  <App />
+</ThemeProvider>
+
+// Use toggle in headers
+<ThemeToggle />
+
+// Access theme in components
+import { useTheme } from "@/context/ThemeContext";
+const { theme, toggleTheme, setTheme } = useTheme();
+```
+
+#### Features
+- **Persistence**: Theme saved to `localStorage` key `theme`
+- **System preference detection**: Respects `prefers-color-scheme` on first visit
+- **No flash**: Theme applied during initial render via `mounted` state guard
+- **Accessible**: Proper `aria-label` attributes, keyboard navigable
 
 ---
 

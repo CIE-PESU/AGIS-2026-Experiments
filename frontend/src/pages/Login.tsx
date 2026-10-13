@@ -47,14 +47,14 @@ export function Login() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-muted/40 dot-pattern p-5">
-      <form onSubmit={onSubmit} className="w-full max-w-md rounded-lg border bg-white p-8 shadow-xl">
+      <form onSubmit={onSubmit} className="w-full max-w-md rounded-lg border bg-background p-8 shadow-xl">
         <div className="flex justify-center mb-6">
           <Logos />
         </div>
         <h2 className="text-2xl font-bold text-center text-primary">Sign in</h2>
         <p className="mt-2 text-sm text-center text-muted-foreground">Sign in with your PES credentials. Your role is assigned at login.</p>
         
-        <label className="mt-6 block text-sm font-semibold text-slate-700">SRN</label>
+        <label className="mt-6 block text-sm font-semibold text-foreground">SRN</label>
         <Input 
           className="mt-2" 
           value={srn} 
@@ -62,7 +62,7 @@ export function Login() {
           placeholder="PES2UG22CS001" 
         />
         
-        <label className="mt-4 block text-sm font-semibold text-slate-700">Password</label>
+        <label className="mt-4 block text-sm font-semibold text-foreground">Password</label>
         <Input 
           className="mt-2" 
           type="password" 
@@ -71,7 +71,7 @@ export function Login() {
           placeholder="Enter password" 
         />
         
-        {error && <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</div>}
+        {error && <div className="mt-4 rounded-lg bg-destructive/10 p-3 text-sm font-semibold text-destructive">{error}</div>}
         
         <Button disabled={loading} variant="secondary" className="mt-6 w-full">
           {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}

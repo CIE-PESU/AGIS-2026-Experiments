@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import { ArrowRight, Menu, Rocket, X, Lightbulb, Cpu, Target, Brain, Instagram, Linkedin, Youtube, Zap, Sparkles, CheckCircle2 } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { ArrowRight, Menu, Rocket, X, Lightbulb, Cpu, Target, Brain, Instagram, Linkedin, Youtube, Zap, Sparkles, CheckCircle2, LogOut, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logos } from "@/components/shared/Logos";
-import { PES_LOGO_WHITE } from "@/constants"
+import { PES_LOGO_WHITE } from "@/constants";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { useAuth } from "@/context/AuthContext";
 
 /* ═══════════════════════════════════════════════════════════════════
    PETAL FAN DIAGRAM — rounded petals radiating from a central hub,
@@ -128,7 +130,7 @@ function ArcDiagram() {
                 {s.label.toUpperCase()}
               </text>
               <text x={sp.x} y={sp.y + subDy} textAnchor={anchor} dominantBaseline="middle"
-                fill="rgba(52,48,94,0.55)" fontSize="8.5" fontWeight="500"
+                fill="hsl(var(--muted-foreground))" fontSize="8.5" fontWeight="500"
                 fontFamily="Inter, sans-serif">
                 {s.sub}
               </text>
@@ -169,6 +171,8 @@ function ArcDiagram() {
 ═══════════════════════════════════════════════════════════════════ */
 function Navbar() {
   const [open, setOpen] = useState(false);
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const links: [string, string][] = [
     ["About CIE",  "https://cie.pes.edu/about"],
     ["Programs",   "https://cie.pes.edu/students/programs"],
@@ -177,20 +181,46 @@ function Navbar() {
     ["Contact",    "https://cie.pes.edu/contact"],
   ];
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-white">
+    <header className="sticky top-0 z-50 border-b border-border bg-background">
       <div className="mx-auto flex h-[68px] max-w-7xl items-center justify-between gap-6 px-6">
-        <Logos />
+        <Link to="/" className="flex-shrink-0" aria-label="Go to homepage">
+          <Logos />
+        </Link>
         <nav className="hidden items-center gap-7 md:flex">
+          <Link to="/" className="text-[13px] font-medium text-muted-foreground transition-colors hover:text-primary">
+            Home
+          </Link>
           {links.map(([label, href]) => (
             <a key={href} href={href}
               className="text-[13px] font-medium text-muted-foreground transition-colors hover:text-primary">
               {label}
             </a>
           ))}
-          <Link to="/login"
-            className="rounded-full bg-accent px-5 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-90">
-            Sign In
-          </Link>
+          {user ? (
+            <>
+              <Link to="/workspace"
+                className="rounded-full bg-accent px-5 py-2 text-[13px] font-semibold text-accent-foreground transition-opacity hover:opacity-90 flex items-center gap-2">
+                <LayoutDashboard className="h-4 w-4" />
+                Workspace
+              </Link>
+              <Button variant="ghost" size="sm" onClick={() => { logout(); navigate("/"); }}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
+              </Button>
+            </>
+          ) : (
+            <>
+              <Link to="/login?redirect=/quickstart"
+                className="rounded-full bg-accent px-5 py-2 text-[13px] font-semibold text-accent-foreground transition-opacity hover:opacity-90">
+                Quickstart
+              </Link>
+              <Link to="/login"
+                className="rounded-full bg-accent px-5 py-2 text-[13px] font-semibold text-accent-foreground transition-opacity hover:opacity-90">
+                Sign In
+              </Link>
+            </>
+          )}
+          <ThemeToggle />
         </nav>
         <button className="rounded-md p-1 text-muted-foreground md:hidden"
           onClick={() => setOpen(v => !v)} aria-label="Toggle menu">
@@ -198,15 +228,38 @@ function Navbar() {
         </button>
       </div>
       {open && (
-        <div className="border-t border-border bg-white px-6 pb-5 pt-4 md:hidden">
+        <div className="border-t border-border bg-background px-6 pb-5 pt-4 md:hidden">
           <div className="flex flex-col gap-4">
+            <Link to="/" className="text-sm font-medium text-muted-foreground"
+              onClick={() => setOpen(false)}>Home</Link>
             {links.map(([label, href]) => (
               <a key={href} href={href} className="text-sm font-medium text-muted-foreground"
                 onClick={() => setOpen(false)}>{label}</a>
             ))}
-            <Link to="/login"
-              className="mt-1 rounded-full bg-accent px-5 py-2.5 text-center text-sm font-semibold text-white"
-              onClick={() => setOpen(false)}>Sign In</Link>
+            {user ? (
+              <>
+                <Link to="/workspace"
+                  className="mt-1 rounded-full bg-accent px-5 py-2.5 text-center text-sm font-semibold text-accent-foreground flex items-center justify-center gap-2"
+                  onClick={() => setOpen(false)}>
+                  <LayoutDashboard className="h-4 w-4" />
+                  Workspace
+                </Link>
+                <Button variant="ghost" className="w-full" onClick={() => { logout(); navigate("/"); setOpen(false); }}>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </Button>
+              </>
+            ) : (
+              <>
+                <Link to="/login?redirect=/quickstart"
+                  className="mt-1 rounded-full bg-accent px-5 py-2.5 text-center text-sm font-semibold text-accent-foreground"
+                  onClick={() => setOpen(false)}>Quickstart</Link>
+                <Link to="/login"
+                  className="mt-1 rounded-full bg-accent px-5 py-2.5 text-center text-sm font-semibold text-accent-foreground"
+                  onClick={() => setOpen(false)}>Sign In</Link>
+              </>
+            )}
+            <ThemeToggle />
           </div>
         </div>
       )}
@@ -218,35 +271,43 @@ function Navbar() {
    DATA
 ═══════════════════════════════════════════════════════════════════ */
 const pipeline = [
-  { short: "Idea",  label: "Submit",     bg: "#34305e" },
-  { short: "C",     label: "Compliance", bg: "#e75a2d" },
-  { short: "TIPS",  label: "TIPSC",      bg: "#2b9eb3" },
-  { short: "DFV",   label: "DFV",        bg: "#7c6fc4" },
-  { short: "JTBD",  label: "Discovery",  bg: "#e9a800" },
-  { short: "GO",    label: "Verdict",    bg: "#059669" },
+  { short: "Idea", label: "Submit Idea",    bg: "#34305e" },
+  { short: "Eth", label: "Ethics",          bg: "#e75a2d" },
+  { short: "TIP", label: "TIPSC",           bg: "#2b9eb3" },
+  { short: "DFV", label: "DFV",             bg: "#7c6fc4" },
+  { short: "JTBD",label: "Cust. Discovery", bg: "#e9a800" },
 ];
 
 const phases = [
   {
-    tag: "Phase 1", color: "#2b9eb3", tagBg: "rgba(43,158,179,0.1)",
-    title: "TIPSC Evaluation", subtitle: "Is the idea fundamentally sound?",
-    body: "The TIPSC agent scores five dimensions — Timely, Importance, Profitability and Solvability — using a traffic-light system. Each dimension gets a Green, Amber, or Red signal so founders know exactly where their idea is strong and where it needs work before going further.",
+    tag: "Phase 1", color: "#e75a2d", tagBg: "rgba(231,90,45,0.1)",
+    title: "Ethics", subtitle: "Is the idea responsible and compliant?",
+    body: "The Ethics gate evaluates Harm Vector, Legal Risk, and Problem-Solution Integrity to ensure the idea meets fundamental ethical and legal standards before proceeding.",
     signals: [
-      { dim: "Timely",      dot: "#10b981", label: "Strong"   },
-      { dim: "Importance",  dot: "#10b981", label: "Strong"   },
-      { dim: "Profitability", dot: "#f59e0b", label: "Moderate" },
-      { dim: "Solvability", dot: "#10b981", label: "Strong"   },
-      { dim: "Contextual", dot: "#dc2626", label: "Weak"     },
+      { dim: "Harm Vector",      dot: "#10b981", label: "Low"   },
+      { dim: "Legal Risk",       dot: "#10b981", label: "Low"   },
+      { dim: "Integrity",        dot: "#f59e0b", label: "Medium" },
     ],
   },
   {
-    tag: "Phase 2", color: "#7c6fc4", tagBg: "rgba(124,111,196,0.1)",
+    tag: "Phase 2", color: "#2b9eb3", tagBg: "rgba(43,158,179,0.1)",
+    title: "TIPSC Evaluation", subtitle: "Is the idea fundamentally sound?",
+    body: "The TIPSC agent scores five dimensions — Timely, Importance, Profitable, Solvable — using a traffic-light system. Each dimension gets a Green, Amber, or Red signal so founders know exactly where their idea is strong and where it needs work before going further.",
+    signals: [
+      { dim: "Timely",      dot: "#10b981", label: "Strong"   },
+      { dim: "Importance",  dot: "#10b981", label: "Strong"   },
+      { dim: "Profitable",  dot: "#f59e0b", label: "Moderate" },
+      { dim: "Solvable",    dot: "#10b981", label: "Strong"   },
+    ],
+  },
+  {
+    tag: "Phase 3", color: "#7c6fc4", tagBg: "rgba(124,111,196,0.1)",
     title: "DFV Analysis", subtitle: "Does it have real market potential?",
     body: "Three sub-agents run in parallel — Desirability checks user demand and competitor gaps with live web research, Feasibility assesses technical and operational challenges, and Viability evaluates business models, revenue streams, and long-term sustainability. A final DFV decision engine synthesises all three into a GO or NO-GO verdict with positive, actionable guidance.",
     verdict: true,
   },
   {
-    tag: "Phase 3", color: "#e9a800", tagBg: "rgba(233,168,0,0.1)",
+    tag: "Phase 4", color: "#e9a800", tagBg: "rgba(233,168,0,0.1)",
     title: "Customer Discovery", subtitle: "Who exactly is the customer?",
     body: "The JTBD (Jobs To Be Done) agent turns the validated idea into a concrete customer research plan — generating customer job statements, a structured interview guide, and prioritised discovery questions. Founders leave with a clear plan for their first 10 user conversations.",
     outputs: ["Customer job statements", "Structured interview guide", "Discovery question bank", "Mentor-ready export report"],
@@ -258,7 +319,7 @@ const phases = [
 ═══════════════════════════════════════════════════════════════════ */
 export function LandingPage() {
   return (
-    <div className="min-h-screen bg-[#fdfdfd] antialiased">
+    <div className="min-h-screen bg-background antialiased">
 
       {/* keyframes — scoped to this page */}
       <style>{`
@@ -283,7 +344,7 @@ export function LandingPage() {
       {/* ══════════════════════════════════════════════
           HERO
       ══════════════════════════════════════════════ */}
-      <section className="relative overflow-hidden border-b border-border bg-gradient-to-br from-white via-[#eaf4fa] to-[#dbeaf6]">
+      <section className="relative overflow-hidden border-b border-border bg-gradient-to-br from-background via-muted to-muted">
         {/* ambient glow blobs */}
         <div className="pointer-events-none absolute -right-32 -top-32 h-[420px] w-[420px] rounded-full bg-[#3999c2]/20 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-40 left-1/4 h-[360px] w-[360px] rounded-full bg-[#e75a2d]/10 blur-3xl" />
@@ -295,7 +356,7 @@ export function LandingPage() {
 
           {/* LEFT — headline */}
           <div className="relative z-10 flex flex-col justify-center px-6 pb-0 pt-20 lg:py-24 lg:pr-12">
-            <div className="mb-6 inline-flex w-fit items-center gap-2 rounded-full border border-border bg-white/70 px-4 py-1.5 backdrop-blur-sm">
+            <div className="mb-6 inline-flex w-fit items-center gap-2 rounded-full border border-border bg-background/70 px-4 py-1.5 backdrop-blur-sm">
               <span className="h-1.5 w-1.5 rounded-full bg-[#e75a2d]" />
               <span className="text-[11px] font-bold uppercase tracking-[1.4px] text-muted-foreground">
                 Entrepreneurship Coach
@@ -335,7 +396,7 @@ export function LandingPage() {
       {/* ══════════════════════════════════════════════
           WHAT IT IS
       ══════════════════════════════════════════════ */}
-      <section  id="what-it-is" className="border-b border-border bg-white py-20">
+      <section  id="what-it-is" className="border-b border-border bg-background py-20">
         <div className="mx-auto max-w-7xl px-6">
           <p className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[1.5px] text-accent">
             <span className="block h-0.5 w-5 rounded-full bg-accent" />What it is
@@ -362,7 +423,7 @@ export function LandingPage() {
                 ))}
               </div>
             </div>
-            <div className="rounded-2xl border border-border bg-[#f8f9fb] p-6">
+            <div className="rounded-2xl border border-border bg-muted/30 p-6">
               <div className="mb-4 flex items-center gap-2">
                 <div className="h-2 w-2 rounded-full bg-[#2b9eb3]" />
                 <p className="text-[11px] font-bold uppercase tracking-[1.2px] text-[#2b9eb3]">TIPSC — Sample Output</p>
@@ -414,15 +475,15 @@ export function LandingPage() {
       {/* ══════════════════════════════════════════════
           HOW IT WORKS — 3 PHASES
       ══════════════════════════════════════════════ */}
-      <section id="how-it-works" className="bg-primary py-20">
+      <section id="how-it-works" className="bg-primary py-20 dark:gradient-navy">
         <div className="mx-auto max-w-7xl px-6">
           <div className="mb-14 flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-end">
             <div>
-              <p className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[1.4px] text-white/40">
-                <span className="block h-0.5 w-5 rounded-full bg-white/30" />How It Works
+              <p className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[1.4px] text-primary-foreground/40 dark:text-primary-foreground/40">
+                <span className="block h-0.5 w-5 rounded-full bg-primary-foreground/30 dark:bg-primary-foreground/30" />How It Works
               </p>
-              <h2 className="font-poppins text-[clamp(26px,3.5vw,40px)] font-extrabold leading-[1.15] tracking-tight text-white">
-                Three phases.<br />One clear verdict.
+              <h2 className="font-poppins text-[clamp(26px,3.5vw,40px)] font-extrabold leading-[1.15] tracking-tight text-primary-foreground dark:text-primary-foreground">
+                Four phases.<br />One clear verdict.
               </h2>
             </div>
             <div className="flex items-center gap-1.5">
@@ -431,9 +492,9 @@ export function LandingPage() {
                   <div className="flex flex-col items-center gap-1.5">
                     <div className="flex h-11 w-11 items-center justify-center rounded-full text-[9px] font-bold text-white shadow-md"
                       style={{ background: bg, fontFamily: "'Poppins',sans-serif" }}>{short}</div>
-                    <span className="whitespace-nowrap text-[9px] font-medium text-white/40">{label}</span>
+                    <span className="whitespace-nowrap text-[9px] font-medium text-white">{label}</span>
                   </div>
-                  {i < pipeline.length - 1 && <div className="mb-4 h-px w-4 bg-white/20" />}
+                  {i < pipeline.length - 1 && <div className="mb-4 h-px w-4 bg-primary-foreground/20 dark:bg-primary-foreground/20" />}
                 </div>
               ))}
             </div>
@@ -441,46 +502,45 @@ export function LandingPage() {
 
           <div className="grid gap-5 md:grid-cols-3">
             {phases.map((phase, idx) => (
-              <div key={phase.tag} className="flex flex-col rounded-2xl border p-7"
-                style={{ borderColor:"rgba(255,255,255,0.12)", background:"rgba(255,255,255,0.05)" }}>
+              <div key={phase.tag} className="flex flex-col rounded-2xl border border-border bg-card p-7 dark:border-border dark:bg-card">
                 <div className="mb-5 flex items-center justify-between">
                   <span className="rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[1px]"
                     style={{ background: phase.tagBg, color: phase.color }}>{phase.tag}</span>
-                  <span className="font-poppins text-[11px] font-bold text-white/30">0{idx+1}</span>
+                  <span className="font-poppins text-[11px] font-bold text-muted-foreground">0{idx+1}</span>
                 </div>
-                <h3 className="font-poppins text-[17px] font-bold text-white">{phase.title}</h3>
+                <h3 className="font-poppins text-[17px] font-bold text-foreground">{phase.title}</h3>
                 <p className="mb-4 mt-1 text-[12px] font-medium" style={{ color: phase.color }}>{phase.subtitle}</p>
-                <p className="flex-1 text-[13px] leading-[1.75] text-white/55">{phase.body}</p>
+                <p className="flex-1 text-[13px] leading-[1.75] text-muted-foreground">{phase.body}</p>
 
                 {"signals" in phase && phase.signals && (
-                  <div className="mt-5 flex flex-col gap-2 border-t border-white/10 pt-4">
+                  <div className="mt-5 flex flex-col gap-2 border-t border-border pt-4">
                     {phase.signals.map(({dim,dot,label}) => (
                       <div key={dim} className="flex items-center gap-2">
                         <div className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ background: dot }} />
-                        <span className="text-[12px] font-medium text-white/70">{dim}</span>
+                        <span className="text-[12px] font-medium text-muted-foreground">{dim}</span>
                         <span className="ml-auto text-[10px] font-bold uppercase tracking-wide" style={{ color: dot }}>{label}</span>
                       </div>
                     ))}
                   </div>
                 )}
                 {"verdict" in phase && phase.verdict && (
-                  <div className="mt-5 flex gap-2 border-t border-white/10 pt-4">
-                    <div className="flex flex-1 items-center gap-2 rounded-lg bg-emerald-900/40 px-3 py-2">
-                      <div className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
-                      <span className="text-[11px] font-bold text-emerald-400">GO</span>
+                  <div className="mt-5 flex gap-2 border-t border-border pt-4">
+                    <div className="flex flex-1 items-center gap-2 rounded-lg bg-emerald-500/20 px-3 py-2">
+                      <div className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                      <span className="text-[11px] font-bold text-emerald-500">GO</span>
                     </div>
-                    <div className="flex flex-1 items-center gap-2 rounded-lg bg-orange-900/30 px-3 py-2">
-                      <div className="h-2.5 w-2.5 rounded-full bg-accent" />
-                      <span className="text-[11px] font-bold text-accent">NO-GO</span>
+                    <div className="flex flex-1 items-center gap-2 rounded-lg bg-amber-500/20 px-3 py-2">
+                      <div className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+                      <span className="text-[11px] font-bold text-amber-500">NO-GO</span>
                     </div>
                   </div>
                 )}
                 {"outputs" in phase && phase.outputs && (
-                  <div className="mt-5 flex flex-col gap-2 border-t border-white/10 pt-4">
+                  <div className="mt-5 flex flex-col gap-2 border-t border-border pt-4">
                     {phase.outputs.map((o:string) => (
                       <div key={o} className="flex items-center gap-2">
                         <span className="text-[11px] font-bold" style={{ color: phase.color }}>→</span>
-                        <span className="text-[12px] text-white/60">{o}</span>
+                        <span className="text-[12px] text-muted-foreground">{o}</span>
                       </div>
                     ))}
                   </div>
@@ -494,7 +554,7 @@ export function LandingPage() {
       {/* ══════════════════════════════════════════════
           WHO IT'S FOR
       ══════════════════════════════════════════════ */}
-      <section id="who-its-for" className="bg-white py-20">
+      <section id="who-its-for" className="bg-background py-20">
         <div className="mx-auto max-w-7xl px-6">
           <p className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[1.5px] text-accent">
             <span className="block h-0.5 w-5 rounded-full bg-accent" />Who it's for
@@ -516,7 +576,7 @@ export function LandingPage() {
                 ))}
               </ul>
             </div>
-            <div className="rounded-2xl border border-[#fad5c4] bg-[#fff7f4] p-8">
+            <div className="rounded-2xl border border-accent/20 bg-accent/5 p-8">
               <span className="inline-block rounded-full bg-accent/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[1px] text-accent">Mentors</span>
               <h3 className="font-poppins mb-5 mt-4 text-lg font-bold text-primary">Monitor every team, every step.</h3>
               <ul className="flex flex-col gap-2.5">
@@ -536,7 +596,7 @@ export function LandingPage() {
        {/* ══════════════════════════════════════════════
            QUICKSTART EVALUATION
        ══════════════════════════════════════════════ */}
-       <section id="quickstart" className="bg-white py-20">
+       <section id="quickstart" className="bg-background py-20">
          <div className="mx-auto max-w-7xl px-6">
            <p className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[1.5px] text-accent">
              <span className="block h-0.5 w-5 rounded-full bg-accent" />Quickstart
@@ -545,7 +605,7 @@ export function LandingPage() {
              Not ready for the full pipeline?<br />Get a rapid AI evaluation in minutes.
            </h2>
            <div className="mt-10 grid gap-5 md:grid-cols-3">
-             <div className="rounded-2xl border border-[#c4e6f0] bg-[#f0f8fb] p-8">
+<div className="rounded-2xl border border-primary/20 bg-primary/5 p-8">
                <div className="flex items-center gap-3 mb-4">
                  <div className="h-12 w-12 flex items-center justify-center rounded-xl bg-[#3999c2]/10">
                    <Zap className="h-6 w-6 text-[#3999c2]" />
@@ -562,7 +622,7 @@ export function LandingPage() {
                  <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-[#7c6fc4]" />DFV: Desirability, Feasibility, Viability</li>
                </ul>
              </div>
-             <div className="rounded-2xl border border-[#e9d8f0] bg-[#f8f4fa] p-8 relative overflow-hidden">
+             <div className="rounded-2xl border border-secondary/20 bg-secondary/5 p-8 relative overflow-hidden">
                <div className="flex items-center gap-3 mb-4">
                  <div className="h-12 w-12 flex items-center justify-center rounded-xl bg-[#7c6fc4]/10">
                    <Sparkles className="h-6 w-6 text-[#7c6fc4]" />
@@ -579,7 +639,7 @@ export function LandingPage() {
                  <li className="flex items-center gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-[#7c6fc4]" />Priority steps ranked by severity</li>
                </ul>
              </div>
-             <div className="rounded-2xl border border-[#e9a800] bg-[#fffbf4] p-8 flex flex-col justify-between">
+             <div className="rounded-2xl border border-accent/20 bg-accent/5 p-8 flex flex-col justify-between">
                <div>
                  <div className="flex items-center gap-3 mb-4">
                    <div className="h-12 w-12 flex items-center justify-center rounded-xl bg-[#e9a800]/10">
@@ -594,7 +654,7 @@ export function LandingPage() {
                </div>
 <Button asChild variant="accent" size="lg" className="mt-6 w-full rounded-full">
                   <Link to="/login?redirect=/quickstart" className="inline-flex items-center justify-center gap-2">
-                    <Sparkles className="h-4 w-4" /> Try Quickstart Evaluation
+                    <Sparkles className="h-4 w-4" /> Quickstart Evaluation
                   </Link>
                 </Button>
              </div>
@@ -602,21 +662,21 @@ export function LandingPage() {
          </div>
        </section>
 
-       {/* ══════════════════════════════════════════════
-           CTA
-       ══════════════════════════════════════════════ */}
-       <section className="bg-muted py-16">
-        <div className="mx-auto max-w-4xl px-6">
-          <div className="gradient-cta rounded-2xl px-10 py-12 text-center text-white shadow-xl">
-            <Rocket className="mx-auto h-10 w-10" />
-            <h2 className="font-poppins mt-4 text-3xl font-bold">Ready to put your idea to the test?</h2>
-            <p className="mt-3 text-sm text-white/70">Join 500+ student founders who've validated their ideas through structured AI evaluation.</p>
-            <Button asChild variant="accent" size="lg" className="mt-8 rounded-full bg-white text-primary hover:bg-white/90">
-              <Link to="/login">Get Started Now <ArrowRight className="h-4 w-4" /></Link>
-            </Button>
-          </div>
-        </div>
-      </section>
+{/* ══════════════════════════════════════════════
+            CTA
+        ══════════════════════════════════════════════ */}
+        <section className="bg-muted py-16 dark:gradient-navy">
+         <div className="mx-auto max-w-4xl px-6">
+           <div className="gradient-cta rounded-2xl px-10 py-12 text-center text-white shadow-xl dark:gradient-navy">
+             <Rocket className="mx-auto h-10 w-10" />
+             <h2 className="font-poppins mt-4 text-3xl font-bold">Ready to put your idea to the test?</h2>
+             <p className="mt-3 text-sm text-white/70">Join 500+ student founders who've validated their ideas through structured AI evaluation.</p>
+             <Button asChild variant="accent" size="lg" className="mt-8 rounded-full bg-white text-primary hover:bg-white/90">
+               <Link to="/login">Get Started Now <ArrowRight className="h-4 w-4" /></Link>
+             </Button>
+           </div>
+         </div>
+       </section>
 
       {/* ══════════════════════════════════════════════
           FOOTER

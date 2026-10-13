@@ -475,8 +475,6 @@ class AsyncPipelineExecutor:
         Persist founder answer and re-evaluate TIPSC.
         """
 
-        from tipsc_utils.followup_context import FollowUpContext
-
         # ──────────────────────────────────────────────────────────────────
         # LOAD SESSION
         # ──────────────────────────────────────────────────────────────────
@@ -731,8 +729,6 @@ class AsyncPipelineExecutor:
         """
         Generate exactly one founder follow-up question.
         """
-
-        from tipsc_utils.followup_context import FollowUpContext
 
         if turn > MAX_FOLLOWUP_TURNS:
 

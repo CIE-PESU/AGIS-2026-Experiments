@@ -12,16 +12,19 @@ They only validate Python object ↔ JSON round-trips.
 
 import pytest
 
+from kafka.payloads import TIPSCEventPayload, DFVEventPayload, DiscoveryEventPayload
+from models.session import Session, StateTransition
+
 
 # ---------------------------------------------------------------------------
 # Kafka payload contract tests (kafka/payloads.py)
 # ---------------------------------------------------------------------------
 
+
 class TestTIPSCPayload:
     """Verify TIPSCEventPayload round-trips cleanly."""
 
     def test_roundtrip(self):
-        from kafka.payloads import TIPSCEventPayload
         payload = TIPSCEventPayload(
             session_id="507f1f77bcf86cd799439011",
             student_id="PES2UG22CS001",
@@ -35,7 +38,6 @@ class TestTIPSCPayload:
         assert reconstructed.correlation_id == payload.correlation_id
 
     def test_required_fields_present(self):
-        from kafka.payloads import TIPSCEventPayload
         payload = TIPSCEventPayload(
             session_id="abc",
             student_id="PES2UG22CS001",
@@ -53,7 +55,6 @@ class TestDFVPayload:
     """Verify DFVEventPayload round-trips cleanly."""
 
     def test_roundtrip(self):
-        from kafka.payloads import DFVEventPayload
         payload = DFVEventPayload(
             session_id="507f1f77bcf86cd799439011",
             student_id="PES2UG22CS001",
@@ -74,7 +75,6 @@ class TestDiscoveryPayload:
     """Verify DiscoveryEventPayload round-trips cleanly."""
 
     def test_roundtrip(self):
-        from kafka.payloads import DiscoveryEventPayload
         payload = DiscoveryEventPayload(
             session_id="507f1f77bcf86cd799439011",
             student_id="PES2UG22CS001",
@@ -93,17 +93,15 @@ class TestDiscoveryPayload:
 # Session model contract tests
 # ---------------------------------------------------------------------------
 
+
 class TestSessionModel:
     """Verify Session Beanie model fields are present and typed correctly."""
 
     def test_state_history_field_exists(self):
-        from models.session import Session, StateTransition
-        import inspect
         fields = Session.model_fields
         assert "state_history" in fields, "state_history field missing from Session model"
 
     def test_state_transition_roundtrip(self):
-        from models.session import StateTransition
         t = StateTransition(
             from_status="created",
             to_status="queued",
@@ -116,7 +114,6 @@ class TestSessionModel:
         assert "timestamp" in data
 
     def test_session_required_fields(self):
-        from models.session import Session
         required = ["team_id", "student_id", "problem_statement", "idea", "status"]
         for field in required:
             assert field in Session.model_fields, f"Required field '{field}' missing from Session"

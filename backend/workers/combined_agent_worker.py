@@ -33,6 +33,13 @@ import httpx
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from pydantic import ValidationError
 
+# Load .env file for agent environment variables
+from pathlib import Path
+from dotenv import load_dotenv
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+load_dotenv(PROJECT_ROOT / ".env")
+
 
 # =============================================================================
 # PATH BOOTSTRAP
@@ -336,19 +343,52 @@ class CombinedAgentWorker:
             "session_timeout_ms": 120_000,
             "heartbeat_interval_ms": 20_000,
             "max_poll_interval_ms": 1_800_000,
+            "request_timeout_ms": 60_000,
         }
 
-        self.consumer_dfv = AIOKafkaConsumer(
-            KafkaTopic.USER_SESSION_DFV,
-            group_id="combined_agent_worker_group_dfv",
-            **consumer_options,
-        )
+        # Start consumers with retry logic
+        max_retries = 10
+        base_delay = 2  # seconds
 
-        self.consumer_discovery = AIOKafkaConsumer(
-            KafkaTopic.USER_SESSION_DISCOVERY,
-            group_id="combined_agent_worker_group_discovery",
-            **consumer_options,
-        )
+        for attempt in range(max_retries):
+            try:
+                self.consumer_dfv = AIOKafkaConsumer(
+                    KafkaTopic.USER_SESSION_DFV,
+                    group_id="combined_agent_worker_group_dfv",
+                    **consumer_options,
+                )
+                await self.consumer_dfv.start()
+                print("DFV consumer started")
+                break
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    raise
+                delay = base_delay * (2 ** attempt)
+                logger.warning(
+                    "DFV consumer failed to start (attempt %d/%d): %s. Retrying in %ds...",
+                    attempt + 1, max_retries, e, delay
+                )
+                await asyncio.sleep(delay)
+
+        for attempt in range(max_retries):
+            try:
+                self.consumer_discovery = AIOKafkaConsumer(
+                    KafkaTopic.USER_SESSION_DISCOVERY,
+                    group_id="combined_agent_worker_group_discovery",
+                    **consumer_options,
+                )
+                await self.consumer_discovery.start()
+                print("Discovery consumer started")
+                break
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    raise
+                delay = base_delay * (2 ** attempt)
+                logger.warning(
+                    "Discovery consumer failed to start (attempt %d/%d): %s. Retrying in %ds...",
+                    attempt + 1, max_retries, e, delay
+                )
+                await asyncio.sleep(delay)
 
         self.producer = AIOKafkaProducer(
             bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS,
@@ -368,11 +408,6 @@ class CombinedAgentWorker:
             },
         )
 
-        await self.consumer_dfv.start()
-        print("DFV consumer started")
-
-        await self.consumer_discovery.start()
-        print("Discovery consumer started")
         await self.producer.start()
         print("Producer started")
 

@@ -10,6 +10,7 @@ from dependencies.auth import require_admin, require_mentor_or_admin
 from schemas.auth import CurrentUser
 from schemas.workspace import WorkspaceCreateRequest
 from services import admin_service
+from services.workspace_service import workspace_service
 from core.security import cipher
 from core.sync import dump_seed_data
 from repositories.session_repo import session_repo
@@ -18,6 +19,7 @@ from models.team import Team
 from models.session import Session
 from state_machine.states import SessionStatus
 from services.mentor_service import sync_mentor_teams
+from utils.response import success_response
 
 async def sync_student_session_teams(student_srns: list[str], new_team_id: str | None):
     """Synchronize Session.team_id for active sessions when student team membership changes."""
@@ -279,8 +281,6 @@ async def create_workspace_magic_link(
     current_user: Annotated[CurrentUser, Depends(require_admin())],
 ):
     """Admin: Create a new 1:1 Isolated Mentor Workspace magic link."""
-    from services.workspace_service import workspace_service
-    from utils.response import success_response
 
     raw_token, resp = await workspace_service.create_magic_link_workspace(
         name=req.name,
@@ -297,7 +297,6 @@ async def list_workspaces(
     limit: int = Query(50, le=100),
 ):
     """Admin: List created workspaces."""
-    from services.workspace_service import workspace_service
     items, total = await workspace_service.list_workspaces(page=page, limit=limit)
     serialized = [item.model_dump() for item in items]
     return {"data": serialized, "pagination": {"page": page, "limit": limit, "total": total}}
@@ -310,7 +309,6 @@ async def revoke_workspace(
     current_user: Annotated[CurrentUser, Depends(require_admin())],
 ):
     """Admin: Revoke a workspace and purge application data."""
-    from services.workspace_service import workspace_service
     resp = await workspace_service.revoke_workspace(
         workspace_id=workspace_id,
         background_tasks=background_tasks,

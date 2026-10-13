@@ -23,17 +23,26 @@ No business logic, no repository calls, no Kafka calls here.
 
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, Query, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, Request, status
+from fastapi.responses import StreamingResponse
 
+from auth.jwt import decode_token
 from core.constants import UserRole
+from core.config import settings
 from dependencies.auth import get_current_user, require_role
-from exceptions.base import ValidationException
+from exceptions.base import TokenInvalidError, TokenExpiredError, ValidationException
+from models.session import Session
+from models.user import User
+from repositories.session_repo import session_repo
 from schemas.auth import CurrentUser
-from schemas.session import SessionCreateRequest
+from schemas.session import SessionCreateRequest, SessionResponse
 from services.session_service import session_service
+from state_machine.states import SessionStatus
 from utils.object_id import validate_object_id
 from utils.response import paginated_response, success_response
 
@@ -174,22 +183,18 @@ async def get_active_session_by_user(
     student_id: str,
     current_user: Annotated[CurrentUser, Depends(get_current_user)],
 ):
-    from repositories.session_repo import session_repo
-    
+
     if current_user.is_mentor_workspace:
         session = await session_repo.find_active_by_owner(current_user.owner_context)
     else:
         if current_user.user_id != student_id and current_user.role == UserRole.STUDENT:
-            from fastapi import HTTPException
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot access session of another user.")
 
         session = await session_repo.find_active_by_student(student_id)
 
     if not session:
-        from fastapi import HTTPException
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No active session found for user.")
 
-    from schemas.session import SessionResponse
     response_obj = SessionResponse.from_document(session)
     return success_response(data=response_obj.model_dump(), request=request)
 
@@ -208,9 +213,6 @@ async def get_team_progress(
     request: Request,
     current_user: Annotated[CurrentUser, Depends(get_current_user)],
 ):
-    from models.user import User
-    from models.session import Session
-    from state_machine.states import SessionStatus
     from datetime import datetime, timezone
 
     team_id = current_user.team_id
@@ -470,12 +472,6 @@ async def stream_session(
     session_id: str,
     token: Optional[str] = Query(default=None, description="Bearer token (query param for EventSource compatibility)"),
 ):
-    import asyncio
-    import json
-    from fastapi.responses import StreamingResponse
-    from repositories.session_repo import session_repo
-    from auth.jwt import decode_token
-    from exceptions.base import TokenInvalidError, TokenExpiredError
 
     validate_object_id(session_id)
 
@@ -488,7 +484,6 @@ async def stream_session(
             if role == "mentor_workspace" and workspace_id:
                 raw = await session_repo.find_by_id(session_id)
                 if raw is None or raw.workspace_id != workspace_id:
-                    from fastapi import HTTPException
                     raise HTTPException(403, "Session not found or access denied")
             else:
                 # Student/other: verify session belongs to this user
@@ -498,15 +493,11 @@ async def stream_session(
                     raw = await session_repo.find_by_id(session_id)
                     team_id = payload.get("team_id")
                     if not raw or not team_id or raw.team_id != team_id:
-                        from fastapi import HTTPException
                         raise HTTPException(403, "Session not found or access denied")
         except (TokenInvalidError, TokenExpiredError):
-            from fastapi import HTTPException
             raise HTTPException(401, "Invalid or expired token")
     else:
-        from core.config import settings
         if settings.ENVIRONMENT != "development":
-            from fastapi import HTTPException
             raise HTTPException(
                 status_code=401,
                 detail="Authorization token required. Pass ?token=<access_token> as a query parameter.",

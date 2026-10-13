@@ -9,14 +9,8 @@ from pydantic import BaseModel, Field
 from typing import ClassVar
 from crewai.skills import discover_skills, activate_skill
 from datetime import datetime
-import os
-from pathlib import Path
 from dotenv import load_dotenv
 import re
-
-ROOT_DIR = Path(__file__).resolve().parents[1]
-load_dotenv(ROOT_DIR / ".env")
-
 import litellm
 litellm.drop_params = True
 
