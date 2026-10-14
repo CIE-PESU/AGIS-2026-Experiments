@@ -24,8 +24,9 @@ reasoning_llm = LLM(
     timeout=1800
 )
 
-# Discover all skills in a directory
-skills = discover_skills(Path("./skills"))
+# Load only the JTBD skill used by this agent instead of scanning and
+# activating every skill in the project.
+skills = discover_skills(Path("./skills/jtbd-interview-planner"))
 # Activate them (loads full SKILL.md body)
 activated = [activate_skill(s) for s in skills]
 
@@ -299,17 +300,22 @@ The report should be practical, student-friendly, and focused on collecting evid
 agent=customer_discovery_planner
 )
 
-crew = Crew(
-    agents=[customer_discovery_planner],
-    tasks=[customer_discovery_task],
-    process=Process.sequential,
-    verbose=True
-)
+def main() -> None:
+    crew = Crew(
+        agents=[customer_discovery_planner],
+        tasks=[customer_discovery_task],
+        process=Process.sequential,
+        verbose=True
+    )
 
-result = crew.kickoff()
+    result = crew.kickoff()
 
-print("\n")
-print("="*80)
-print("Customer Discovery Plan")
-print("="*80)
-print(result)
+    print("\n")
+    print("="*80)
+    print("Customer Discovery Plan")
+    print("="*80)
+    print(result)
+
+
+if __name__ == "__main__":
+    main()

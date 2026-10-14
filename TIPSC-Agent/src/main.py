@@ -8,6 +8,7 @@ os.environ["OPENAI_MODEL_NAME"] = "openai/mistralai/mistral-7b-instruct-v0.3"
 
 import json
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import yaml
@@ -824,17 +825,26 @@ def main():
     save_json(preeval_out.model_dump(), "preeval_output.json")
 
     print("\n" + "=" * 60)
-    print("PHASE 2: Market Validation")
+    print("PHASE 2-3: Market Validation and Regulatory Mapping")
     print("=" * 60)
-    validation_out = run_validation(llm, preeval_out, agents_cfg, task_cfg)
+
+    # These phases depend only on the pre-evaluation result, so run them
+    # concurrently to avoid waiting for two independent research workflows
+    # back-to-back. Each workflow gets its own LLM client.
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        validation_future = executor.submit(
+            run_validation, load_llm(), preeval_out, agents_cfg, task_cfg
+        )
+        regulatory_future = executor.submit(
+            run_regulatory, load_llm(), preeval_out, agents_cfg, task_cfg
+        )
+        validation_out = validation_future.result()
+        regulatory_out = regulatory_future.result()
+
     save_json(validation_out.model_dump(), "validation_output.json")
     print_validation_summary(validation_out)
     validation_context = validation_out.model_dump_json(indent=2)
 
-    print("\n" + "=" * 60)
-    print("PHASE 3: Regulatory Mapping")
-    print("=" * 60)
-    regulatory_out = run_regulatory(llm, preeval_out, agents_cfg, task_cfg)
     save_json(regulatory_out.model_dump(), "regulatory_output.json")
     print_regulatory_summary(regulatory_out)
     regulatory_context = regulatory_out.model_dump_json(indent=2)

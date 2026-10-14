@@ -274,18 +274,23 @@ blnkt={
         ,
 }
 
-crew = Crew(
-    agents=[desirability_agent, feasibility_agent, viability_agent, dfv_risk_decision_agent],
-    tasks=[desirability_task, feasibility_task, viability_task, dfv_decision_task],
-    process=Process.sequential,
-    verbose=False
-)
+def main() -> None:
+    crew = Crew(
+        agents=[desirability_agent, feasibility_agent, viability_agent, dfv_risk_decision_agent],
+        tasks=[desirability_task, feasibility_task, viability_task, dfv_decision_task],
+        process=Process.sequential,
+        verbose=False
+    )
 
-result = crew.kickoff(inputs=blnkt)
+    result = crew.kickoff(inputs=blnkt)
 
-print("\n--- FINAL DFA JSON OUTPUT WITH DECISION GATE --- \n")
-try:
-    print(json.dumps(json.loads(result.raw), indent=2))
-except Exception:
-    print(result.raw)
+    print("\n--- FINAL DFA JSON OUTPUT WITH DECISION GATE --- \n")
+    try:
+        print(json.dumps(json.loads(result.raw), indent=2))
+    except Exception:
+        print(result.raw)
+
+
+if __name__ == "__main__":
+    main()
     
