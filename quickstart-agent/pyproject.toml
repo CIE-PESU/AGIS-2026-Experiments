@@ -4,13 +4,13 @@ version = "0.1.0"
 description = "Quickstart evaluation agent - lite ethics + TIPSC + DFV assessment"
 requires-python = ">=3.10"
 dependencies = [
-    "crewai[litellm]>=1.15.2",
-    "crewai-tools>=1.15.1",
-    "litellm>=1.91.0",
+    "crewai[litellm]>=1.15.28",
+    "crewai-tools>=1.15.28",
+    "litellm>=1.105.1",
     "pydantic>=2.11,<2.13",
     "pyyaml>=6.0,<7",
-    "python-dotenv>=1.0",
-    "tavily-python>=0.7.26",
+    "python-dotenv>=1.2.4",
+    "tavily-python>=0.8.5",
 ]
 
 [project.optional-dependencies]

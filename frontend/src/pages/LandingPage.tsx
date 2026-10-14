@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, Menu, Rocket, X, Lightbulb, Cpu, Target, Brain, Instagram, Linkedin, Youtube, Zap, Sparkles, CheckCircle2, LogOut, LayoutDashboard } from "lucide-react";
+import { ArrowRight, Menu, Rocket, X, Lightbulb, Cpu, Target, Brain, Zap, Sparkles, CheckCircle2, LogOut, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logos } from "@/components/shared/Logos";
 import { PES_LOGO_WHITE } from "@/constants";
@@ -699,7 +699,7 @@ target="_blank"
 rel="noopener noreferrer"
 className="hover:text-white transition-colors"
 >
-<Linkedin />
+<span aria-hidden="true" className="text-sm font-semibold">in</span>
 </a>
 
 <a
@@ -708,7 +708,7 @@ target="_blank"
 rel="noopener noreferrer"
 className="hover:text-white transition-colors"
 >
-<Instagram />
+<span aria-hidden="true" className="text-sm font-semibold">ig</span>
 </a>
 
 <a
@@ -717,7 +717,7 @@ target="_blank"
 rel="noopener noreferrer"
 className="hover:text-white transition-colors"
 >
-<Youtube />
+<span aria-hidden="true" className="text-sm font-semibold">yt</span>
 </a>
 </div>
             </div>

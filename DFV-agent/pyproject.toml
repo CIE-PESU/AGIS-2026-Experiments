@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "aiokafka>=0.14.0",
-    "crewai[litellm,tools]>=1.14.6",
+    "crewai[litellm,tools]>=1.15.28",
     "kafka-python>=3.0.7",
     "motor>=3.7.1",
 ]

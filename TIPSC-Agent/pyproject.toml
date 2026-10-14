@@ -7,12 +7,12 @@ name = "evaluator-agent"
 version = "0.1.0"
 requires-python = ">=3.10"
 dependencies = [
-    "crewai[litellm]>=1.14.6",
-    "crewai-tools>=1.15.1",
-    "langchain-openai>=0.3.0",
-    "pydantic>=2.0",
-    "pyyaml>=6.0",
-    "tavily-python>=0.7.26",
+    "crewai[litellm]>=1.15.28",
+    "crewai-tools>=1.15.28",
+    "langchain-openai>=1.7.1",
+    "pydantic>=2.12.5",
+    "pyyaml>=6.0.3",
+    "tavily-python>=0.8.5",
     "motor>=3.4",
 ]
 
