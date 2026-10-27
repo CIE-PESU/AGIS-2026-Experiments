@@ -7,7 +7,6 @@ from __future__ import annotations
 import logging
 
 import httpx
-from cryptography.fernet import Fernet
 
 from core.config import settings
 from exceptions.base import InvalidCredentialsError, PESAuthUnavailableError

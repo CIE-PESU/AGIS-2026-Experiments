@@ -7,7 +7,7 @@ being merged yet.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -53,7 +53,7 @@ class FakeCommentRepo:
             mentor_id=mentor_id,
             mentor_name=mentor_name,
             comment=comment,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
         self._comments[c.comment_id] = c
         return c

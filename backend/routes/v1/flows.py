@@ -14,10 +14,11 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import Annotated, Optional
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, Request, status
 from pydantic import BaseModel
+
 from core.constants import UserRole
 from dependencies.auth import require_role
 from kafka.producer import kafka_producer
@@ -27,14 +28,12 @@ from schemas.auth import CurrentUser
 from schemas.flow import (
     DFVTriggerRequest,
     DiscoveryTriggerRequest,
-    FlowTriggerResponse,
     FollowupAnswerRequest,
 )
 from services.audit_service import audit_service
 from services.flow_service import FlowService
 from utils.object_id import validate_object_id
 from utils.response import success_response
-
 
 logger = logging.getLogger(__name__)
 
@@ -207,7 +206,7 @@ async def trigger_dfv(
         Depends(require_role(UserRole.STUDENT, UserRole.MENTOR_WORKSPACE)),
     ],
     idempotency_key: Annotated[
-        Optional[str],
+        str | None,
         Header(alias="Idempotency-Key"),
     ] = None,
 ):
@@ -277,7 +276,7 @@ async def trigger_discovery(
     ],
     body: DiscoveryTriggerRequest,
     idempotency_key: Annotated[
-        Optional[str],
+        str | None,
         Header(alias="Idempotency-Key"),
     ] = None,
 ):

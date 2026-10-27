@@ -1,8 +1,11 @@
 import asyncio
-from core.config import settings
-from motor.motor_asyncio import AsyncIOMotorClient
+
 from beanie import init_beanie
+from motor.motor_asyncio import AsyncIOMotorClient
+
+from core.config import settings
 from models.team import Team
+
 
 async def run():
     client = AsyncIOMotorClient(settings.MONGODB_URI)

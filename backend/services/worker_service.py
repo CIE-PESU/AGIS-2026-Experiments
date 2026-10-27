@@ -1,21 +1,22 @@
 import logging
 from typing import Any
+
 from fastapi import BackgroundTasks
 from pydantic import ValidationError
 
-from exceptions.session import (
-    SessionNotFoundError,
-    InvalidStateTransitionError,
-)
 from exceptions.base import (
     CorrelationIDMismatchError,
     InvalidOutputSchemaError,
 )
-from models.session import TIPSCOutput, DFVOutput, DiscoveryOutput
+from exceptions.session import (
+    InvalidStateTransitionError,
+    SessionNotFoundError,
+)
 from models.audit import AuditEvent
+from models.session import DFVOutput, DiscoveryOutput, TIPSCOutput
 from repositories.session_repo import session_repo
 from services.audit_service import audit_service
-from state_machine.states import SessionStatus, TERMINAL_STATES
+from state_machine.states import TERMINAL_STATES, SessionStatus
 from state_machine.validator import validate_transition
 
 logger = logging.getLogger(__name__)
@@ -72,21 +73,21 @@ class WorkerService:
                 target_status = SessionStatus.TIPSC_COMPLETED
                 audit_event = AuditEvent.TIPSC_COMPLETED
             except ValidationError as e:
-                raise InvalidOutputSchemaError(f"Invalid TIPSC output schema: {e}")
+                raise InvalidOutputSchemaError(f"Invalid TIPSC output schema: {e}") from e
         elif flow == "dfv":
             try:
                 parsed_output = DFVOutput(**output)
                 target_status = SessionStatus.DFV_COMPLETED
                 audit_event = AuditEvent.DFV_COMPLETED
             except ValidationError as e:
-                raise InvalidOutputSchemaError(f"Invalid DFV output schema: {e}")
+                raise InvalidOutputSchemaError(f"Invalid DFV output schema: {e}") from e
         elif flow == "discovery":
             try:
                 parsed_output = DiscoveryOutput(**output)
                 target_status = SessionStatus.COMPLETED
                 audit_event = AuditEvent.DISCOVERY_COMPLETED
             except ValidationError as e:
-                raise InvalidOutputSchemaError(f"Invalid Discovery output schema: {e}")
+                raise InvalidOutputSchemaError(f"Invalid Discovery output schema: {e}") from e
         else:
             raise InvalidOutputSchemaError(f"Unknown flow: {flow}")
 

@@ -2,11 +2,12 @@
 import asyncio
 import json
 import logging
+
 from aiokafka import AIOKafkaProducer
-from core.config import settings
-from exceptions.base import KafkaPublishError  
 from pydantic import BaseModel
 
+from core.config import settings
+from exceptions.base import KafkaPublishError
 
 logger = logging.getLogger("kafka.producer")
 
@@ -16,7 +17,7 @@ class KafkaProducerClient:
 
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super(KafkaProducerClient, cls).__new__(cls)
+            cls._instance = super().__new__(cls)
             cls._instance._producer = None
         return cls._instance
 

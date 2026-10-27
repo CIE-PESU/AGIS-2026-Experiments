@@ -7,22 +7,20 @@ from __future__ import annotations
 import hashlib
 import logging
 import secrets
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from fastapi import BackgroundTasks
 
-from auth.jwt import create_access_token, create_refresh_token
+from auth.jwt import create_access_token
 from core.config import settings
 from core.constants import UserRole
 from exceptions.base import (
-    RefreshTokenInvalidError,
     SessionNotFoundError,
     TokenInvalidError,
     ValidationException,
 )
 from models.refresh_token import RefreshToken
-from models.workspace import Workspace, WorkspaceStatus, WorkspaceType
+from models.workspace import WorkspaceType
 from repositories.session_repo import session_repo
 from repositories.workspace_repo import workspace_repo
 from schemas.workspace import WorkspaceAccessResponse, WorkspaceResponse
@@ -31,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 
 def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def hash_token(raw_token: str) -> str:
@@ -46,7 +44,7 @@ class WorkspaceService:
         self,
         name: str,
         admin_id: str,
-        mentor_id: Optional[str] = None,
+        mentor_id: str | None = None,
         base_url: str = "https://agis.ai",
     ) -> tuple[str, WorkspaceResponse]:
         """

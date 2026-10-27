@@ -4,7 +4,6 @@ schemas/workspace.py — Pydantic request/response schemas for Workspace managem
 
 from __future__ import annotations
 
-from typing import Optional
 from pydantic import BaseModel, Field
 
 
@@ -12,7 +11,7 @@ class WorkspaceCreateRequest(BaseModel):
     """POST /admin/workspaces request body."""
 
     name: str = Field(description="Name or description for this workspace link.")
-    mentor_id: Optional[str] = Field(default=None, description="Optional Mentor ID associated with this workspace.")
+    mentor_id: str | None = Field(default=None, description="Optional Mentor ID associated with this workspace.")
 
 
 class WorkspaceResponse(BaseModel):
@@ -22,10 +21,10 @@ class WorkspaceResponse(BaseModel):
     name: str
     type: str
     status: str
-    mentor_id: Optional[str] = None
-    magic_url: Optional[str] = None
+    mentor_id: str | None = None
+    magic_url: str | None = None
     created_at: str
-    revoked_at: Optional[str] = None
+    revoked_at: str | None = None
 
 
 class WorkspaceAccessRequest(BaseModel):
@@ -38,7 +37,7 @@ class WorkspaceAccessResponse(BaseModel):
     """Success payload for POST /workspace/access."""
 
     access_token: str
-    refresh_token: Optional[str] = None
+    refresh_token: str | None = None
     token_type: str = "bearer"
     expires_in: int
     role: str = "mentor_workspace"

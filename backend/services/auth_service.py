@@ -15,14 +15,17 @@ Route handlers call this — they never touch jwt.py or pes_client.py directly.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from auth.jwt import create_access_token, create_refresh_token, verify_refresh_token
 from auth.pes_client import pes_auth_client
 from core.config import settings
-from core.constants import AuditEvent
 from core.security import cipher
-from exceptions.base import RefreshTokenExpiredError, RefreshTokenInvalidError
+from exceptions.base import (
+    InvalidCredentialsError,
+    RefreshTokenExpiredError,
+    RefreshTokenInvalidError,
+)
 from models.refresh_token import RefreshToken
 from models.user import User
 from schemas.auth import LoginResponse, MeResponse, RefreshResponse, UserInfo
@@ -61,8 +64,8 @@ class AuthService:
                     pes_data = None
                 else:
                     raise InvalidCredentialsError()
-            except Exception:
-                raise InvalidCredentialsError()
+            except Exception as e:
+                raise InvalidCredentialsError() from e
         else:
             # Step 1: Validate via PES
             pes_data = await pes_auth_client.validate_credentials(srn=srn, password=password)
@@ -280,7 +283,7 @@ class AuthService:
         # Load all non-revoked, non-expired candidate tokens.
         # In production with many users, we'd add a secondary lookup field.
         # For this scale, bcrypt verification over recent tokens is acceptable.
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         candidates = await RefreshToken.find(
             RefreshToken.revoked == False,  # noqa: E712
             RefreshToken.expires_at > now,
@@ -294,7 +297,7 @@ class AuthService:
 
     async def _get_or_create_student_workspace(self, user: User) -> str:
         """Find or lazily create a Workspace for a student user."""
-        from models.workspace import Workspace, WorkspaceType
+        from models.workspace import WorkspaceType
         from repositories.workspace_repo import workspace_repo
 
         user_id_str = str(user.id)

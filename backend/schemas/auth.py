@@ -9,7 +9,6 @@ Matches api-spec.md Section 2 exactly. These schemas are used by:
 from __future__ import annotations
 
 import re
-from typing import Optional
 
 from pydantic import BaseModel, field_validator
 
@@ -27,7 +26,7 @@ class LoginRequest(BaseModel):
 
     srn: str
     password: str
-    team_id: Optional[str] = None
+    team_id: str | None = None
 
     @field_validator("srn", mode="before")
     @classmethod
@@ -76,7 +75,7 @@ class UserInfo(BaseModel):
     user_id: str
     name: str
     srn: str
-    team_id: Optional[str] = None
+    team_id: str | None = None
 
 
 class LoginResponse(BaseModel):
@@ -106,7 +105,7 @@ class MeResponse(BaseModel):
     srn: str
     email: str
     role: str
-    team_id: Optional[str] = None
+    team_id: str | None = None
     mentor_team_ids: list[str] = []
 
 
@@ -119,8 +118,8 @@ class OwnerContext(BaseModel):
     Encapsulates ownership context for session repository lookups and creation.
     """
 
-    user_id: Optional[str] = None
-    workspace_id: Optional[str] = None
+    user_id: str | None = None
+    workspace_id: str | None = None
     role: str = ""
 
     @property
@@ -143,8 +142,8 @@ class CurrentUser(BaseModel):
     user_id: str
     role: str
     name: str = "Unknown"
-    team_id: Optional[str] = None
-    workspace_id: Optional[str] = None
+    team_id: str | None = None
+    workspace_id: str | None = None
     mentor_team_ids: list[str] = []
 
     @property

@@ -21,12 +21,12 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from motor.motor_asyncio import AsyncIOMotorClient
 
-from database.mongodb import get_client
 from core.config import settings
+from database.mongodb import get_client
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +92,7 @@ async def check_and_set(key: str, ttl_seconds: int = 86_400) -> bool:
     db = client[settings.MONGODB_DB_NAME]
     collection = db["idempotency_keys"]
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     expires_at = now + timedelta(seconds=ttl_seconds)
 
     result = await collection.update_one(

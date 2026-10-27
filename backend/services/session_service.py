@@ -21,9 +21,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
-
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from fastapi import BackgroundTasks
 
@@ -32,7 +30,6 @@ from exceptions.base import (
     CannotArchiveActiveSessionError,
     SessionNotFoundError,
 )
-
 from models.audit import AuditEvent
 from repositories.session_repo import session_repo
 from schemas.auth import CurrentUser, OwnerContext
@@ -45,7 +42,6 @@ from state_machine.states import (
     RUNNING_STATES,
     SessionStatus,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -61,8 +57,8 @@ class SessionService:
 
     async def create_session(
         self,
-        student_id: Optional[str],
-        team_id: Optional[str],
+        student_id: str | None,
+        team_id: str | None,
         problem_statement: str,
         customer_segment: str,
         consequence: str,
@@ -72,7 +68,7 @@ class SessionService:
         industry_sector: str,
         idempotency_key: str,
         background_tasks: BackgroundTasks,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> SessionResponse:
 
         # ── 1. Idempotency ────────────────────────────────────────────────
@@ -135,7 +131,7 @@ class SessionService:
 
         # ── 4. Create session ─────────────────────────────────────────────
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         session = await session_repo.create(
             {
@@ -381,7 +377,7 @@ class SessionService:
     async def list_sessions(
         self,
         current_user: CurrentUser,
-        filters: Optional[dict] = None,
+        filters: dict | None = None,
         page: int = 1,
         limit: int = 20,
     ) -> tuple[

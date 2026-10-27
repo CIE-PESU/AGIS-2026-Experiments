@@ -5,6 +5,7 @@ api/v1/workspace.py — Public Workspace magic link redemption endpoint.
 from __future__ import annotations
 
 import logging
+
 from fastapi import APIRouter, Request, status
 
 from schemas.workspace import WorkspaceAccessRequest

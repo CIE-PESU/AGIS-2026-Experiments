@@ -7,10 +7,12 @@ from pathlib import Path
 backend_dir = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(backend_dir))
 
-from core.config import settings
-from motor.motor_asyncio import AsyncIOMotorClient
-from beanie import init_beanie
-from models.user import User
+from beanie import init_beanie  # noqa: E402
+from motor.motor_asyncio import AsyncIOMotorClient  # noqa: E402
+
+from core.config import settings  # noqa: E402
+from models.user import User  # noqa: E402
+
 
 async def sync():
     seed_file = Path(__file__).parent / "seed_data.json"
@@ -19,7 +21,7 @@ async def sync():
         sys.exit(1)
 
     try:
-        with open(seed_file, "r") as f:
+        with open(seed_file) as f:
             data = json.load(f)
     except json.JSONDecodeError as e:
         print(f"Error parsing {seed_file}: {e}")

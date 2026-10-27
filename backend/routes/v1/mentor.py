@@ -16,15 +16,13 @@ No business logic or repo calls here.
 from __future__ import annotations
 
 import logging
-from typing import Annotated, Optional
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request
 
 from core.constants import UserRole
 from dependencies.auth import require_role
-from exceptions.base import SessionNotFoundError
 from schemas.auth import CurrentUser
-from schemas.mentor import MentorSessionListItem, MentorTeamResponse
 from services.mentor_service import mentor_service
 from utils.response import paginated_response, success_response
 
@@ -50,11 +48,11 @@ router = APIRouter(prefix="/mentor", tags=["Mentor"])
 async def list_mentor_sessions(
     request: Request,
     current_user: Annotated[CurrentUser, Depends(require_role(UserRole.MENTOR))],
-    team_id: Optional[str] = Query(
+    team_id: str | None = Query(
         default=None,
         description="Filter sessions by a specific team ID.",
     ),
-    status: Optional[str] = Query(
+    status: str | None = Query(
         default=None,
         description="Filter sessions by status (e.g. tipsc_completed, dfv_running).",
     ),

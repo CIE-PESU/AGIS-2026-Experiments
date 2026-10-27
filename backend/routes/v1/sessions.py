@@ -26,16 +26,26 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Annotated, Optional
+from datetime import UTC
+from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, Request, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    Header,
+    HTTPException,
+    Query,
+    Request,
+    status,
+)
 from fastapi.responses import StreamingResponse
 
 from auth.jwt import decode_token
-from core.constants import UserRole
 from core.config import settings
+from core.constants import UserRole
 from dependencies.auth import get_current_user, require_role
-from exceptions.base import TokenInvalidError, TokenExpiredError, ValidationException
+from exceptions.base import TokenExpiredError, TokenInvalidError, ValidationException
 from models.session import Session
 from models.user import User
 from repositories.session_repo import session_repo
@@ -72,7 +82,7 @@ async def create_session(
     background_tasks: BackgroundTasks,
     current_user: Annotated[CurrentUser, Depends(require_role(UserRole.STUDENT, UserRole.MENTOR_WORKSPACE))],
     idempotency_key: Annotated[
-        Optional[str],
+        str | None,
         Header(
             alias="Idempotency-Key",
             description="UUID4 string. Required. Prevents duplicate session creation on retry.",
@@ -213,7 +223,7 @@ async def get_team_progress(
     request: Request,
     current_user: Annotated[CurrentUser, Depends(get_current_user)],
 ):
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     team_id = current_user.team_id
     if not team_id:
@@ -224,7 +234,7 @@ async def get_team_progress(
 
     # 2. For each teammate, fetch their active/latest session
     results = []
-    now = datetime.now(timezone.utc)
+    datetime.now(UTC)
     for teammate in teammates:
         # Get teammate's active or latest session (non-archived preferred)
         session = await Session.find(
@@ -328,9 +338,9 @@ async def get_team_progress(
         if session:
             session_time = session.updated_at
             if session_time.tzinfo is not None:
-                session_time = session_time.astimezone(timezone.utc).replace(tzinfo=None)
+                session_time = session_time.astimezone(UTC).replace(tzinfo=None)
             
-            now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+            now_naive = datetime.now(UTC).replace(tzinfo=None)
             delta = now_naive - session_time
 
             if delta.days > 0:
@@ -377,12 +387,12 @@ async def list_sessions(
     current_user: Annotated[CurrentUser, Depends(get_current_user)],
     page: int = Query(default=1, ge=1, description="Page number (1-indexed)."),
     limit: int = Query(default=20, ge=1, le=100, description="Items per page (max 100)."),
-    status_filter: Optional[str] = Query(
+    status_filter: str | None = Query(
         default=None,
         alias="status",
         description="Filter by session status (e.g. queued, tipsc_running, completed).",
     ),
-    team_id: Optional[str] = Query(
+    team_id: str | None = Query(
         default=None,
         description="(Mentor/Admin only) Filter by a specific team ID.",
     ),
@@ -470,7 +480,7 @@ async def archive_session(
 async def stream_session(
     request: Request,
     session_id: str,
-    token: Optional[str] = Query(default=None, description="Bearer token (query param for EventSource compatibility)"),
+    token: str | None = Query(default=None, description="Bearer token (query param for EventSource compatibility)"),
 ):
 
     validate_object_id(session_id)
@@ -494,8 +504,8 @@ async def stream_session(
                     team_id = payload.get("team_id")
                     if not raw or not team_id or raw.team_id != team_id:
                         raise HTTPException(403, "Session not found or access denied")
-        except (TokenInvalidError, TokenExpiredError):
-            raise HTTPException(401, "Invalid or expired token")
+        except (TokenInvalidError, TokenExpiredError) as e:
+            raise HTTPException(401, "Invalid or expired token") from e
     else:
         if settings.ENVIRONMENT != "development":
             raise HTTPException(

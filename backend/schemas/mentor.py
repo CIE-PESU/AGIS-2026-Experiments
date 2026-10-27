@@ -12,10 +12,8 @@ Endpoints:
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Session list item — summary shape for GET /mentor/sessions
@@ -36,11 +34,11 @@ class MentorSessionListItem(BaseModel):
 
     session_id: str
     team_id: str
-    team_name: Optional[str] = None       # resolved from teams collection in service
-    student_name: Optional[str] = None    # resolved from users collection in service
+    team_name: str | None = None       # resolved from teams collection in service
+    student_name: str | None = None    # resolved from users collection in service
     status: str
-    tipsc_score: Optional[int] = None     # null until TIPSC completes
-    ready_for_dfv: Optional[bool] = None  # null until TIPSC completes
+    tipsc_score: int | None = None     # null until TIPSC completes
+    ready_for_dfv: bool | None = None  # null until TIPSC completes
     created_at: datetime
     updated_at: datetime
 

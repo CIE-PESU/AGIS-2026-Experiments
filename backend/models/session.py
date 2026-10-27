@@ -6,20 +6,19 @@ Source of truth for the complete AGIS session lifecycle.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from beanie import Document, Indexed
 from pydantic import BaseModel, Field, model_validator
 from pymongo import ASCENDING, DESCENDING, IndexModel
 
-from state_machine.states import SessionStatus
 from models.schema import DiscoveryJobPayload
-
+from state_machine.states import SessionStatus
 
 
 def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -56,12 +55,12 @@ class TIPSValidatedMetrics(BaseModel):
 
 class TIPSCRAGScores(BaseModel):
     T: str = ""
-    I: str = ""
+    IMPORTANT: str = ""
     P: str = ""
     S: str = ""
 
     T_reason: str = ""
-    I_reason: str = ""
+    IMPORTANT_reason: str = ""
     P_reason: str = ""
     S_reason: str = ""
 
@@ -133,7 +132,7 @@ class TIPSCOutput(BaseModel):
 
     followups_asked: int = 0
 
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -182,15 +181,15 @@ class DFVOutput(BaseModel):
 
     status: str = ""
 
-    output: Optional[dict[str, Any]] = None
+    output: dict[str, Any] | None = None
 
-    error: Optional[str] = None
+    error: str | None = None
 
     retry_count: int = 0
 
-    started_at: Optional[datetime] = None
+    started_at: datetime | None = None
 
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
 
     idea_name: str = ""
 
@@ -205,15 +204,15 @@ class DiscoveryOutput(BaseModel):
 
     status: str = ""
 
-    output: Optional[dict[str, Any]] = None
+    output: dict[str, Any] | None = None
 
-    error: Optional[str] = None
+    error: str | None = None
 
     retry_count: int = 0
 
-    started_at: Optional[datetime] = None
+    started_at: datetime | None = None
 
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -244,11 +243,11 @@ class Session(Document):
 
     # ── Ownership ──────────────────────────────────────────────────────────
 
-    student_id: Optional[Indexed(str)] = None
+    student_id: Indexed(str) | None = None
 
-    team_id: Optional[Indexed(str)] = None
+    team_id: Indexed(str) | None = None
 
-    workspace_id: Optional[Indexed(str)] = None
+    workspace_id: Indexed(str) | None = None
 
     # ── Founder input ──────────────────────────────────────────────────────
 
@@ -259,7 +258,7 @@ class Session(Document):
     idea: str
 
     # Complete seven-field PreEval founder input.
-    preeval_input: Optional[dict[str, Any]] = None
+    preeval_input: dict[str, Any] | None = None
 
     # ── Pipeline state ─────────────────────────────────────────────────────
 
@@ -269,45 +268,45 @@ class Session(Document):
 
     # ── TIPSC intermediate state ───────────────────────────────────────────
 
-    preeval: Optional[dict[str, Any]] = None
+    preeval: dict[str, Any] | None = None
 
-    validation: Optional[dict[str, Any]] = None
+    validation: dict[str, Any] | None = None
 
-    regulatory: Optional[dict[str, Any]] = None
+    regulatory: dict[str, Any] | None = None
 
-    ethics: Optional[dict[str, Any]] = None
+    ethics: dict[str, Any] | None = None
 
-    compliance_context: Optional[str] = None
+    compliance_context: str | None = None
 
     # ── Flow outputs ───────────────────────────────────────────────────────
 
-    tipsc: Optional[TIPSCOutput] = None
+    tipsc: TIPSCOutput | None = None
 
-    dfv: Optional[DFVOutput] = None
+    dfv: DFVOutput | None = None
 
-    discovery: Optional[DiscoveryOutput] = None
+    discovery: DiscoveryOutput | None = None
 
     # ── DFV founder context ────────────────────────────────────────────────
 
-    dfv_inputs: Optional[DFVInputs] = None
+    dfv_inputs: DFVInputs | None = None
     
     # ── Discovery founder context ─────────────────────────────────────────
 
-    discovery_inputs: Optional[DiscoveryJobPayload] = None
+    discovery_inputs: DiscoveryJobPayload | None = None
 
     # ── TIPSC founder follow-up state ──────────────────────────────────────
 
     # Question currently visible to the frontend.
-    pending_question: Optional[str] = None
+    pending_question: str | None = None
 
     # Kept for compatibility.
     # Answers should normally be written directly to followup_history.
-    pending_answer: Optional[str] = None
+    pending_answer: str | None = None
 
     # Current question turn.
     # 0 = no question generated.
     # 1..3 = active follow-up turn.
-    followup_turn: Optional[int] = 0
+    followup_turn: int | None = 0
 
     # Only completed Q&A exchanges.
     followup_history: list[FollowupExchange] = Field(
@@ -316,21 +315,19 @@ class Session(Document):
 
     # ── Execution metadata ─────────────────────────────────────────────────
 
-    correlation_id: Optional[str] = None
+    correlation_id: str | None = None
 
-    flow_started_at: Optional[datetime] = None
+    flow_started_at: datetime | None = None
 
-    failure_metadata: Optional[
-        WorkerFailureMetadata
-    ] = None
+    failure_metadata: WorkerFailureMetadata | None = None
 
-    error: Optional[str] = None
+    error: str | None = None
 
-    rejection_reason: Optional[str] = None
+    rejection_reason: str | None = None
 
     # ── Idempotency / audit ────────────────────────────────────────────────
 
-    idempotency_key: Optional[str] = None
+    idempotency_key: str | None = None
 
     state_history: list[StateTransition] = Field(
         default_factory=list
@@ -338,7 +335,7 @@ class Session(Document):
 
     # ── Lifecycle timestamps ───────────────────────────────────────────────
 
-    archived_at: Optional[datetime] = None
+    archived_at: datetime | None = None
 
     created_at: datetime = Field(
         default_factory=utc_now

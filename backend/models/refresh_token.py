@@ -7,8 +7,7 @@ The raw token is NEVER stored — only the bcrypt hash.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 from beanie import Document
 from pydantic import Field
@@ -27,11 +26,11 @@ class RefreshToken(Document):
     """
 
     token_hash: str
-    user_id: Optional[str] = None
-    workspace_id: Optional[str] = None
+    user_id: str | None = None
+    workspace_id: str | None = None
     expires_at: datetime
     revoked: bool = False
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     class Settings:
         name = "refresh_tokens"
@@ -42,9 +41,9 @@ class RefreshToken(Document):
         ]
 
     @classmethod
-    def create_for_user(cls, user_id: str, token_hash: str, expiry_days: int = 7, workspace_id: str | None = None) -> "RefreshToken":
+    def create_for_user(cls, user_id: str, token_hash: str, expiry_days: int = 7, workspace_id: str | None = None) -> RefreshToken:
         """Factory method to build a new RefreshToken for a given user."""
-        expires_at = datetime.now(timezone.utc) + timedelta(days=expiry_days)
+        expires_at = datetime.now(UTC) + timedelta(days=expiry_days)
         return cls(
             token_hash=token_hash,
             user_id=user_id,
@@ -53,9 +52,9 @@ class RefreshToken(Document):
         )
 
     @classmethod
-    def create_for_workspace(cls, workspace_id: str, token_hash: str, expiry_days: int = 7) -> "RefreshToken":
+    def create_for_workspace(cls, workspace_id: str, token_hash: str, expiry_days: int = 7) -> RefreshToken:
         """Factory method to build a new RefreshToken for a guest workspace."""
-        expires_at = datetime.now(timezone.utc) + timedelta(days=expiry_days)
+        expires_at = datetime.now(UTC) + timedelta(days=expiry_days)
         return cls(
             token_hash=token_hash,
             workspace_id=workspace_id,
@@ -67,8 +66,8 @@ class RefreshToken(Document):
         expires = self.expires_at
         # MongoDB may return naive datetimes — treat them as UTC
         if expires.tzinfo is None:
-            expires = expires.replace(tzinfo=timezone.utc)
-        return datetime.now(timezone.utc) > expires
+            expires = expires.replace(tzinfo=UTC)
+        return datetime.now(UTC) > expires
 
     @property
     def is_valid(self) -> bool:

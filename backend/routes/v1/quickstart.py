@@ -11,11 +11,12 @@ import importlib.util
 import logging
 import os
 import sys
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, Request, status
 from pydantic import BaseModel, Field
+from quickstart_agent.models import QuickstartInput as AgentInput
+
 from core.constants import UserRole
 from dependencies.auth import require_role
 from schemas.auth import CurrentUser
@@ -118,9 +119,6 @@ def _load_quickstart_agent():
 # Load agent before restoring backend models
 run_quickstart_eval = _load_quickstart_agent()
 
-# Import agent models after loading
-from quickstart_agent.models import QuickstartInput as AgentInput, QuickstartOutput as AgentOutput
-
 
 async def run_quickstart_agent(input_data: QuickstartInput) -> QuickstartOutput:
     """Run the quickstart evaluation agent in-process (async)."""
@@ -145,7 +143,7 @@ async def run_quickstart_agent(input_data: QuickstartInput) -> QuickstartOutput:
         )
     except Exception as e:
         logger.error(f"Quickstart agent failed: {e}")
-        raise RuntimeError(f"Quickstart evaluation failed: {e}")
+        raise RuntimeError(f"Quickstart evaluation failed: {e}") from e
 
 
 @router.post(

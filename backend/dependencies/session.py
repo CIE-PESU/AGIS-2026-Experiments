@@ -7,9 +7,7 @@ at the dependency injection layer, so route handlers stay clean.
 
 from __future__ import annotations
 
-from typing import Annotated
-
-from fastapi import Depends, Path
+from fastapi import Path
 
 from exceptions.base import ValidationException
 from utils.validators import is_valid_object_id

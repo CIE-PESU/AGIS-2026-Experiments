@@ -7,8 +7,7 @@ All MongoDB reads and writes for Workspace entities go through this repository.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
 
 from models.workspace import Workspace, WorkspaceStatus, WorkspaceType
 from repositories.base import BaseRepository
@@ -17,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class WorkspaceRepository(BaseRepository[Workspace]):
@@ -29,10 +28,10 @@ class WorkspaceRepository(BaseRepository[Workspace]):
         self,
         name: str,
         type: WorkspaceType = WorkspaceType.MENTOR,
-        token_hash: Optional[str] = None,
-        student_user_id: Optional[str] = None,
-        mentor_id: Optional[str] = None,
-        created_by_admin_id: Optional[str] = None,
+        token_hash: str | None = None,
+        student_user_id: str | None = None,
+        mentor_id: str | None = None,
+        created_by_admin_id: str | None = None,
     ) -> Workspace:
         """Create a new Workspace document."""
         workspace = Workspace(
@@ -51,8 +50,8 @@ class WorkspaceRepository(BaseRepository[Workspace]):
 
     async def find_active_workspaces(
         self,
-        mentor_id: Optional[str] = None,
-        name: Optional[str] = None,
+        mentor_id: str | None = None,
+        name: str | None = None,
     ) -> list[Workspace]:
         """Find active workspaces matching mentor_id or name."""
         if mentor_id:
@@ -67,15 +66,15 @@ class WorkspaceRepository(BaseRepository[Workspace]):
             ).to_list()
         return []
 
-    async def find_by_id(self, workspace_id: str) -> Optional[Workspace]:
+    async def find_by_id(self, workspace_id: str) -> Workspace | None:
         """Lookup workspace by ObjectId string."""
         return await Workspace.get(workspace_id)
 
-    async def find_by_token_hash(self, token_hash: str) -> Optional[Workspace]:
+    async def find_by_token_hash(self, token_hash: str) -> Workspace | None:
         """Lookup workspace by SHA-256 token hash."""
         return await Workspace.find_one(Workspace.token_hash == token_hash)
 
-    async def find_by_student_user_id(self, student_user_id: str) -> Optional[Workspace]:
+    async def find_by_student_user_id(self, student_user_id: str) -> Workspace | None:
         """Lookup active student workspace by student user ID."""
         return await Workspace.find_one(
             Workspace.student_user_id == student_user_id,
@@ -87,7 +86,7 @@ class WorkspaceRepository(BaseRepository[Workspace]):
         self,
         skip: int = 0,
         limit: int = 50,
-        type_filter: Optional[str] = None,
+        type_filter: str | None = None,
     ) -> tuple[list[Workspace], int]:
         """List all workspaces with pagination."""
         query = Workspace.find()
@@ -98,7 +97,7 @@ class WorkspaceRepository(BaseRepository[Workspace]):
         items = await query.sort(-Workspace.created_at).skip(skip).limit(limit).to_list()
         return items, total
 
-    async def revoke(self, workspace_id: str) -> Optional[Workspace]:
+    async def revoke(self, workspace_id: str) -> Workspace | None:
         """Mark workspace as revoked."""
         workspace = await Workspace.get(workspace_id)
         if workspace and workspace.status == WorkspaceStatus.ACTIVE:

@@ -24,6 +24,7 @@ import logging.config
 import os
 import sys
 from contextlib import asynccontextmanager
+from datetime import UTC
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -218,8 +219,9 @@ def create_app() -> FastAPI:
         async def dispatch(self, request, call_next):
             content_length = request.headers.get("content-length")
             if content_length and int(content_length) > settings.MAX_REQUEST_BODY_BYTES:
+                from datetime import datetime
+
                 from fastapi.responses import JSONResponse
-                from datetime import datetime, timezone
                 return JSONResponse(
                     status_code=413,
                     content={
@@ -228,7 +230,7 @@ def create_app() -> FastAPI:
                             "message": f"Request body exceeds the maximum allowed size of {settings.MAX_REQUEST_BODY_BYTES} bytes.",
                             "field": None,
                             "request_id": getattr(request.state, "request_id", "unknown"),
-                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                            "timestamp": datetime.now(UTC).isoformat(),
                         }
                     },
                 )

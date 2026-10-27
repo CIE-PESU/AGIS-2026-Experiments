@@ -11,12 +11,10 @@ should be updated to re-export from this module rather than define their own cop
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Optional
 
 from pydantic import BaseModel, Field
-
 
 # ---------------------------------------------------------------------------
 # Shared enums
@@ -49,7 +47,7 @@ class DFVJobMessage(BaseModel):
     correlation_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     retry_count:    int = Field(default=0)
     payload:        DFVJobPayload
-    published_at:   datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    published_at:   datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 # ---------------------------------------------------------------------------
@@ -85,7 +83,7 @@ class DiscoveryJobMessage(BaseModel):
     correlation_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     retry_count:    int = Field(default=0)
     payload:        DiscoveryJobPayload
-    published_at:   datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    published_at:   datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 # ---------------------------------------------------------------------------
@@ -98,9 +96,9 @@ class NotificationMessage(BaseModel):
     correlation_id: str
     flow:           str             # "dfv" | "discovery" | "tipsc"
     status:         FlowStatus
-    idea_name:      Optional[str]  = None
-    error:          Optional[str]  = None
-    emitted_at:     datetime       = Field(default_factory=lambda: datetime.now(timezone.utc))
+    idea_name:      str | None  = None
+    error:          str | None  = None
+    emitted_at:     datetime       = Field(default_factory=lambda: datetime.now(UTC))
 
 
 # ---------------------------------------------------------------------------
@@ -111,11 +109,11 @@ class DeadLetterMessage(BaseModel):
     """Published to userSession.dfv.dlq when DFV exceeds max retries."""
     original_message: DFVJobMessage
     failure_reason:   str
-    failed_at:        datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    failed_at:        datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class DiscoveryDeadLetterMessage(BaseModel):
     """Published to userSession.discovery.dlq when Discovery exceeds max retries."""
     original_message: DiscoveryJobMessage
     failure_reason:   str
-    failed_at:        datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    failed_at:        datetime = Field(default_factory=lambda: datetime.now(UTC))

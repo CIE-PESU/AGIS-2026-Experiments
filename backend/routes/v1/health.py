@@ -13,11 +13,12 @@ These endpoints are NOT rate-limited and require no auth.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from database.mongodb import ping_db
 from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse
+
+from database.mongodb import ping_db
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,7 @@ async def health_check() -> JSONResponse:
         status_code=http_status,
         content={
             "status": "healthy" if all_healthy else "degraded",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "services": {
                 "mongodb": "connected" if mongo_ok else "disconnected",
                 "kafka_producer": "connected" if kafka_ok else "disconnected",
@@ -87,7 +88,7 @@ async def readiness_probe() -> JSONResponse:
             status_code=status.HTTP_200_OK,
             content={
                 "ready": True,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             },
         )
 
@@ -95,7 +96,7 @@ async def readiness_probe() -> JSONResponse:
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         content={
             "ready": False,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "reason": "One or more dependencies are not ready.",
         },
     )
@@ -115,5 +116,5 @@ async def liveness_probe():
     """
     return {
         "alive": True,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }

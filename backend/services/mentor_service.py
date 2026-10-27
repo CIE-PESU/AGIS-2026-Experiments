@@ -17,7 +17,7 @@ Architecture rules:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from beanie import PydanticObjectId
 
@@ -27,7 +27,9 @@ from models.team import Team
 from models.user import User
 from repositories.session_repo import session_repo
 from schemas.mentor import MentorSessionListItem, MentorTeamResponse, TeamMemberInfo
-from state_machine.states import SessionStatus
+
+logger = logging.getLogger(__name__)
+
 
 async def sync_mentor_teams(mentor_id: str) -> list[str]:
     """
@@ -69,7 +71,7 @@ class MentorService:
         self,
         mentor_id: str,
         mentor_team_ids: list[str],
-        filters: Optional[dict[str, Any]] = None,
+        filters: dict[str, Any] | None = None,
         page: int = 1,
         limit: int = 20,
     ) -> tuple[list[MentorSessionListItem], int]:
@@ -135,8 +137,8 @@ class MentorService:
             student = students_map.get(session.student_id)
 
             # Extract TIPSC summary if available
-            tipsc_score: Optional[int] = None
-            ready_for_dfv: Optional[bool] = None
+            tipsc_score: int | None = None
+            ready_for_dfv: bool | None = None
             if session.tipsc:
                 tipsc_score = session.tipsc.total_score
                 ready_for_dfv = session.tipsc.ready_for_dfv

@@ -14,6 +14,7 @@ Sensitive field masking:
 """
 
 from __future__ import annotations
+
 import logging
 import time
 
@@ -22,7 +23,6 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from auth.jwt import decode_token
-from core.config import settings
 
 logger = logging.getLogger("agis.access")
 

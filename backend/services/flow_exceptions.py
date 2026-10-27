@@ -28,8 +28,8 @@ Reconciliation needed at merge time:
 
 from __future__ import annotations
 
-
 from exceptions.base import AppException
+
 
 class FlowServiceError(AppException):
     """Base class for this module's exceptions. Now inherits from AppException."""

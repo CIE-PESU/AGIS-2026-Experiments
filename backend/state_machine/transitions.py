@@ -8,7 +8,6 @@ This is the backend state transition contract.
 
 from state_machine.states import SessionStatus
 
-
 ALLOWED_TRANSITIONS: dict[
     SessionStatus,
     frozenset[SessionStatus],

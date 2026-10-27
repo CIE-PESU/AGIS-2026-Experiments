@@ -7,16 +7,15 @@ Stores magic token hashes, status, ownership, and admin lifecycle tracking.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Optional
 
 from beanie import Document, Indexed
 from pydantic import Field
 
 
 def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class WorkspaceType(str, Enum):
@@ -51,13 +50,13 @@ class Workspace(Document):
     name: str
     type: WorkspaceType = WorkspaceType.MENTOR
     status: WorkspaceStatus = WorkspaceStatus.ACTIVE
-    token_hash: Optional[Indexed(str, unique=True)] = None
-    student_user_id: Optional[Indexed(str)] = None
-    mentor_id: Optional[Indexed(str)] = None
-    created_by_admin_id: Optional[str] = None
+    token_hash: Indexed(str, unique=True) | None = None
+    student_user_id: Indexed(str) | None = None
+    mentor_id: Indexed(str) | None = None
+    created_by_admin_id: str | None = None
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
-    revoked_at: Optional[datetime] = None
+    revoked_at: datetime | None = None
 
     class Settings:
         name = "workspaces"

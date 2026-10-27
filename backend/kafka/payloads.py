@@ -10,7 +10,6 @@ Serialisation: call `.model_dump_json()` to get the JSON string for the Kafka va
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -44,9 +43,9 @@ class DFVEventPayload(BaseModel):
     team_id: str
     problem_statement: str
     idea: str
-    desirability_context: Optional[str] = None
-    feasibility_context: Optional[str] = None
-    viability_context: Optional[str] = None
+    desirability_context: str | None = None
+    feasibility_context: str | None = None
+    viability_context: str | None = None
     correlation_id: str
     triggered_at: datetime = Field(default_factory=datetime.utcnow)
 

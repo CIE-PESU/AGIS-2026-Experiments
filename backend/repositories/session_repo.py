@@ -8,8 +8,8 @@ All MongoDB reads/writes for sessions must go through this repository.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from beanie import PydanticObjectId
 from beanie.operators import In, NotIn
@@ -21,7 +21,7 @@ from state_machine.states import SessionStatus
 
 
 def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class SessionRepository(BaseRepository[Session]):
@@ -53,7 +53,7 @@ class SessionRepository(BaseRepository[Session]):
     async def find_by_id(
         self,
         session_id: str,
-    ) -> Optional[Session]:
+    ) -> Session | None:
 
         return await Session.get(session_id)
 
@@ -62,7 +62,7 @@ class SessionRepository(BaseRepository[Session]):
         self,
         session_id: str,
         student_id: str,
-    ) -> Optional[Session]:
+    ) -> Session | None:
 
         session = await Session.get(session_id)
 
@@ -78,7 +78,7 @@ class SessionRepository(BaseRepository[Session]):
     async def find_by_student(
         self,
         student_id: str,
-        filters: Optional[dict[str, Any]] = None,
+        filters: dict[str, Any] | None = None,
         page: int = 1,
         limit: int = 20,
     ) -> list[Session]:
@@ -111,7 +111,7 @@ class SessionRepository(BaseRepository[Session]):
     async def find_active_by_student(
         self,
         student_id: str,
-    ) -> Optional[Session]:
+    ) -> Session | None:
 
         return await Session.find_one(
             Session.student_id == student_id,
@@ -125,7 +125,7 @@ class SessionRepository(BaseRepository[Session]):
     async def find_active_by_owner(
         self,
         owner: OwnerContext,
-    ) -> Optional[Session]:
+    ) -> Session | None:
         """Find the single active (non-archived) session for the given OwnerContext."""
         if owner.workspace_id:
             return await Session.find(
@@ -168,7 +168,7 @@ class SessionRepository(BaseRepository[Session]):
     async def find_by_idempotency_key(
         self,
         key: str,
-    ) -> Optional[Session]:
+    ) -> Session | None:
 
         return await Session.find_one(
             Session.idempotency_key == key
@@ -182,7 +182,7 @@ class SessionRepository(BaseRepository[Session]):
     async def get_active_session_by_user(
         self,
         student_id: str,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Return the newest session waiting for founder input.
 
@@ -208,7 +208,7 @@ class SessionRepository(BaseRepository[Session]):
         self,
         session_id: str,
         student_id: str,
-    ) -> Optional[Session]:
+    ) -> Session | None:
         """
         Fetch a founder-owned session only when it is waiting for an answer.
         """
@@ -328,7 +328,7 @@ class SessionRepository(BaseRepository[Session]):
         flow: str,
         output: dict[str, Any],
         new_status: SessionStatus,
-        expected_version: Optional[int] = None,
+        expected_version: int | None = None,
     ) -> bool:
 
         if expected_version is not None:
@@ -680,7 +680,7 @@ class SessionRepository(BaseRepository[Session]):
     async def find_by_teams(
         self,
         team_ids: list[str],
-        filters: Optional[dict[str, Any]] = None,
+        filters: dict[str, Any] | None = None,
         page: int = 1,
         limit: int = 20,
     ) -> list[Session]:
@@ -722,7 +722,7 @@ class SessionRepository(BaseRepository[Session]):
     async def count_by_teams(
         self,
         team_ids: list[str],
-        filters: Optional[dict[str, Any]] = None,
+        filters: dict[str, Any] | None = None,
     ) -> int:
 
         if not team_ids:
@@ -763,7 +763,7 @@ class SessionRepository(BaseRepository[Session]):
 
     async def find_all_admin(
         self,
-        filters: Optional[dict[str, Any]] = None,
+        filters: dict[str, Any] | None = None,
         page: int = 1,
         limit: int = 20,
     ) -> list[Session]:

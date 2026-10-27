@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 import traceback
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -35,7 +35,7 @@ def _error_envelope(
             "message": message,
             "field": field,
             "request_id": request_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
     }
 

@@ -14,7 +14,7 @@ Use these helpers in every route handler to ensure consistency.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import Request
@@ -25,7 +25,7 @@ def _meta(request: Request) -> dict:
     request_id = getattr(request.state, "request_id", "unknown")
     return {
         "request_id": request_id,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }
 
 

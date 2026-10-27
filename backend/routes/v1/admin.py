@@ -1,25 +1,24 @@
 # app/api/v1/admin.py
 from datetime import datetime
-from typing import Annotated, List, Optional
-from fastapi import APIRouter, Depends, Query, BackgroundTasks
+from typing import Annotated
 
-import json
-from pathlib import Path
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from pydantic import BaseModel
+
+from core.security import cipher
+from core.sync import dump_seed_data
 from dependencies.auth import require_admin, require_mentor_or_admin
+from models.session import Session
+from models.team import Team
+from models.user import User
+from repositories.session_repo import session_repo
 from schemas.auth import CurrentUser
 from schemas.workspace import WorkspaceCreateRequest
 from services import admin_service
-from services.workspace_service import workspace_service
-from core.security import cipher
-from core.sync import dump_seed_data
-from repositories.session_repo import session_repo
-from models.user import User
-from models.team import Team
-from models.session import Session
-from state_machine.states import SessionStatus
 from services.mentor_service import sync_mentor_teams
-from utils.response import success_response
+from services.workspace_service import workspace_service
+from state_machine.states import SessionStatus
+
 
 async def sync_student_session_teams(student_srns: list[str], new_team_id: str | None):
     """Synchronize Session.team_id for active sessions when student team membership changes."""
@@ -35,22 +34,22 @@ async def sync_student_session_teams(student_srns: list[str], new_team_id: str |
 
 class MentorCreateRequest(BaseModel):
     name: str
-    email: Optional[str] = None
-    password: Optional[str] = None
+    email: str | None = None
+    password: str | None = None
 
 class MentorUpdateRequest(BaseModel):
     name: str
-    email: Optional[str] = None
+    email: str | None = None
 
 class TeamCreateRequest(BaseModel):
     name: str
-    mentor_id: Optional[str] = None
-    members: List[str] = []
+    mentor_id: str | None = None
+    members: list[str] = []
 
 class TeamUpdateRequest(BaseModel):
     name: str
-    mentor_id: Optional[str] = None
-    members: List[str] = []
+    mentor_id: str | None = None
+    members: list[str] = []
 
 # Remove the global admin lock so mentors can access read-only routes
 router = APIRouter(
@@ -230,9 +229,9 @@ async def delete_team(team_id: str, background_tasks: BackgroundTasks):
 
 @router.get("/sessions", dependencies=[Depends(require_admin())])
 async def list_all_sessions(
-    status: Optional[str] = None,
-    team_id: Optional[str] = None,
-    student_id: Optional[str] = None,
+    status: str | None = None,
+    team_id: str | None = None,
+    student_id: str | None = None,
     page: int = Query(1, ge=1),
     limit: int = Query(20, le=100)
 ):
@@ -246,11 +245,11 @@ async def list_all_sessions(
 
 @router.get("/audit", dependencies=[Depends(require_admin())])
 async def get_system_audit_log(
-    event: Optional[str] = None,
-    actor: Optional[str] = None,
-    session_id: Optional[str] = None,
-    from_date: Optional[datetime] = Query(None, alias="from"),
-    to_date: Optional[datetime] = Query(None, alias="to"),
+    event: str | None = None,
+    actor: str | None = None,
+    session_id: str | None = None,
+    from_date: datetime | None = Query(None, alias="from"),
+    to_date: datetime | None = Query(None, alias="to"),
     page: int = Query(1, ge=1),
     limit: int = Query(50, le=200)
 ):

@@ -26,7 +26,7 @@ Design constraints:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from models.audit import AuditEvent
 from repositories.audit_repo import audit_repo
@@ -46,11 +46,11 @@ class AuditService:
     async def log_event(
         self,
         event: AuditEvent | str,
-        actor: Optional[str] = None,
-        actor_role: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
-        session_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        actor: str | None = None,
+        actor_role: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        session_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> None:
         """
         Write an immutable audit log entry.

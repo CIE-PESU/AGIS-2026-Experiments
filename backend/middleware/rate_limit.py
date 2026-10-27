@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 import time
 from collections import defaultdict, deque
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -68,7 +68,7 @@ def _rate_limit_error(retry_after: int = 60) -> JSONResponse:
                 "message": "Too many requests. Please wait before retrying.",
                 "field": None,
                 "request_id": "unknown",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
         },
     )

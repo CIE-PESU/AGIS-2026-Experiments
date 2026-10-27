@@ -3,10 +3,10 @@ AuditLog repository — append-only writes to `audit_logs` collection.
 No update or delete methods. Immutable by design.
 """
 
-from typing import Optional, Any
 from datetime import datetime
+from typing import Any
 
-from models.audit import AuditLog, AuditEvent
+from models.audit import AuditEvent, AuditLog
 from repositories.base import BaseRepository
 
 
@@ -17,11 +17,11 @@ class AuditRepository(BaseRepository[AuditLog]):
     async def create_event(
         self,
         event: AuditEvent | str,
-        actor: Optional[str] = None,
-        actor_role: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
-        session_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        actor: str | None = None,
+        actor_role: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        session_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> AuditLog:
         """
         Write an immutable audit log entry.
@@ -68,7 +68,7 @@ class AuditRepository(BaseRepository[AuditLog]):
 
     async def find_all_system(
         self,
-        filters: Optional[dict[str, Any]] = None,
+        filters: dict[str, Any] | None = None,
         page: int = 1,
         limit: int = 50,
     ) -> list[AuditLog]:

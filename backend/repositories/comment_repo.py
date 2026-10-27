@@ -10,9 +10,6 @@ Rules enforced at this layer:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Optional
-
 from beanie import PydanticObjectId
 
 from models.comment import MentorComment
@@ -81,7 +78,7 @@ class CommentRepository(BaseRepository[MentorComment]):
             for d in docs
         ]
 
-    async def find_by_id(self, comment_id: str) -> Optional[MentorComment]:
+    async def find_by_id(self, comment_id: str) -> MentorComment | None:
         """
         Fetch a comment by its _id. No ownership filter.
         Returns None if not found.
@@ -94,7 +91,7 @@ class CommentRepository(BaseRepository[MentorComment]):
 
     async def find_by_id_and_mentor(
         self, comment_id: str, mentor_id: str
-    ) -> Optional[MentorComment]:
+    ) -> MentorComment | None:
         """
         Ownership-filtered fetch.
         Returns None if the comment exists but belongs to a different mentor.

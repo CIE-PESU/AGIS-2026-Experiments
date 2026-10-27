@@ -11,8 +11,8 @@ These schemas are used for:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Generic, Optional, TypeVar
+from datetime import UTC, datetime
+from typing import Generic, TypeVar
 
 from pydantic import BaseModel, Field
 
@@ -32,7 +32,7 @@ class MetaBlock(BaseModel):
 
     request_id: str
     timestamp: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+        default_factory=lambda: datetime.now(UTC).isoformat()
     )
 
 
@@ -53,7 +53,7 @@ class PaginationMeta(BaseModel):
     has_prev: bool
 
     @classmethod
-    def build(cls, page: int, limit: int, total: int) -> "PaginationMeta":
+    def build(cls, page: int, limit: int, total: int) -> PaginationMeta:
         """Factory helper to avoid repeating the has_next / has_prev logic everywhere."""
         return cls(
             page=page,
@@ -111,13 +111,13 @@ class ErrorDetail(BaseModel):
 
     code: str = Field(description="Catalog error code from api-spec.md Section 11.")
     message: str = Field(description="Human-readable error description.")
-    field: Optional[str] = Field(
+    field: str | None = Field(
         default=None,
         description="For validation errors: the field that failed. Null otherwise.",
     )
     request_id: str
     timestamp: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+        default_factory=lambda: datetime.now(UTC).isoformat()
     )
 
 

@@ -11,29 +11,28 @@ Allows normal frontend user retries to start new runs with fresh correlation IDs
 
 import asyncio
 import logging
-from datetime import datetime, timezone, timedelta
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 from beanie.operators import In
 
 from core.config import settings
-from state_machine.states import SessionStatus
+from models.session import Session
 from repositories.session_repo import session_repo
 from services.audit_service import audit_service
-from models.session import Session
+from state_machine.states import SessionStatus
 
 logger = logging.getLogger(__name__)
 
 
 def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class TimeoutSupervisor:
     """Background supervisor for recovering timed-out flow sessions."""
 
     def __init__(self) -> None:
-        self._task: Optional[asyncio.Task] = None
+        self._task: asyncio.Task | None = None
         self._running = False
 
     async def check_and_recover_stuck_sessions(

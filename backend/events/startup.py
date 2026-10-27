@@ -19,7 +19,6 @@ from pathlib import Path
 
 import yaml
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -197,14 +196,14 @@ async def on_startup() -> None:
 
     try:
 
-        from core.config import settings
-        from database.mongodb import get_client
-
         from engine.async_pipeline_executor import (
             AsyncPipelineExecutor,
         )
         from engine.db import SessionStore
         from engine.stages import PipelineStages
+
+        from core.config import settings
+        from database.mongodb import get_client
 
         # ── Mongo collection ───────────────────────────────────────────────
 

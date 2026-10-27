@@ -4,8 +4,9 @@ Called from events/startup.py and events/shutdown.py.
 """
 
 import logging
-from motor.motor_asyncio import AsyncIOMotorClient
+
 from beanie import init_beanie
+from motor.motor_asyncio import AsyncIOMotorClient
 
 from core.config import settings
 
@@ -25,12 +26,12 @@ async def connect_db() -> None:
     global _client
 
     # Import here to avoid circular imports at module load time
-    from models.user import User
-    from models.team import Team
-    from models.session import Session
     from models.audit import AuditLog
     from models.comment import MentorComment
     from models.refresh_token import RefreshToken
+    from models.session import Session
+    from models.team import Team
+    from models.user import User
     from models.workspace import Workspace
 
     _client = AsyncIOMotorClient(

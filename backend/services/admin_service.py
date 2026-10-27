@@ -1,9 +1,10 @@
 # app/services/admin_service.py
-from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
-from repositories.session_repo import session_repo
 from repositories.audit_repo import audit_repo
+from repositories.session_repo import session_repo
+
 
 async def get_all_sessions(filters: dict[str, Any], page: int, limit: int):
     """Fetches all sessions without ownership restrictions."""
@@ -19,7 +20,7 @@ async def get_metrics() -> dict[str, Any]:
     metrics = await session_repo.get_system_metrics()
     
     # Calculate time-bound audit metrics
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
     one_hour_ago = now - timedelta(hours=1)
     

@@ -4,9 +4,12 @@ core/config.py — Application configuration via Pydantic Settings.
 Reads all values from environment variables (or .env file).
 Never hardcode secrets. Every field here must come from the environment.
 """
+
 from pathlib import Path
-ROOT_DIR = Path(__file__).resolve().parents[2]
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
 
 
 class Settings(BaseSettings):

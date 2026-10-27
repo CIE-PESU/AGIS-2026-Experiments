@@ -1,8 +1,10 @@
 import json
 import os
 from pathlib import Path
-from models.user import User
+
 from models.team import Team
+from models.user import User
+
 
 def get_seed_file_path() -> Path:
     return Path(__file__).resolve().parent.parent / "scripts" / "seed_data.json"

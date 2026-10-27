@@ -7,10 +7,9 @@ API contract for the complete AGIS session lifecycle.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # TIPSC schemas
@@ -19,12 +18,12 @@ from pydantic import BaseModel, Field, field_validator
 
 class TIPSCRAGScoresSchema(BaseModel):
     T: str = ""
-    I: str = ""
+    IMPORTANT: str = ""
     P: str = ""
     S: str = ""
 
     T_reason: str = ""
-    I_reason: str = ""
+    IMPORTANT_reason: str = ""
     P_reason: str = ""
     S_reason: str = ""
 
@@ -66,7 +65,7 @@ class TIPSCOutputSchema(BaseModel):
 
     followups_asked: int = 0
 
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -79,15 +78,15 @@ class DFVOutputSchema(BaseModel):
 
     status: str = ""
 
-    output: Optional[dict[str, Any]] = None
+    output: dict[str, Any] | None = None
 
-    error: Optional[str] = None
+    error: str | None = None
 
     retry_count: int = 0
 
-    started_at: Optional[datetime] = None
+    started_at: datetime | None = None
 
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
 
     idea_name: str = ""
 
@@ -102,15 +101,15 @@ class DiscoveryOutputSchema(BaseModel):
 
     status: str = ""
 
-    output: Optional[dict[str, Any]] = None
+    output: dict[str, Any] | None = None
 
-    error: Optional[str] = None
+    error: str | None = None
 
     retry_count: int = 0
 
-    started_at: Optional[datetime] = None
+    started_at: datetime | None = None
 
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -175,7 +174,7 @@ class SessionCreateRequest(BaseModel):
         max_length=1000,
     )
 
-    team_id: Optional[str] = None
+    team_id: str | None = None
 
 
     @field_validator(
@@ -226,14 +225,14 @@ class SessionCreateRequest(BaseModel):
 class SessionResponse(BaseModel):
     session_id: str
 
-    student_id: Optional[str] = None
-    team_id: Optional[str] = None
-    workspace_id: Optional[str] = None
+    student_id: str | None = None
+    team_id: str | None = None
+    workspace_id: str | None = None
 
     problem_statement: str
     idea: str
 
-    preeval_input: Optional[dict[str, Any]] = None
+    preeval_input: dict[str, Any] | None = None
 
     status: str
 
@@ -242,29 +241,29 @@ class SessionResponse(BaseModel):
 
     # ── Pipeline intermediate state ───────────────────────────────────────
 
-    preeval: Optional[dict[str, Any]] = None
+    preeval: dict[str, Any] | None = None
 
-    validation: Optional[dict[str, Any]] = None
+    validation: dict[str, Any] | None = None
 
-    regulatory: Optional[dict[str, Any]] = None
+    regulatory: dict[str, Any] | None = None
 
-    ethics: Optional[dict[str, Any]] = None
+    ethics: dict[str, Any] | None = None
 
-    compliance_context: Optional[str] = None
+    compliance_context: str | None = None
 
 
     # ── Outputs ───────────────────────────────────────────────────────────
 
-    tipsc: Optional[TIPSCOutputSchema] = None
+    tipsc: TIPSCOutputSchema | None = None
 
-    dfv: Optional[DFVOutputSchema] = None
+    dfv: DFVOutputSchema | None = None
 
-    discovery: Optional[DiscoveryOutputSchema] = None
+    discovery: DiscoveryOutputSchema | None = None
 
 
     # ── Follow-up state ───────────────────────────────────────────────────
 
-    pending_question: Optional[str] = None
+    pending_question: str | None = None
 
     followup_turn: int = 0
 
@@ -277,11 +276,11 @@ class SessionResponse(BaseModel):
 
     # ── Execution metadata ────────────────────────────────────────────────
 
-    correlation_id: Optional[str] = None
+    correlation_id: str | None = None
 
-    error: Optional[str] = None
+    error: str | None = None
 
-    rejection_reason: Optional[str] = None
+    rejection_reason: str | None = None
 
 
     # ── Timestamps ────────────────────────────────────────────────────────
@@ -290,14 +289,14 @@ class SessionResponse(BaseModel):
 
     updated_at: datetime
 
-    archived_at: Optional[datetime] = None
+    archived_at: datetime | None = None
 
 
     @classmethod
     def from_document(
         cls,
         session: Any,
-    ) -> "SessionResponse":
+    ) -> SessionResponse:
         return cls(
             session_id=str(session.id),
 
@@ -389,7 +388,7 @@ class SessionListResponse(SessionResponse):
     def from_document(
         cls,
         session: Any,
-    ) -> "SessionListResponse":
+    ) -> SessionListResponse:
 
         response = SessionResponse.from_document(
             session

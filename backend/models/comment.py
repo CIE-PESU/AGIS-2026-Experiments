@@ -4,6 +4,7 @@ Supports soft-delete (deleted flag). Comments are never hard-deleted.
 """
 
 from datetime import datetime
+
 from beanie import Document
 from pydantic import Field
 

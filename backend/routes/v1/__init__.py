@@ -11,16 +11,15 @@ Day 3+ routes: comments, mentor, admin (registered below once implemented)
 
 from fastapi import APIRouter
 
+from routes.v1.admin import router as admin_router
 from routes.v1.auth import router as auth_router
-from routes.v1.health import router as health_router
-from routes.v1.sessions import router as sessions_router
+from routes.v1.comments import router as comments_router
 from routes.v1.flows import router as flows_router
 from routes.v1.history import router as history_router
-from routes.v1.admin import router as admin_router
-from routes.v1.comments import router as comments_router
 from routes.v1.mentor import router as mentor_router
-from routes.v1.workspace import router as workspace_router
 from routes.v1.quickstart import router as quickstart_router
+from routes.v1.sessions import router as sessions_router
+from routes.v1.workspace import router as workspace_router
 
 v1_router = APIRouter()
 

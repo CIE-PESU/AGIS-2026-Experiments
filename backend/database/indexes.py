@@ -4,10 +4,11 @@ All indexes mirror backend-arch.md Section 8.3.
 """
 
 import logging
+
 from motor.motor_asyncio import AsyncIOMotorClient
 
-from database.mongodb import get_client
 from core.config import settings
+from database.mongodb import get_client
 
 logger = logging.getLogger(__name__)
 

@@ -17,20 +17,18 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Optional, Protocol
+from datetime import UTC, datetime
+from typing import Any, Protocol
 
 from events import startup
+from kafka.topics import KafkaTopic
 from models.schema import (
     DFVJobMessage,
     DFVJobPayload,
     DiscoveryJobMessage,
     DiscoveryJobPayload,
 )
-from kafka.topics import KafkaTopic
-
 from services.flow_exceptions import (
     DFVNotUnlockedError,
     InvalidStateTransitionError,
@@ -38,14 +36,11 @@ from services.flow_exceptions import (
     SessionNotFoundError,
     SessionUpdateConflictError,
 )
-
 from state_machine.exceptions import (
     InvalidStateTransitionError as StateMachineInvalidTransitionError,
 )
-
 from state_machine.states import SessionStatus
 from state_machine.validator import validate_transition
-
 
 DFV_TOPIC = KafkaTopic.USER_SESSION_DFV
 DISCOVERY_TOPIC = KafkaTopic.USER_SESSION_DISCOVERY
@@ -73,21 +68,21 @@ class SessionSnapshot:
 
     idea: str
 
-    preeval_input: Optional[dict[str, Any]] = None
+    preeval_input: dict[str, Any] | None = None
 
-    tipsc: Optional[dict[str, Any]] = None
+    tipsc: dict[str, Any] | None = None
 
-    dfv: Optional[dict[str, Any]] = None
+    dfv: dict[str, Any] | None = None
 
-    pending_question: Optional[str] = None
+    pending_question: str | None = None
 
-    pending_answer: Optional[str] = None
+    pending_answer: str | None = None
 
     followup_turn: int = 0
 
-    followup_history: Optional[list[dict[str, Any]]] = None
+    followup_history: list[dict[str, Any]] | None = None
 
-    correlation_id: Optional[str] = None
+    correlation_id: str | None = None
 
     @property
     def id(self) -> str:
@@ -105,7 +100,7 @@ class SessionRepoProtocol(Protocol):
         self,
         session_id: str,
         student_id: str,
-    ) -> Optional[SessionSnapshot]:
+    ) -> SessionSnapshot | None:
         ...
 
     async def update_status(
@@ -162,7 +157,7 @@ class AuditServiceProtocol(Protocol):
 def _now_iso() -> str:
 
     return (
-        datetime.now(timezone.utc)
+        datetime.now(UTC)
         .isoformat()
         .replace("+00:00", "Z")
     )
@@ -220,8 +215,8 @@ class FlowService:
     async def _load_session(
         self,
         session_id: str,
-        student_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        student_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> SessionSnapshot:
 
         session = await self._session_repo.find_by_id(session_id)
@@ -308,8 +303,8 @@ class FlowService:
     async def trigger_tipsc(
         self,
         session_id: str,
-        student_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        student_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> dict:
 
         session = await self._load_session(
@@ -418,9 +413,9 @@ class FlowService:
     async def submit_followup_answer(
         self,
         session_id: str,
-        student_id: Optional[str] = None,
+        student_id: str | None = None,
         answer: str = "",
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> dict:
 
         session = await self._load_session(
@@ -512,9 +507,9 @@ class FlowService:
     async def trigger_dfv(
         self,
         session_id: str,
-        student_id: Optional[str] = None,
+        student_id: str | None = None,
         dfv_inputs: dict = None,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> dict:
 
         dfv_inputs = dfv_inputs or {}
@@ -614,9 +609,9 @@ class FlowService:
     async def trigger_discovery(
         self,
         session_id: str,
-        student_id: Optional[str] = None,
+        student_id: str | None = None,
         discovery_inputs: dict = None,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> dict:
 
         discovery_inputs = discovery_inputs or {}

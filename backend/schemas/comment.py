@@ -16,7 +16,6 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field, field_validator
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Request Schemas
 # ─────────────────────────────────────────────────────────────────────────────

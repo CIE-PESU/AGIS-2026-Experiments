@@ -3,8 +3,7 @@ User repository — reads/writes the `users` collection.
 upsert_from_pes is called on every successful login to keep user data current.
 """
 
-from typing import Optional, Any
-from datetime import datetime
+from typing import Any
 
 from models.user import User
 from repositories.base import BaseRepository
@@ -14,11 +13,11 @@ class UserRepository(BaseRepository[User]):
     def __init__(self) -> None:
         super().__init__(User)
 
-    async def find_by_id(self, user_id: str) -> Optional[User]:
+    async def find_by_id(self, user_id: str) -> User | None:
         """Fetch user by MongoDB _id."""
         return await User.get(user_id)
 
-    async def find_by_srn(self, srn: str) -> Optional[User]:
+    async def find_by_srn(self, srn: str) -> User | None:
         """Fetch user by SRN (unique per student)."""
         return await User.find_one(User.srn == srn)
 

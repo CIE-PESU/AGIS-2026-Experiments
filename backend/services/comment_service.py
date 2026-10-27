@@ -28,8 +28,8 @@ is the correct behavior instead.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Optional, Protocol
+from datetime import UTC, datetime
+from typing import Any, Protocol
 
 from services.comment_exceptions import (
     CommentNotFoundError,
@@ -43,9 +43,9 @@ class SessionAccessInfo:
     """Minimal session shape this service needs for permission checks."""
 
     session_id: str
-    student_id: Optional[str]
-    team_id: Optional[str]
-    workspace_id: Optional[str] = None
+    student_id: str | None
+    team_id: str | None
+    workspace_id: str | None = None
 
 
 @dataclass
@@ -65,12 +65,12 @@ class CurrentUserLike(Protocol):
 
     user_id: str
     role: str
-    team_id: Optional[str]
+    team_id: str | None
     mentor_team_ids: list[str]
 
 
 class SessionRepoProtocol(Protocol):
-    async def find_by_id(self, session_id: str) -> Optional[SessionAccessInfo]: ...
+    async def find_by_id(self, session_id: str) -> SessionAccessInfo | None: ...
 
 
 class CommentRepoProtocol(Protocol):
@@ -80,11 +80,11 @@ class CommentRepoProtocol(Protocol):
 
     async def find_by_session(self, session_id: str) -> list[Comment]: ...
 
-    async def find_by_id(self, comment_id: str) -> Optional[Comment]: ...
+    async def find_by_id(self, comment_id: str) -> Comment | None: ...
 
     async def find_by_id_and_mentor(
         self, comment_id: str, mentor_id: str
-    ) -> Optional[Comment]: ...
+    ) -> Comment | None: ...
 
     async def soft_delete(self, comment_id: str) -> bool: ...
 
@@ -101,7 +101,7 @@ class AuditServiceProtocol(Protocol):
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
 class CommentService:
