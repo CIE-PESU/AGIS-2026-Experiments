@@ -37,7 +37,7 @@ venv_python = os.path.join(root, ".venv", "bin", "python")
 venv_bin = os.path.join(root, ".venv", "bin")
 
 # Backend API
-start(f"{venv_python} -m uvicorn main:app --reload --host 0.0.0.0 --port 8000", cwd=backend)
+start(f"{venv_python} -m uvicorn main:app --reload --host 0.0.0.0 --port 8008", cwd=backend)
 
 # Give backend time to initialize Kafka, MongoDB, etc.
 import time

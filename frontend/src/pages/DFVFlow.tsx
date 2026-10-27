@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { ArrowLeft, ArrowRight, CheckCircle2, DollarSign, Heart, Loader2, ThumbsDown, ThumbsUp, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import type { DFVResult } from "@/data/mockData";
 import { toast } from "sonner";
 
 export function DFVFlow() {
-  const { session, sessionId, serverStatus, results, formData, setFormData, unlockNext, addEvent } = useAuth();
+  const { session, sessionId, serverStatus, sessionDoc, results, formData, setFormData, addEvent } = useAuth();
   
   const [phase, setPhase] = useState<"form" | "processing" | "results">(
     (serverStatus === "dfv_running" || serverStatus === "dfv_waiting") ? "processing" : results.dfv ? "results" : "form"
@@ -20,27 +20,40 @@ export function DFVFlow() {
   
   const result = results.dfv;
   const [inputs, setInputs] = useState({ desirability_context: "", feasibility_context: "", viability_context: "" });
-  
-  if (session.dfv === "locked") return <Navigate to="/workspace" replace />;
+  const [submitting, setSubmitting] = useState(false);
+  const [isRevising, setIsRevising] = useState(false);
+  const completionLogged = useRef(false);
+  const inputsRestored = useRef(false);
+
+  useEffect(() => {
+    const saved = sessionDoc?.dfv_inputs;
+    if (saved && !inputsRestored.current) {
+      inputsRestored.current = true;
+      setInputs((current) => Object.values(current).some((value) => value.trim()) ? current : saved);
+    }
+  }, [sessionDoc?.dfv_inputs]);
 
   const decision = result?.decision ?? (result as any)?.final_decision?.status ?? "NO-GO";
   const execSummary = result?.executiveSummary ?? (result as any)?.final_decision?.justification ?? "";
   const passed = decision === "GO";
 
   useEffect(() => {
-    if (phase === "processing") {
-      if (serverStatus === "dfv_completed" && results.dfv) {
-        setPhase("results");
+    if (serverStatus === "dfv_completed" && result) {
+      if (!isRevising) setPhase("results");
+      if (!completionLogged.current) {
+        completionLogged.current = true;
         addEvent("DFV Analysis Completed");
-        unlockNext("dfv");
-      } else if (serverStatus === "dfv_failed") {
-        setPhase("form");
-        toast.error("DFV Analysis failed. Please try again.");
       }
+    } else if (serverStatus === "dfv_running" || serverStatus === "dfv_waiting") {
+      setIsRevising(false);
+      setPhase("processing");
+    } else if (serverStatus === "dfv_failed") {
+      setPhase("form");
+      toast.error("DFV Analysis failed. Please try again.");
     }
-  }, [phase, serverStatus, results.dfv, addEvent, unlockNext]);
+  }, [serverStatus, result, isRevising, addEvent]);
 
-  const [submitting, setSubmitting] = useState(false);
+  if (session.dfv === "locked") return <Navigate to="/workspace" replace />;
 
   async function run() {
     if (submitting) return;
@@ -89,6 +102,11 @@ export function DFVFlow() {
                 DFV Evaluation Failed. Please review your inputs below and click <b>Retry DFV Evaluation</b>.
               </div>
             )}
+            {serverStatus === "dfv_completed" && !passed && (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+                Revise the assumptions or add new evidence, then run DFV again.
+              </div>
+            )}
             {sections.map(([key, Icon, color, prompt]) => (
               <label key={key} className="block">
                 <span className="flex items-center gap-2 font-semibold capitalize">
@@ -104,7 +122,7 @@ export function DFVFlow() {
             ))}
             <Button variant="secondary" disabled={submitting || !Object.values(inputs).every(Boolean)} onClick={run}>
               {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {serverStatus === "dfv_failed" ? "Retry DFV Evaluation" : "Run DFV Analysis"}
+              {serverStatus === "dfv_failed" ? "Retry DFV Evaluation" : serverStatus === "dfv_completed" ? "Run DFV Again" : "Run DFV Analysis"}
             </Button>
           </CardContent>
         </Card>
@@ -206,6 +224,11 @@ export function DFVFlow() {
             )}
 
             <div className="mt-8 flex items-center justify-end border-t pt-6">
+              {!passed && (
+                <Button variant="outline" onClick={() => { setIsRevising(true); setPhase("form"); }}>
+                  Revise & Retry DFV
+                </Button>
+              )}
               {passed ? (
                 <Button asChild variant="secondary">
                   <Link to="/workspace/discovery" className="inline-flex items-center gap-2">

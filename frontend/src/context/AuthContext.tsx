@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { clearTokens, getRefreshToken } from "@/services/apiClient";
+import { clearTokens, getAccessToken, getRefreshToken } from "@/services/apiClient";
 import { login as apiLogin, logout as apiLogout, getActiveSession } from "@/services/authSessions";
 import { deriveStageAccess } from "@/hooks/useSessionPolling";
 import type { DFVResult, JTBDResult, StageStatus, TIPSCResult } from "@/data/mockData";
@@ -53,10 +53,14 @@ function inferMockRole(srn: string): Role {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(() => {
+    if (!getAccessToken() && !getRefreshToken()) return null;
     const saved = localStorage.getItem("appUser");
-    return saved ? JSON.parse(saved) : null;
+    try { return saved ? JSON.parse(saved) : null; }
+    catch { return null; }
   });
-  const [sessionId, setSessionIdState] = useState<string | null>(() => localStorage.getItem("appSessionId"));
+  const [sessionId, setSessionIdState] = useState<string | null>(() =>
+    getAccessToken() || getRefreshToken() ? localStorage.getItem("appSessionId") : null
+  );
 
   useEffect(() => {
     if (user) localStorage.setItem("appUser", JSON.stringify(user));
@@ -107,6 +111,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setTimeline([]);
     setSessionDoc(null);
   }, []);
+
+  useEffect(() => {
+    const clearAuthState = () => {
+      setUser(null);
+      resetWorkspace();
+    };
+    const syncStorage = () => {
+      if (!getAccessToken() && !getRefreshToken()) clearAuthState();
+    };
+    window.addEventListener("agis:auth-cleared", clearAuthState);
+    window.addEventListener("storage", syncStorage);
+    return () => {
+      window.removeEventListener("agis:auth-cleared", clearAuthState);
+      window.removeEventListener("storage", syncStorage);
+    };
+  }, [resetWorkspace]);
 
   const login = useCallback(async (srn: string, password: string): Promise<Role> => {
     try {
@@ -193,18 +213,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSession(deriveStageAccess(doc));
     setSessionDoc(doc);
 
-    if (doc.tipsc) {
-      const tipscData = doc.tipsc;
-      setResults(prev => ({ ...prev, tips: mapTipscOutput(tipscData) }));
-    }
-    if (doc.dfv) {
-      const dfvData = doc.dfv;
-      setResults(prev => ({ ...prev, dfv: mapDfvOutput(dfvData) }));
-    }
-    if (doc.discovery) {
-      const discoveryData = doc.discovery;
-      setResults(prev => ({ ...prev, discovery: mapDiscoveryOutput(discoveryData) }));
-    }
+    setResults({
+      tips: mapTipscOutput(doc.tipsc),
+      dfv: mapDfvOutput(doc.dfv),
+      discovery: mapDiscoveryOutput(doc.discovery)
+    });
   }, []);
 
   const unlockNext = useCallback((completed: keyof SessionState) => {

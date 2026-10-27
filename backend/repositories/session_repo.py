@@ -57,6 +57,14 @@ class SessionRepository(BaseRepository[Session]):
 
         return await Session.get(session_id)
 
+    async def delete_by_id(self, session_id: str) -> bool:
+        """Permanently remove one session document."""
+        session = await Session.get(session_id)
+        if session is None:
+            return False
+        await session.delete()
+        return True
+
 
     async def find_by_id_and_student(
         self,
@@ -558,7 +566,8 @@ class SessionRepository(BaseRepository[Session]):
         dfv_inputs: dict[str, Any],
     ) -> bool:
         """
-        Atomically transition session from allowed pre-DFV status (TIPSC_COMPLETED, DFV_FAILED)
+        Atomically transition session from allowed pre-DFV status (TIPSC_COMPLETED, DFV_FAILED,
+        or DFV_COMPLETED after a NO-GO decision checked by the service)
         to DFV_WAITING, setting correlation_id, flow_started_at, and dfv_inputs in one atomic operation.
 
         Returns True if CAS won (update modified/matched 1 document), False if CAS lost (already waiting/running or invalid state).
@@ -567,6 +576,7 @@ class SessionRepository(BaseRepository[Session]):
         allowed_statuses = [
             SessionStatus.TIPSC_COMPLETED.value,
             SessionStatus.DFV_FAILED.value,
+            SessionStatus.DFV_COMPLETED.value,
         ]
         result = await Session.find_one(
             Session.id == PydanticObjectId(session_id),
@@ -576,6 +586,7 @@ class SessionRepository(BaseRepository[Session]):
                 "$set": {
                     "correlation_id": correlation_id,
                     "dfv_inputs": dfv_inputs,
+                    "dfv": None,
                     "status": SessionStatus.DFV_WAITING.value,
                     "flow_started_at": now,
                     "updated_at": now,
@@ -614,6 +625,7 @@ class SessionRepository(BaseRepository[Session]):
                 "$set": {
                     "correlation_id": correlation_id,
                     "discovery_inputs": discovery_inputs,
+                    "discovery": None,
                     "status": SessionStatus.DISCOVERY_WAITING.value,
                     "flow_started_at": now,
                     "updated_at": now,

@@ -28,6 +28,13 @@ def _utc_now() -> datetime:
     return datetime.now(UTC)
 
 
+def _as_utc(value: datetime) -> datetime:
+    """MongoDB may return UTC timestamps without timezone information."""
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
 class TimeoutSupervisor:
     """Background supervisor for recovering timed-out flow sessions."""
 
@@ -54,7 +61,7 @@ class TimeoutSupervisor:
 
             for session in stuck_dfv:
                 start_time = session.flow_started_at or session.updated_at
-                if not start_time or (now - start_time) < timedelta(seconds=timeout_seconds):
+                if not start_time or (now - _as_utc(start_time)) < timedelta(seconds=timeout_seconds):
                     continue
 
                 session_id = str(session.id)
@@ -94,7 +101,7 @@ class TimeoutSupervisor:
 
             for session in stuck_discovery:
                 start_time = session.flow_started_at or session.updated_at
-                if not start_time or (now - start_time) < timedelta(seconds=timeout_seconds):
+                if not start_time or (now - _as_utc(start_time)) < timedelta(seconds=timeout_seconds):
                     continue
 
                 session_id = str(session.id)

@@ -6,13 +6,15 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src")
+      "@": path.resolve(import.meta.dirname, "./src")
     }
   },
   server: {
+    port: 5167,
+    strictPort: true,
     proxy: {
       "/api/v1": {
-        target: process.env.VITE_BACKEND_URL ?? "http://localhost:8000",
+        target: process.env.VITE_BACKEND_URL ?? "http://localhost:8008",
         changeOrigin: true
       }
     }

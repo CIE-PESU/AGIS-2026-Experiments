@@ -38,6 +38,7 @@ export function setAccessTokenOnly(accessToken: string) {
 export function clearTokens() {
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
+  window.dispatchEvent(new Event("agis:auth-cleared"));
 }
 
 async function parseError(response: Response): Promise<ApiRequestError> {
@@ -54,7 +55,16 @@ async function parseError(response: Response): Promise<ApiRequestError> {
   }
 }
 
-async function refreshAccessToken(): Promise<boolean> {
+let refreshInFlight: Promise<boolean> | null = null;
+
+function refreshAccessToken(): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = performRefresh().finally(() => { refreshInFlight = null; });
+  }
+  return refreshInFlight;
+}
+
+async function performRefresh(): Promise<boolean> {
   const refreshToken = getRefreshToken();
   if (!refreshToken) return false;
 
@@ -84,6 +94,18 @@ type RequestOptions = {
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = "GET", body, auth = true, idempotencyKey } = options;
 
+  if (auth && !getAccessToken()) {
+    if (!await refreshAccessToken()) {
+      clearTokens();
+      throw new ApiRequestError(401, {
+        code: "TOKEN_INVALID",
+        message: "Your session has ended. Please log in again.",
+        request_id: "",
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+
   const headers: Record<string, string> = {
     "Content-Type": "application/json"
   };
@@ -106,7 +128,11 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 
   if (response.status === 401 && auth) {
     const refreshed = await refreshAccessToken();
-    if (refreshed) response = await send();
+    if (refreshed) {
+      headers.Authorization = `Bearer ${getAccessToken()}`;
+      response = await send();
+    }
+    if (response.status === 401) clearTokens();
   }
 
   if (response.status === 204) return undefined as T;

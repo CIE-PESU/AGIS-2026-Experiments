@@ -260,6 +260,10 @@ class SessionResponse(BaseModel):
 
     discovery: DiscoveryOutputSchema | None = None
 
+    dfv_inputs: dict[str, str] | None = None
+
+    discovery_inputs: dict[str, Any] | None = None
+
 
     # ── Follow-up state ───────────────────────────────────────────────────
 
@@ -347,6 +351,10 @@ class SessionResponse(BaseModel):
                 if session.discovery
                 else None
             ),
+
+            dfv_inputs=session.dfv_inputs.model_dump() if session.dfv_inputs else None,
+
+            discovery_inputs=session.discovery_inputs.model_dump() if session.discovery_inputs else None,
 
             pending_question=session.pending_question,
 

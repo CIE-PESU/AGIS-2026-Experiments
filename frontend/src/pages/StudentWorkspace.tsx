@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Archive, Download, Target, TrendingUp, Users, Clock, Eye } from "lucide-react";
+import { Archive, Download, Target, TrendingUp, Users, Clock, Eye, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -18,7 +18,7 @@ import { MentorChat } from "@/components/shared/MentorChat";
 import { StatusBadge, TrafficDot } from "@/components/shared/StatusBadge";
 import { Timeline } from "@/components/shared/Timeline";
 import { deriveStageAccess, isFlowRunning } from "@/hooks/useSessionPolling";
-import { archiveSession as archiveSessionApi, getTeamProgress } from "@/services/authSessions";
+import { archiveSession as archiveSessionApi, deleteSession as deleteSessionApi, getTeamProgress } from "@/services/authSessions";
 import { useAuth } from "@/context/AuthContext";
 import { downloadMarkdown, generateMarkdown } from "@/utils/exportMarkdown";
 import { toast } from "sonner";
@@ -86,6 +86,17 @@ export function StudentWorkspace() {
     toast.success("Session archived. You can start a new session from TIPSC.");
   }
 
+  async function handleDelete() {
+    if (!sessionId) return;
+    try {
+      await deleteSessionApi(sessionId);
+      archiveSession();
+      toast.success("Session deleted. You can start a new session from TIPSC.");
+    } catch {
+      toast.error("Failed to delete session. Please try again.");
+    }
+  }
+
   const titleName = user?.role === "mentor_workspace" ? (user?.name || "Mentor Workspace") : firstName;
 
 return (
@@ -112,6 +123,19 @@ return (
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+          {sessionId && <AlertDialog>
+            <AlertDialogTrigger asChild><Button variant="destructive"><Trash2 className="h-4 w-4" /> Delete Session</Button></AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete this session permanently?</AlertDialogTitle>
+                <AlertDialogDescription>This removes the session and its results. This cannot be undone.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => void handleDelete()}>Delete Session</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>}
         </div>
       </div>
       <div className="mt-8 grid grid-cols-3 gap-2 rounded-lg bg-background p-2 shadow-sm">
@@ -122,6 +146,7 @@ return (
       <div className="mt-8 grid gap-6 md:grid-cols-3">
         {modules.map(({ key, title, icon: Icon, color, path, description }) => {
           const status = session[key];
+          const needsRevision = key === "dfv" && serverStatus === "dfv_completed" && results.dfv?.decision === "NO-GO";
           return (
             <Card key={key}>
               <CardHeader>
@@ -129,13 +154,13 @@ return (
                 <CardTitle className="mt-3">{title}</CardTitle>
               </CardHeader>
               <CardContent>
-                <StatusBadge type={status} />
+                <StatusBadge type={status} label={needsRevision ? "Needs Revision" : undefined} />
                 <p className="mt-4 min-h-16 text-sm text-muted-foreground">{description}</p>
                 {status === "locked" ? (
                   <p className="mt-4 rounded-lg bg-muted p-3 text-sm font-semibold text-muted-foreground">Complete the prior framework to unlock.</p>
                 ) : (
                   <Button asChild className="mt-4 w-full" variant={status === "completed" ? "outline" : status === "failed" ? "destructive" : "secondary"}>
-                    <Link to={path}>{status === "completed" ? "View Results" : status === "failed" ? "Retry" : status === "in_progress" ? "Continue" : "Start"}</Link>
+                    <Link to={path}>{needsRevision ? "Revise & Retry" : status === "completed" ? "View Results" : status === "failed" ? "Retry" : status === "in_progress" ? "Continue" : "Start"}</Link>
                   </Button>
                 )}
               </CardContent>

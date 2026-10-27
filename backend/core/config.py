@@ -64,7 +64,7 @@ class Settings(BaseSettings):
     # ── Payload ────────────────────────────────────────────────────────────────
     MAX_REQUEST_BODY_BYTES: int = 10_485_760  # 10 MB (C4: returns 413 above this)
     # ── Agent Worker ──────────────────────────────────────────────────────────────
-    WORKER_BACKEND_URL: str = "http://127.0.0.1:8000"
+    WORKER_BACKEND_URL: str = "http://127.0.0.1:8008"
     WORKER_ID: str = "combined-agent-worker-1"
     AGENT_TIMEOUT_SECONDS: int = 1800
     AGENT_MAX_RETRIES: int = 3

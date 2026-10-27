@@ -363,9 +363,9 @@ export function LandingPage() {
               </span>
             </div>
             <h1 className="font-poppins text-[clamp(42px,5.5vw,70px)] font-extrabold leading-[1.06] tracking-tight">
-              <span style={{ color: "#34305e" }}>Validate</span><br />
-              <span style={{ color: "#3999c2" }}>your idea</span><br />
-              <span style={{ color: "#e75a2d" }}>before you build.</span>
+              <span className="text-[#34305e] dark:text-[#d8d2f1]">Validate</span><br />
+              <span className="text-[#3999c2] dark:text-[#86c7df]">your idea</span><br />
+              <span className="text-[#e75a2d] dark:text-[#ff906c]">before you build.</span>
             </h1>
             <p className="mt-6 max-w-[400px] text-[15px] leading-[1.8] text-muted-foreground">
               A structured AI evaluation system that stress-tests startup and hackathon ideas through compliance, TIPSC, DFV, and customer discovery — before a single line of code is written.
@@ -451,14 +451,14 @@ export function LandingPage() {
               <div className="mt-5 border-t border-border pt-4">
                 <p className="mb-3 text-[11px] font-bold uppercase tracking-[1px] text-[#7c6fc4]">DFV Verdict</p>
                 <div className="flex gap-2">
-                  <div className="flex flex-1 items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                  <div className="flex flex-1 items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-500/30 dark:bg-emerald-500/10">
                     <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-emerald-600 font-poppins text-[11px] font-extrabold text-white">GO</div>
                     <div>
-                      <p className="text-[12px] font-bold text-emerald-700">Ready to build</p>
+                      <p className="text-[12px] font-bold text-emerald-700 dark:text-emerald-300">Ready to build</p>
                       <p className="text-[11px] text-muted-foreground">Directionally sound across D, F &amp; V.</p>
                     </div>
                   </div>
-                  <div className="flex flex-1 items-center gap-2.5 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3">
+                  <div className="flex flex-1 items-center gap-2.5 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 dark:border-orange-400/30 dark:bg-orange-400/10">
                     <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-accent font-poppins text-[9px] font-extrabold text-white">NOGO</div>
                     <div>
                       <p className="text-[12px] font-bold text-accent">Strengthen first</p>
@@ -479,10 +479,10 @@ export function LandingPage() {
         <div className="mx-auto max-w-7xl px-6">
           <div className="mb-14 flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-end">
             <div>
-              <p className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[1.4px] text-primary-foreground/40 dark:text-primary-foreground/40">
-                <span className="block h-0.5 w-5 rounded-full bg-primary-foreground/30 dark:bg-primary-foreground/30" />How It Works
+              <p className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[1.4px] text-primary-foreground/60 dark:text-[#a7a2be]">
+                <span className="block h-0.5 w-5 rounded-full bg-primary-foreground/50 dark:bg-[#a7a2be]" />How It Works
               </p>
-              <h2 className="font-poppins text-[clamp(26px,3.5vw,40px)] font-extrabold leading-[1.15] tracking-tight text-primary-foreground dark:text-primary-foreground">
+              <h2 className="font-poppins text-[clamp(26px,3.5vw,40px)] font-extrabold leading-[1.15] tracking-tight text-primary-foreground dark:text-[#d7d7df]">
                 Four phases.<br />One clear verdict.
               </h2>
             </div>
@@ -492,9 +492,9 @@ export function LandingPage() {
                   <div className="flex flex-col items-center gap-1.5">
                     <div className="flex h-11 w-11 items-center justify-center rounded-full text-[9px] font-bold text-white shadow-md"
                       style={{ background: bg, fontFamily: "'Poppins',sans-serif" }}>{short}</div>
-                    <span className="whitespace-nowrap text-[9px] font-medium text-white">{label}</span>
+                    <span className="whitespace-nowrap text-[9px] font-medium text-white dark:text-[#c9c9d1]">{label}</span>
                   </div>
-                  {i < pipeline.length - 1 && <div className="mb-4 h-px w-4 bg-primary-foreground/20 dark:bg-primary-foreground/20" />}
+                  {i < pipeline.length - 1 && <div className="mb-4 h-px w-4 bg-primary-foreground/20 dark:bg-white/20" />}
                 </div>
               ))}
             </div>
@@ -502,7 +502,7 @@ export function LandingPage() {
 
           <div className="grid gap-5 md:grid-cols-3">
             {phases.map((phase, idx) => (
-              <div key={phase.tag} className="flex flex-col rounded-2xl border border-border bg-card p-7 dark:border-border dark:bg-card">
+              <div key={phase.tag} className="flex flex-col rounded-2xl border border-border bg-card p-7 dark:border-white/10 dark:bg-[#111115]">
                 <div className="mb-5 flex items-center justify-between">
                   <span className="rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[1px]"
                     style={{ background: phase.tagBg, color: phase.color }}>{phase.tag}</span>
@@ -563,7 +563,7 @@ export function LandingPage() {
             Built for students.<br />Monitored by mentors.
           </h2>
           <div className="mt-10 grid gap-5 md:grid-cols-2">
-            <div className="rounded-2xl border border-[#c4e6f0] bg-[#f0f8fb] p-8">
+            <div className="rounded-2xl border border-[#c4e6f0] bg-[#f0f8fb] p-8 dark:border-sky-400/20 dark:bg-sky-400/[0.07]">
               <span className="inline-block rounded-full bg-secondary/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[1px] text-secondary">Students</span>
               <h3 className="font-poppins mb-5 mt-4 text-lg font-bold text-primary">Validate before you pitch.</h3>
               <ul className="flex flex-col gap-2.5">
@@ -576,7 +576,7 @@ export function LandingPage() {
                 ))}
               </ul>
             </div>
-            <div className="rounded-2xl border border-accent/20 bg-accent/5 p-8">
+            <div className="rounded-2xl border border-accent/20 bg-accent/5 p-8 dark:border-orange-400/20 dark:bg-orange-400/[0.07]">
               <span className="inline-block rounded-full bg-accent/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[1px] text-accent">Mentors</span>
               <h3 className="font-poppins mb-5 mt-4 text-lg font-bold text-primary">Monitor every team, every step.</h3>
               <ul className="flex flex-col gap-2.5">
@@ -667,11 +667,11 @@ export function LandingPage() {
         ══════════════════════════════════════════════ */}
         <section className="bg-muted py-16 dark:gradient-navy">
          <div className="mx-auto max-w-4xl px-6">
-           <div className="gradient-cta rounded-2xl px-10 py-12 text-center text-white shadow-xl dark:gradient-navy">
+           <div className="gradient-cta rounded-2xl px-10 py-12 text-center text-white shadow-xl dark:gradient-navy dark:border dark:border-white/10 dark:text-[#d7d7df]">
              <Rocket className="mx-auto h-10 w-10" />
              <h2 className="font-poppins mt-4 text-3xl font-bold">Ready to put your idea to the test?</h2>
              <p className="mt-3 text-sm text-white/70">Join 500+ student founders who've validated their ideas through structured AI evaluation.</p>
-             <Button asChild variant="accent" size="lg" className="mt-8 rounded-full bg-white text-primary hover:bg-white/90">
+             <Button asChild variant="accent" size="lg" className="mt-8 rounded-full bg-white text-[#34305e] hover:bg-white/90">
                <Link to="/login">Get Started Now <ArrowRight className="h-4 w-4" /></Link>
              </Button>
            </div>
@@ -681,7 +681,7 @@ export function LandingPage() {
       {/* ══════════════════════════════════════════════
           FOOTER
       ══════════════════════════════════════════════ */}
-      <footer id="connect" className="bg-primary py-14 text-white">
+      <footer id="connect" className="bg-primary py-14 text-white dark:bg-[#08080b] dark:border-t dark:border-white/10 dark:text-[#d7d7df]">
         <div className="mx-auto max-w-7xl px-6">
           <div className="grid gap-12 border-b border-white/10 pb-10 md:grid-cols-[2fr_1fr_1fr_1fr]">
             <div>

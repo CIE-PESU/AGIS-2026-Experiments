@@ -276,7 +276,7 @@ interface AuthContextValue {
 ### Commands
 ```bash
 # Development
-cd frontend && npm run dev        # Vite dev server (port 5173)
+cd frontend && npm run dev        # Vite dev server (port 5167)
 
 # Production build
 cd frontend && npm run build      # tsc + vite build → dist/
@@ -309,7 +309,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api/v1": {
-        target: process.env.VITE_BACKEND_URL ?? "http://localhost:8000",
+        target: process.env.VITE_BACKEND_URL ?? "http://localhost:8008",
         changeOrigin: true,
       },
     },

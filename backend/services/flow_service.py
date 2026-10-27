@@ -388,12 +388,15 @@ class FlowService:
         # HTTP response returns immediately.
         # Pipeline continues independently.
         
-        asyncio.create_task(
+        from services.session_task_registry import register_session_task
+
+        task = asyncio.create_task(
             executor.run(
                 session_id=session_id,
                 preeval_input=preeval_input,
             )
         )
+        register_session_task(session_id, task)
 
 
         return {
@@ -478,12 +481,15 @@ class FlowService:
         # 4. Re-run TIPSC
         # 5. Ask another question OR complete TIPSC
 
-        asyncio.create_task(
+        from services.session_task_registry import register_session_task
+
+        task = asyncio.create_task(
             executor.resume_after_followup(
                 session_id=session_id,
                 answer=answer,
             )
         )
+        register_session_task(session_id, task)
 
 
         return {
@@ -542,6 +548,18 @@ class FlowService:
         if not ready_for_dfv:
             raise DFVNotUnlockedError(session_id)
 
+        if session.status == SessionStatus.DFV_COMPLETED:
+            previous = session.dfv
+            if not isinstance(previous, dict):
+                previous = getattr(previous, "output", None) or {}
+            output = previous.get("output") or previous
+            final_decision = output.get("final_decision") or {}
+            if not isinstance(final_decision, dict):
+                final_decision = getattr(final_decision, "model_dump", lambda: {})()
+            decision = output.get("decision") or final_decision.get("status")
+            if decision != "NO-GO":
+                raise InvalidStateTransitionError(session.status, SessionStatus.DFV_WAITING)
+
         correlation_id = _new_correlation_id()
 
         # Atomic CAS: Transition status to DFV_WAITING and set correlation_id in a single Mongo write.
@@ -575,11 +593,19 @@ class FlowService:
         )
 
         # Publish job to Kafka
-        await self._publish_or_raise(
-            DFV_TOPIC,
-            payload.model_dump(),
-            "dfv",
-        )
+        try:
+            await self._publish_or_raise(
+                DFV_TOPIC,
+                payload.model_dump(),
+                "dfv",
+            )
+        except KafkaUnavailableError:
+            await self._session_repo.update_flow_failure(
+                session_id,
+                SessionStatus.DFV_FAILED,
+                {"flow": "dfv", "error_code": "KAFKA_UNAVAILABLE", "error_message": "Could not start DFV analysis."},
+            )
+            raise
 
         # Audit
         await self._audit.log_event(
@@ -648,11 +674,19 @@ class FlowService:
             payload=DiscoveryJobPayload(**discovery_inputs),
         )
 
-        await self._publish_or_raise(
-            DISCOVERY_TOPIC,
-            payload.model_dump(),
-            "discovery",
-        )
+        try:
+            await self._publish_or_raise(
+                DISCOVERY_TOPIC,
+                payload.model_dump(),
+                "discovery",
+            )
+        except KafkaUnavailableError:
+            await self._session_repo.update_flow_failure(
+                session_id,
+                SessionStatus.DISCOVERY_FAILED,
+                {"flow": "discovery", "error_code": "KAFKA_UNAVAILABLE", "error_message": "Could not start Customer Discovery."},
+            )
+            raise
 
         await self._audit.log_event(
             session_id=session_id,

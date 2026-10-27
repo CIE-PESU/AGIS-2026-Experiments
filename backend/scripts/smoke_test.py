@@ -13,8 +13,8 @@ except ImportError:
 # Load backend/.env file to get the WORKER_INTERNAL_SECRET
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
-BASE_URL = "http://localhost:8000/api/v1"
-INTERNAL_URL = "http://localhost:8000/internal"
+BASE_URL = "http://localhost:8008/api/v1"
+INTERNAL_URL = "http://localhost:8008/internal"
 
 WORKER_SECRET = os.getenv("WORKER_INTERNAL_SECRET")
 if not WORKER_SECRET:

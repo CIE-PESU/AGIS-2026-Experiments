@@ -164,7 +164,7 @@ Content-Type: application/json
 ## Usage Example (cURL)
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/quickstart/evaluate \
+curl -X POST http://localhost:8008/api/v1/quickstart/evaluate \
   -H "Authorization: Bearer <access_token>" \
   -H "Content-Type: application/json" \
   -d '{

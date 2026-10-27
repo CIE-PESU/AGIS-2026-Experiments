@@ -33,6 +33,12 @@ reasoning_llm = LLM(
     base_url=LM_URL,
     api_key=OPENAI_API_KEY,
     temperature=0.2,
+    # Skip reasoning tokens for the speed-focused NVIDIA model.
+    extra_body=(
+        {"chat_template_kwargs": {"enable_thinking": False}}
+        if LM_MODEL.endswith("nemotron-3.5-lightning-30b-a3b")
+        else {}
+    ),
     max_tokens=23000,
     timeout=1800
 )

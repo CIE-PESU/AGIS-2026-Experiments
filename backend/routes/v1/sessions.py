@@ -430,6 +430,20 @@ async def list_sessions(
 # ─────────────────────────────────────────────────────────────────────────────
 
 @router.delete(
+    "/{session_id}/permanent",
+    summary="Permanently delete a session",
+    description="Deletes an owned session and stops its in-process pipeline task, if running.",
+)
+async def delete_session_permanently(
+    request: Request,
+    session_id: str,
+    current_user: Annotated[CurrentUser, Depends(get_current_user)],
+):
+    validate_object_id(session_id)
+    await session_service.delete_session(session_id=session_id, current_user=current_user)
+    return success_response(data={"session_id": session_id, "deleted": True}, request=request)
+
+@router.delete(
     "/{session_id}",
     status_code=status.HTTP_200_OK,
     summary="Archive (soft-delete) a session",

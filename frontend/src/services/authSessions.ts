@@ -61,6 +61,10 @@ export async function archiveSession(sessionId: string): Promise<{ session_id: s
   return apiRequest(`/sessions/${sessionId}`, { method: "DELETE" });
 }
 
+export async function deleteSession(sessionId: string): Promise<{ session_id: string; deleted: boolean }> {
+  return apiRequest(`/sessions/${sessionId}/permanent`, { method: "DELETE" });
+}
+
 export async function triggerTipsc(sessionId: string) {
   return apiRequest(`/sessions/${sessionId}/trigger/tipsc`, { method: "POST" });
 }

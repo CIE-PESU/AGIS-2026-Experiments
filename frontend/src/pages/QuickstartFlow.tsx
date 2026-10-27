@@ -307,7 +307,7 @@ function ResultView({
 
       {/* Priority Advice */}
       {result.priority_advice.length > 0 && (
-        <Card className="border-amber-500/30 bg-amber-500/10 dark:bg-amber-500/20">
+        <Card className="border-amber-500/30 bg-amber-500/10 dark:border-amber-400/25 dark:bg-amber-400/[0.08]">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
               <Sparkles className="h-5 w-5" />
@@ -317,7 +317,7 @@ function ResultView({
           <CardContent>
             <ol className="space-y-2">
               {result.priority_advice.map((step, i) => (
-                <li key={i} className="flex items-start gap-3 text-sm text-amber-900">
+                <li key={i} className="flex items-start gap-3 text-sm text-amber-900 dark:text-amber-100">
                   <span className="flex-shrink-0 w-6 text-center font-bold">{i + 1}.</span>
                   <span>{step}</span>
                 </li>
@@ -353,7 +353,7 @@ function SummaryCard({ count, label, color, icon }: { count: number; label: stri
   return (
     <Card className={`relative overflow-hidden ${color}`}>
       <CardContent className="relative z-10 p-6 flex items-center gap-4">
-        <div className="h-12 w-12 flex items-center justify-center rounded-xl bg-white/50">
+        <div className="h-12 w-12 flex items-center justify-center rounded-xl bg-white/50 dark:bg-white/10">
           {icon}
         </div>
         <div>
@@ -378,16 +378,16 @@ function ParameterCard({
   rating?: QuickstartParameterRating;
   advice?: string;
 }) {
-  const ratingColor = rating?.rating === "GREEN" ? "text-emerald-600" :
-    rating?.rating === "YELLOW" ? "text-amber-600" :
-    rating?.rating === "RED" ? "text-red-600" : "text-muted-foreground";
+  const ratingColor = rating?.rating === "GREEN" ? "text-emerald-700 dark:text-emerald-300" :
+    rating?.rating === "YELLOW" ? "text-amber-700 dark:text-amber-300" :
+    rating?.rating === "RED" ? "text-red-700 dark:text-red-300" : "text-muted-foreground";
 
-  const ratingBg = rating?.rating === "GREEN" ? "bg-emerald-100" :
-    rating?.rating === "YELLOW" ? "bg-amber-100" :
-    rating?.rating === "RED" ? "bg-red-100" : "bg-muted";
+  const ratingBg = rating?.rating === "GREEN" ? "bg-emerald-100 dark:bg-emerald-500/15" :
+    rating?.rating === "YELLOW" ? "bg-amber-100 dark:bg-amber-500/15" :
+    rating?.rating === "RED" ? "bg-red-100 dark:bg-red-500/15" : "bg-muted";
 
   return (
-    <div className="rounded-lg border p-4 bg-white/50">
+    <div className="rounded-lg border border-border bg-white/70 p-4 dark:border-white/10 dark:bg-[#151519]">
       <div className="mb-3 flex items-center gap-3">
         <div className={`h-10 w-10 flex items-center justify-center rounded-lg ${iconColor}/10`}>
           <span className={`h-5 w-5 ${iconColor}`}>{icon}</span>
@@ -408,8 +408,8 @@ function ParameterCard({
       )}
 
       {advice && (
-        <div className="rounded-lg bg-slate-50 p-3 pl-12">
-          <p className="text-sm text-slate-700 flex items-start gap-2">
+        <div className="rounded-lg bg-slate-50 p-3 pl-12 dark:border dark:border-white/10 dark:bg-white/[0.05]">
+          <p className="text-sm text-slate-700 dark:text-slate-200 flex items-start gap-2">
             <span className="flex-shrink-0 mt-0.5">→</span>
             <span>{advice}</span>
           </p>

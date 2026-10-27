@@ -55,15 +55,15 @@
 
   .dark {
     --background: 0 0% 0%;
-    --foreground: 0 0% 100%;
+    --foreground: 240 6% 85%;
     --muted: 0 0% 8%;
     --muted-foreground: 0 0% 65%;
     --popover: 0 0% 3%;
-    --popover-foreground: 0 0% 100%;
+    --popover-foreground: 240 6% 85%;
     --border: 0 0% 15%;
     --input: 0 0% 15%;
     --card: 0 0% 3%;
-    --card-foreground: 0 0% 100%;
+    --card-foreground: 240 6% 85%;
     --primary: 200 52% 55%;
     --primary-foreground: 0 0% 0%;
     --secondary: 204 63% 45%;
@@ -81,11 +81,11 @@
     --shadow-color: #000000;
     --shadow-opacity: 0.4;
     --sidebar-background: 0 0% 3%;
-    --sidebar-foreground: 0 0% 100%;
+    --sidebar-foreground: 240 6% 85%;
     --sidebar-primary: 200 52% 55%;
     --sidebar-primary-foreground: 0 0% 0%;
     --sidebar-accent: 0 0% 8%;
-    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-accent-foreground: 240 6% 85%;
     --sidebar-border: 0 0% 15%;
     --sidebar-ring: 200 52% 55%;
   }
@@ -118,6 +118,12 @@
 
   .gradient-navy {
     background: linear-gradient(135deg, #1e3a5f 0%, #16213e 50%, #0f0f23 100%);
+  }
+
+  .dark .gradient-navy {
+    background: radial-gradient(circle at 18% 10%, rgba(62, 57, 101, 0.18), transparent 42%),
+      radial-gradient(circle at 88% 90%, rgba(33, 118, 168, 0.12), transparent 44%),
+      #08080b;
   }
 
   .text-gradient {

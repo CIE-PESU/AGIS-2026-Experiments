@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, Navigate } from "react-router-dom";
 import {
   CheckCircle2,
@@ -162,35 +162,38 @@ function DiscoveryGuideBit({ icon, label, text, italic }: { icon: React.ReactNod
 }
 
 export function DiscoveryFlow() {
-  const { session, sessionId, serverStatus, results, unlockNext, addEvent, formData, setFormData } = useAuth();
+  const { session, sessionId, serverStatus, sessionDoc, results, addEvent, formData, setFormData } = useAuth();
   
   const [loading, setLoading] = useState(serverStatus === "discovery_running" || serverStatus === "discovery_waiting");
   const result = results.discovery;
   const [discoveryInputs, setDiscoveryInputs] = useState<Record<string, string> | null>(null);
   const [checklistState, setChecklistState] = useState<Record<number, boolean>>({});
   const [activeGuideTab, setActiveGuideTab] = useState<"before" | "during" | "after">("before");
+  const completionLogged = useRef(false);
+
+  useEffect(() => {
+    if (serverStatus === "completed" && result) {
+      setLoading(false);
+      if (!completionLogged.current) {
+        completionLogged.current = true;
+        addEvent("Discovery Completed");
+      }
+    } else if (serverStatus === "discovery_running" || serverStatus === "discovery_waiting") {
+      setLoading(true);
+    } else if (serverStatus === "discovery_failed") {
+      setLoading(false);
+      toast.error("Discovery Analysis failed. Please try again.");
+    }
+  }, [serverStatus, result, addEvent]);
 
   if (session.discovery === "locked") return <Navigate to="/workspace" replace />;
 
-  useEffect(() => {
-    if (loading) {
-      if (serverStatus === "completed" && results.discovery) {
-        setLoading(false);
-        addEvent("Discovery Completed");
-        unlockNext("discovery");
-      } else if (serverStatus === "discovery_failed") {
-        setLoading(false);
-        toast.error("Discovery Analysis failed. Please try again.");
-      }
-    }
-  }, [loading, serverStatus, results.discovery, addEvent, unlockNext]);
-
   async function startDiscovery() {
-    if (!discoveryInputs) return;
+    if (!discoveryInputs && !sessionDoc?.discovery_inputs) return;
     setLoading(true);
     addEvent("Discovery Triggered");
 
-    const payload = {
+    const payload = discoveryInputs ? {
       target_customer_segment: [
         {
           segment: discoveryInputs.targetCustomer || "Target Audience",
@@ -209,7 +212,7 @@ export function DiscoveryFlow() {
         purpose: "Validate early-stage customer hypotheses",
         summary: discoveryInputs.additionalNotes || "Customer discovery and JTBD interview planning"
       }
-    };
+    } : sessionDoc!.discovery_inputs!;
 
     try {
       if (sessionId) await triggerDiscovery(sessionId, payload);
@@ -284,6 +287,19 @@ return (
       </div>
 
       {/* Step 1: Founder's own thinking, captured before the agent runs */}
+      {serverStatus === "discovery_failed" && !loading && (
+        <Card className="mb-6 border-destructive/30 bg-destructive/5">
+          <CardContent className="space-y-3 p-6">
+            <h2 className="font-semibold text-destructive">Customer Discovery failed</h2>
+            <p className="text-sm text-muted-foreground">{sessionDoc?.error || "The analysis did not finish. You can retry this stage."}</p>
+            {sessionDoc?.discovery_inputs ? (
+              <Button variant="secondary" onClick={() => void startDiscovery()}>Retry Customer Discovery</Button>
+            ) : (
+              <p className="text-sm">Complete the form below to retry.</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
       {!result && !loading && !discoveryInputs && (
         <DiscoveryQuestionsForm onSubmit={handleFormSubmit} />
       )}

@@ -78,6 +78,10 @@ class FakeSessionRepo:
             session.correlation_id = correlation_id
         return result
 
+    async def update_flow_failure(self, session_id, new_status, failure_metadata):
+        self.sessions[session_id].status = new_status
+        return True
+
 
 class FakeKafkaProducer:
     def __init__(self, should_fail: bool = False):
@@ -121,6 +125,65 @@ VALID_DFV_INPUTS = {
     "feasibility_context": "y" * 120,
     "viability_context": "z" * 120,
 }
+
+
+@pytest.mark.asyncio
+async def test_no_go_dfv_can_retry_with_revised_inputs():
+    session = make_session(
+        status=SessionStatus.DFV_COMPLETED,
+        tipsc={"ready_for_dfv": True},
+        dfv={"output": {"decision": "NO-GO"}},
+    )
+    service = build_service(session)
+
+    result = await service.trigger_dfv(session.session_id, session.student_id, VALID_DFV_INPUTS)
+
+    assert result["status"] == "dfv_waiting"
+
+
+@pytest.mark.asyncio
+async def test_go_dfv_cannot_be_retried():
+    session = make_session(
+        status=SessionStatus.DFV_COMPLETED,
+        tipsc={"ready_for_dfv": True},
+        dfv={"output": {"decision": "GO"}},
+    )
+    service = build_service(session)
+
+    with pytest.raises(InvalidStateTransitionError):
+        await service.trigger_dfv(session.session_id, session.student_id, VALID_DFV_INPUTS)
+
+
+@pytest.mark.asyncio
+async def test_dfv_publish_failure_returns_to_retryable_state():
+    session = make_session(status=SessionStatus.TIPSC_COMPLETED, tipsc={"ready_for_dfv": True})
+    service = build_service(session)
+
+    async def fail_publish(*args, **kwargs):
+        raise RuntimeError("Kafka unavailable")
+
+    service._kafka.publish = fail_publish
+
+    with pytest.raises(KafkaUnavailableError):
+        await service.trigger_dfv(session.session_id, session.student_id, VALID_DFV_INPUTS)
+
+    assert session.status == SessionStatus.DFV_FAILED
+
+
+@pytest.mark.asyncio
+async def test_discovery_publish_failure_returns_to_retryable_state():
+    session = make_session(status=SessionStatus.DFV_COMPLETED)
+    service = build_service(session)
+
+    async def fail_publish(*args, **kwargs):
+        raise RuntimeError("Kafka unavailable")
+
+    service._kafka.publish = fail_publish
+
+    with pytest.raises(KafkaUnavailableError):
+        await service.trigger_discovery(session.session_id, session.student_id, VALID_DISCOVERY_INPUTS)
+
+    assert session.status == SessionStatus.DISCOVERY_FAILED
 
 
 VALID_DISCOVERY_INPUTS = {

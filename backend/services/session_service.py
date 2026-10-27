@@ -28,6 +28,7 @@ from fastapi import BackgroundTasks
 from exceptions.base import (
     ActiveSessionExistsError,
     CannotArchiveActiveSessionError,
+    InsufficientPermissionsError,
     SessionNotFoundError,
 )
 from models.audit import AuditEvent
@@ -38,6 +39,7 @@ from schemas.session import (
     SessionResponse,
 )
 from services.audit_service import audit_service
+from services.session_task_registry import cancel_session_task, register_session_task
 from state_machine.states import (
     RUNNING_STATES,
     SessionStatus,
@@ -248,6 +250,7 @@ class SessionService:
                 preeval_input=preeval_input.copy(),
             )
         )
+        register_session_task(session_id, task)
 
         # Keep task exception observable in logs.
         task.add_done_callback(
@@ -464,6 +467,28 @@ class SessionService:
     # ──────────────────────────────────────────────────────────────────────
     # ARCHIVE SESSION
     # ──────────────────────────────────────────────────────────────────────
+
+    async def delete_session(
+        self,
+        session_id: str,
+        current_user: CurrentUser,
+    ) -> None:
+        """Permanently delete an owned session that is not running."""
+        await self.get_session(session_id=session_id, current_user=current_user)
+        session = await session_repo.find_by_id(session_id)
+        if session is None:
+            raise SessionNotFoundError()
+
+        if not current_user.is_admin and not (
+            (current_user.is_student and session.student_id == current_user.user_id)
+            or (current_user.is_mentor_workspace and session.workspace_id == current_user.workspace_id)
+        ):
+            raise InsufficientPermissionsError()
+
+        if not await session_repo.delete_by_id(session_id):
+            raise SessionNotFoundError()
+        cancel_session_task(session_id)
+        logger.info("Session deleted | session_id=%s | actor=%s", session_id, current_user.user_id)
 
     async def archive_session(
         self,

@@ -12,6 +12,7 @@ import type { MentorComment } from "@/types/api";
 import { useSessionPolling } from "@/hooks/useSessionPolling";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { WorkspaceErrorBoundary } from "@/components/shared/WorkspaceErrorBoundary";
 
 const names: Record<string, string> = {
   "/workspace": "Workspace",
@@ -25,6 +26,7 @@ export function WorkspaceLayout() {
   user,
   logout,
   sessionId,
+  serverStatus,
   setSessionFromServer,
   archiveSession
 } = useAuth();
@@ -152,7 +154,9 @@ return (
         </div>
       </header>
 
-      <Outlet />
+      <WorkspaceErrorBoundary resetKey={`${location.pathname}:${sessionId}:${serverStatus}`}>
+        <Outlet />
+      </WorkspaceErrorBoundary>
 
       {isChatOpen && (
         <div className="fixed inset-y-0 right-0 z-50 w-80 md:w-96 bg-background shadow-2xl border-l flex flex-col transition-all duration-300 animate-in slide-in-from-right">

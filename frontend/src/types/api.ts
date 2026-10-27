@@ -230,6 +230,9 @@ next_steps: string[];
 
 export type SessionDocument = {
 session_id: string;
+preeval_input?: CreateSessionRequest | null;
+dfv_inputs?: TriggerDfvRequest | null;
+discovery_inputs?: Record<string, any> | null;
 team_id?: string | null;
 student_id?: string | null;
 workspace_id?: string | null;

@@ -9,11 +9,11 @@
 
 | Tool                    | Version   | Notes                                     |
 | ----------------------- | --------- | ----------------------------------------- |
-| Python                  | `3.12+`   | Check:`python3 --version`               |
-| Node.js & npm           | `18+`     | Check:`node --version`                  |
+| Python                  | `3.12+` | Check:`python3 --version`               |
+| Node.js & npm           | `18+`   | Check:`node --version`                  |
 | Docker & Docker Compose | Latest    | Must be running                           |
-| LLM Server              | —         | LM Studio / Ollama / NVIDIA NIM (see §3) |
-| Theme Support           | —         | Light/Dark mode toggle (persisted)        |
+| LLM Server              | —        | LM Studio / Ollama / NVIDIA NIM (see §3) |
+| Theme Support           | —        | Light/Dark mode toggle (persisted)        |
 
 ---
 
@@ -110,8 +110,8 @@ docker compose -f backend/docker-compose.yml up -d
 
 | Service         | Port      | URI                           |
 | --------------- | --------- | ----------------------------- |
-| Kafka (KRaft)   | `9092`    | `localhost:9092`            |
-| MongoDB (local) | `27017`   | `mongodb://localhost:27017` |
+| Kafka (KRaft)   | `9092`  | `localhost:9092`            |
+| MongoDB (local) | `27017` | `mongodb://localhost:27017` |
 
 To stop:
 
@@ -132,16 +132,17 @@ python3 dev.py
 ```
 
 This starts:
-- FastAPI backend (port 8000) — with MongoDB, Kafka, TIPSC engine initialization
+
+- FastAPI backend (port 8008) — with MongoDB, Kafka, TIPSC engine initialization
 - Combined Agent Worker (DFV + Discovery) — with Kafka retry logic
 - Notification Worker
-- React Frontend (Vite, port 5173) — starts after workers are ready
+- React Frontend (Vite, port 5167) — starts after workers are ready
 
 > **Note**: The script waits ~48s before starting frontend to ensure backend/workers are fully initialized.
 
-**Frontend**: http://localhost:5173
-**Backend API**: http://localhost:8000/docs
-**Health**: http://localhost:8000/health
+**Frontend**: http://localhost:5167
+**Backend API**: http://localhost:8008/docs
+**Health**: http://localhost:8008/health
 
 ---
 
@@ -174,11 +175,11 @@ source .venv/bin/activate
 ```bash
 source .venv/bin/activate
 cd backend
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uvicorn main:app --reload --host 0.0.0.0 --port 8008
 ```
 
-- API docs: **http://localhost:8000/docs**
-- Health check: **http://localhost:8000/health**
+- API docs: **http://localhost:8008/docs**
+- Health check: **http://localhost:8008/health**
 - Quickstart evaluation: `POST /api/v1/quickstart/evaluate` (in-process, no worker needed)
 
 ---
@@ -192,10 +193,12 @@ python -m workers.combined_agent_worker
 ```
 
 Consumes from Kafka topics:
+
 - `userSession.dfv`
 - `userSession.discovery`
 
 **Worker Features**:
+
 - Exponential backoff retry (max 10 attempts) for Kafka consumer startup
 - `request_timeout_ms: 60000` for long-running agent workloads
 - Loads `.env` via `python-dotenv` for agent environment variables
@@ -219,7 +222,7 @@ cd frontend
 npm run dev
 ```
 
-- Web app: **http://localhost:5173**
+- Web app: **http://localhost:5167**
 
 ---
 
@@ -296,10 +299,10 @@ The frontend supports **light/dark theme switching** with true black (`#000000`)
 ## 7. System Architecture
 
 ```
-User Browser (React :5173)
+User Browser (React :5167)
         │
         ▼  HTTP REST / JWT
-FastAPI Backend (:8000) ──────────────► MongoDB (:27017)
+FastAPI Backend (:8008) ──────────────► MongoDB (:27017)
         │                                    ▲
         ▼  Kafka Events                      │
   Kafka (:9092) ──────────────────────────── ┤
@@ -343,7 +346,7 @@ python3 dev.py                                          # T1: starts everything
 
 # === EVERY SESSION (Manual - Legacy) ===
 docker compose -f backend/docker-compose.yml up -d   # T0: infra
-source .venv/bin/activate && cd backend && uvicorn main:app --reload --port 8000   # T2: API
+source .venv/bin/activate && cd backend && uvicorn main:app --reload --port 8008   # T2: API
 source .venv/bin/activate && cd backend && python -m workers.combined_agent_worker # T3: DFV worker
 source .venv/bin/activate && cd backend && python -m workers.notification_worker   # T4: notifs
 cd frontend && npm run dev                                                           # T5: UI
@@ -353,15 +356,15 @@ cd frontend && npm run dev                                                      
 
 ## 9. Troubleshooting
 
-| Symptom                              | Fix                                                                                                       |
-| ------------------------------------ | --------------------------------------------------------------------------------------------------------- |
-| `ModuleNotFoundError`              | Make sure venv is activated:`source .venv/bin/activate`                                                 |
-| `Connection refused` on port 9092  | `docker compose -f backend/docker-compose.yml up -d`                                                    |
-| `Connection refused` on port 27017 | Start MongoDB locally or add it to docker-compose                                                         |
-| LLM agent times out                  | Verify your LLM server is running and`LM_STUDIO_URL` / `OPENAI_API_KEY` are set correctly in `.env` |
-| `JWT_SECRET` error on startup      | Ensure`.env` has a 32+ character `JWT_SECRET` value                                                   |
-| Frontend can't reach backend         | Check`CORS_ALLOWED_ORIGINS=http://localhost:5173` is in `.env`                                        |
-| Kafka consumer timeout               | Worker has retry logic (max 10 attempts, exponential backoff); check Kafka is running                    |
-| `OPENAI_MODEL_NAME` error in worker | Ensure `.env` is loaded (worker auto-loads root `.env` via `python-dotenv`)                             |
+| Symptom                               | Fix                                                                                                       |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `ModuleNotFoundError`               | Make sure venv is activated:`source .venv/bin/activate`                                                 |
+| `Connection refused` on port 9092   | `docker compose -f backend/docker-compose.yml up -d`                                                    |
+| `Connection refused` on port 27017  | Start MongoDB locally or add it to docker-compose                                                         |
+| LLM agent times out                   | Verify your LLM server is running and`LM_STUDIO_URL` / `OPENAI_API_KEY` are set correctly in `.env` |
+| `JWT_SECRET` error on startup       | Ensure`.env` has a 32+ character `JWT_SECRET` value                                                   |
+| Frontend can't reach backend          | Check`CORS_ALLOWED_ORIGINS=http://localhost:5167` is in `.env`                                        |
+| Kafka consumer timeout                | Worker has retry logic (max 10 attempts, exponential backoff); check Kafka is running                     |
+| `OPENAI_MODEL_NAME` error in worker | Ensure `.env` is loaded (worker auto-loads root `.env` via `python-dotenv`)                         |
 
 ---

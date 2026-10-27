@@ -132,6 +132,7 @@ export function TIPSCFlow() {
   const [local, setLocal] = useState<Record<string, string>>(formData);
   const [answer, setAnswer] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [submittedQuestion, setSubmittedQuestion] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("preeval");
   const [tabManuallySelected, setTabManuallySelected] = useState(false);
 
@@ -139,8 +140,8 @@ export function TIPSCFlow() {
 
   const activeSessionExists = Boolean(sessionId || serverStatus);
 
-  const isProcessing = activeSessionExists && Boolean(serverStatus && PROCESSING_STATUSES.has(serverStatus));
-  const isFollowup = serverStatus === "waiting_for_founder";
+  const isProcessing = activeSessionExists && (!serverStatus || PROCESSING_STATUSES.has(serverStatus) || submittedQuestion !== null);
+  const isFollowup = serverStatus === "waiting_for_founder" && submittedQuestion === null;
   const isFinal = activeSessionExists && Boolean(serverStatus && FINAL_STATUSES.has(serverStatus));
   const isFailed = serverStatus === "tipsc_failed";
 
@@ -159,6 +160,12 @@ export function TIPSCFlow() {
       setActiveTab(defaultTabForStep(currentStep));
     }
   }, [currentStep, tabManuallySelected]);
+
+  useEffect(() => {
+    if (submittedQuestion && (serverStatus !== "waiting_for_founder" || (pendingQuestion && pendingQuestion !== submittedQuestion))) {
+      setSubmittedQuestion(null);
+    }
+  }, [submittedQuestion, serverStatus, pendingQuestion]);
 
   useEffect(() => {
     if (readyForDFV) {
@@ -221,13 +228,15 @@ export function TIPSCFlow() {
   }
 
   async function sendFollowUp() {
-    if (!sessionId || !answer.trim()) return;
+    if (!sessionId || !answer.trim() || submitting) return;
     setSubmitting(true);
+    setSubmittedQuestion(pendingQuestion);
     try {
       await submitFollowup(sessionId, answer.trim());
       addEvent("TIPSC Follow-up Submitted");
       setAnswer("");
     } catch (err: unknown) {
+      setSubmittedQuestion(null);
       const errorMessage = err instanceof Error ? err.message : "Failed to submit follow-up answer.";
       toast.error(errorMessage);
     } finally {
@@ -236,6 +245,16 @@ export function TIPSCFlow() {
   }
 
   async function repeatTIPSC() {
+    const saved = sessionDoc?.preeval_input;
+    const previousForm = saved ? {
+      problem: saved.problem_statement,
+      customer: saved.customer_segment,
+      consequence: saved.consequence,
+      assumptions: (saved.assumptions ?? []).join("\n"),
+      solution: saved.proposed_solution,
+      geography: saved.target_geography,
+      sector: saved.industry_sector
+    } : formData;
     if (sessionId) {
       setSubmitting(true);
       try {
@@ -249,8 +268,8 @@ export function TIPSCFlow() {
       setSubmitting(false);
     }
     archiveSession();
-    setLocal({});
-    setFormData({});
+    setLocal(previousForm);
+    setFormData(previousForm);
     setAnswer("");
     setTabManuallySelected(false);
     addEvent("TIPSC Restarted");
@@ -405,7 +424,11 @@ export function TIPSCFlow() {
         </Card>
       )}
 
-      {isProcessing && <Loading icon={<Brain />} text={loadingText} />}
+      {isProcessing && <Loading icon={<Brain />} text={submittedQuestion ? "Processing your follow-up..." : serverStatus ? loadingText : "Loading your session..."} />}
+
+      {serverStatus === "waiting_for_founder" && !pendingQuestion && !isProcessing && (
+        <Loading icon={<Brain />} text="Preparing your follow-up question..." />
+      )}
 
       {/* ── Tab content — only the selected section renders ── */}
       {sessionDoc && (
@@ -497,6 +520,11 @@ export function TIPSCFlow() {
             {readyForDFV ? "Ready for DFV" : "Not Yet Ready"}
           </div>
           <div className="mt-4 flex items-center justify-end gap-3">
+            {!readyForDFV && serverStatus === "tipsc_completed" && (
+              <Button variant="outline" onClick={() => void repeatTIPSC()} disabled={submitting}>
+                Revise & Retry TIPSC
+              </Button>
+            )}
             {(serverStatus === "tipsc_failed" || session.tipsc === "failed") && (
               <Button
                 variant="secondary"
