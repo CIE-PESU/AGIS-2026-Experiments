@@ -1,3 +1,8 @@
+import os, sys
+from pathlib import Path
+_local_appdata = Path(__file__).resolve().parent.parent / '.crewai_storage'
+_local_appdata.mkdir(parents=True, exist_ok=True)
+os.environ['LOCALAPPDATA'] = str(_local_appdata)
 
 from dataclasses import dataclass
 import os
@@ -238,6 +243,7 @@ llm = LLM(
     api_key=os.environ["OPENAI_API_KEY"],
     temperature=0.1,
     timeout=108000,
+    thinking={"type": "disabled"},
 )
 
 # Discover and activate local business framework guidelines from markdown packages

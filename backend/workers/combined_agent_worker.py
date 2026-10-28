@@ -18,6 +18,12 @@ The worker executes each message single-shot without local retries or DLQ requeu
 
 from __future__ import annotations
 
+import os, sys
+from pathlib import Path
+_local_appdata = Path(__file__).resolve().parent.parent.parent / '.crewai_storage'
+_local_appdata.mkdir(parents=True, exist_ok=True)
+os.environ['LOCALAPPDATA'] = str(_local_appdata)
+
 import asyncio
 import importlib.util
 import json

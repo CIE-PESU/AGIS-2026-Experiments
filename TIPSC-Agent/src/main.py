@@ -76,6 +76,7 @@ def load_llm() -> LLM:
         base_url=os.getenv("LM_STUDIO_URL"),
         api_key=os.getenv("OPENAI_API_KEY"),
         temperature=0.2,
+        thinking={"type": "disabled"},
     )
 
 

@@ -11,7 +11,7 @@ Allows normal frontend user retries to start new runs with fresh correlation IDs
 
 import asyncio
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from beanie.operators import In
@@ -26,7 +26,20 @@ logger = logging.getLogger(__name__)
 
 
 def _utc_now() -> datetime:
+    """Return the current timezone-aware UTC datetime."""
     return datetime.now(timezone.utc)
+
+
+def _normalize_utc(value: datetime) -> datetime:
+    """
+    Normalize a datetime to timezone-aware UTC.
+
+    Assumption: naive datetimes stored in the database represent UTC.
+    """
+    if value.tzinfo is None or value.utcoffset() is None:
+        return value.replace(tzinfo=timezone.utc)
+
+    return value.astimezone(timezone.utc)
 
 
 class TimeoutSupervisor:
@@ -41,42 +54,67 @@ class TimeoutSupervisor:
         timeout_seconds: int = 1800,
     ) -> dict[str, int]:
         """
-        Scan for sessions stuck in waiting or running state longer than timeout_seconds
-        and transition them to DFV_FAILED / DISCOVERY_FAILED.
+        Scan for sessions stuck in waiting or running states longer than
+        timeout_seconds and transition them to DFV_FAILED / DISCOVERY_FAILED.
         """
-        now = _utc_now()
         recovered_counts = {"dfv": 0, "discovery": 0}
 
         try:
-            # 1. Recover stuck DFV sessions using flow_started_at (fallback to updated_at if flow_started_at is None)
+            now = _utc_now()
+
+            # 1. Recover stuck DFV sessions.
+            # Use flow_started_at, falling back to updated_at.
             stuck_dfv = await Session.find(
-                In("status", [SessionStatus.DFV_WAITING.value, SessionStatus.DFV_RUNNING.value]),
+                In(
+                    "status",
+                    [
+                        SessionStatus.DFV_WAITING.value,
+                        SessionStatus.DFV_RUNNING.value,
+                    ],
+                )
             ).to_list()
 
             for session in stuck_dfv:
                 start_time = session.flow_started_at or session.updated_at
-                if not start_time or (now - start_time) < timedelta(seconds=timeout_seconds):
+
+                if not start_time:
+                    continue
+
+                start_time = _normalize_utc(start_time)
+
+                if (now - start_time).total_seconds() < timeout_seconds:
                     continue
 
                 session_id = str(session.id)
-                # Atomic CAS update for recovery: target ONLY if status is STILL DFV_WAITING/DFV_RUNNING
+
+                # Atomic CAS update: fail only if the session is still in
+                # DFV_WAITING or DFV_RUNNING.
                 updated = await session_repo.update_flow_failure(
                     session_id=session_id,
                     new_status=SessionStatus.DFV_FAILED,
                     failure_metadata={
                         "flow": "dfv",
                         "error_code": "DFV_TIMEOUT",
-                        "error_message": f"DFV analysis timed out after {timeout_seconds // 60} minutes without worker response.",
+                        "error_message": (
+                            f"DFV analysis timed out after "
+                            f"{timeout_seconds // 60} minutes without worker response."
+                        ),
                         "retry_count": 0,
                     },
                 )
+
                 if updated:
                     recovered_counts["dfv"] += 1
+
                     logger.warning(
-                        "Timeout supervisor recovered stuck DFV session | session_id=%s correlation_id=%s",
+                        (
+                            "Timeout supervisor recovered stuck DFV session "
+                            "| session_id=%s correlation_id=%s"
+                        ),
                         session_id,
                         session.correlation_id,
                     )
+
                     await audit_service.log_event(
                         event="DFV_FAILED",
                         actor="timeout_supervisor",
@@ -88,35 +126,59 @@ class TimeoutSupervisor:
                         },
                     )
 
-            # 2. Recover stuck Discovery sessions using flow_started_at (fallback to updated_at if flow_started_at is None)
+            # 2. Recover stuck Discovery sessions.
+            # Use flow_started_at, falling back to updated_at.
             stuck_discovery = await Session.find(
-                In("status", [SessionStatus.DISCOVERY_WAITING.value, SessionStatus.DISCOVERY_RUNNING.value]),
+                In(
+                    "status",
+                    [
+                        SessionStatus.DISCOVERY_WAITING.value,
+                        SessionStatus.DISCOVERY_RUNNING.value,
+                    ],
+                )
             ).to_list()
 
             for session in stuck_discovery:
                 start_time = session.flow_started_at or session.updated_at
-                if not start_time or (now - start_time) < timedelta(seconds=timeout_seconds):
+
+                if not start_time:
+                    continue
+
+                start_time = _normalize_utc(start_time)
+
+                if (now - start_time).total_seconds() < timeout_seconds:
                     continue
 
                 session_id = str(session.id)
-                # Atomic CAS update for recovery: target ONLY if status is STILL DISCOVERY_WAITING/DISCOVERY_RUNNING
+
+                # Atomic CAS update: fail only if the session is still in
+                # DISCOVERY_WAITING or DISCOVERY_RUNNING.
                 updated = await session_repo.update_flow_failure(
                     session_id=session_id,
                     new_status=SessionStatus.DISCOVERY_FAILED,
                     failure_metadata={
                         "flow": "discovery",
                         "error_code": "DISCOVERY_TIMEOUT",
-                        "error_message": f"Discovery analysis timed out after {timeout_seconds // 60} minutes without worker response.",
+                        "error_message": (
+                            f"Discovery analysis timed out after "
+                            f"{timeout_seconds // 60} minutes without worker response."
+                        ),
                         "retry_count": 0,
                     },
                 )
+
                 if updated:
                     recovered_counts["discovery"] += 1
+
                     logger.warning(
-                        "Timeout supervisor recovered stuck Discovery session | session_id=%s correlation_id=%s",
+                        (
+                            "Timeout supervisor recovered stuck Discovery session "
+                            "| session_id=%s correlation_id=%s"
+                        ),
                         session_id,
                         session.correlation_id,
                     )
+
                     await audit_service.log_event(
                         event="DISCOVERY_FAILED",
                         actor="timeout_supervisor",
@@ -128,38 +190,69 @@ class TimeoutSupervisor:
                         },
                     )
 
-        except Exception as exc:
-            logger.exception("Error in timeout supervisor execution: %s", exc)
+        except Exception:
+            logger.exception("Error in timeout supervisor execution")
 
         return recovered_counts
 
     async def _loop(self, check_interval_seconds: int = 60) -> None:
+        """Periodically check and recover timed-out sessions."""
         while self._running:
             try:
-                timeout_seconds = getattr(settings, "AGENT_TIMEOUT_SECONDS", 1800)
-                await self.check_and_recover_stuck_sessions(timeout_seconds=timeout_seconds)
-            except Exception as exc:
-                logger.exception("Unexpected error in timeout supervisor loop: %s", exc)
+                timeout_seconds = getattr(
+                    settings,
+                    "AGENT_TIMEOUT_SECONDS",
+                    1800,
+                )
+
+                await self.check_and_recover_stuck_sessions(
+                    timeout_seconds=timeout_seconds,
+                )
+
+            except asyncio.CancelledError:
+                raise
+
+            except Exception:
+                logger.exception(
+                    "Unexpected error in timeout supervisor loop"
+                )
+
             await asyncio.sleep(check_interval_seconds)
 
     def start(self, check_interval_seconds: int = 60) -> None:
+        """Start the background supervisor if it is not already running."""
         if self._running:
             return
+
         self._running = True
-        self._task = asyncio.create_task(self._loop(check_interval_seconds=check_interval_seconds))
-        logger.info("Timeout supervisor background task started (interval=%ds)", check_interval_seconds)
+        self._task = asyncio.create_task(
+            self._loop(
+                check_interval_seconds=check_interval_seconds,
+            )
+        )
+
+        logger.info(
+            "Timeout supervisor background task started (interval=%ds)",
+            check_interval_seconds,
+        )
 
     async def stop(self) -> None:
+        """Stop the background supervisor gracefully."""
         if not self._running:
             return
+
         self._running = False
+
         if self._task:
             self._task.cancel()
+
             try:
                 await self._task
             except asyncio.CancelledError:
                 pass
-            self._task = None
+            finally:
+                self._task = None
+
         logger.info("Timeout supervisor background task stopped")
 
 

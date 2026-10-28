@@ -55,6 +55,7 @@ def run_pmf_analysis(inputs: Dict[str, Any]) -> Dict[str, Any]:
     # 1. Attempt LLM execution if CrewAI / LiteLLM is available
     try:
         from crewai import Agent, Task, Crew, Process, LLM
+        from crewai.skills import discover_skills, activate_skill
         import litellm
         litellm.drop_params = True
 
@@ -68,13 +69,24 @@ def run_pmf_analysis(inputs: Dict[str, Any]) -> Dict[str, Any]:
             api_key=openai_key,
             temperature=0.2,
             max_tokens=4000,
-            timeout=300
+            timeout=300,
+            thinking={"type": "disabled"},
         )
+
+        # Load PMF skills from skills/pmf-evaluator/SKILL.md
+        _skills_dir = Path(__file__).parent / "skills"
+        _skills = discover_skills(_skills_dir)
+        _activated = [activate_skill(s) for s in _skills]
+        _skill_context = "\n\n".join(_activated) if _activated else ""
 
         pmf_agent = Agent(
             role="Product-Market Fit Evaluator",
             goal="Analyze product-market fit metrics for early-stage startup ideas without giving pivot recommendations.",
-            backstory="You are a seasoned venture capitalist and product strategist specializing in quantitative and qualitative Product-Market Fit (PMF) evaluation.",
+            backstory=(
+                "You are a seasoned venture capitalist and product strategist specializing "
+                "in quantitative and qualitative Product-Market Fit (PMF) evaluation.\n\n"
+                + _skill_context
+            ),
             llm=llm_instance,
             verbose=False
         )

@@ -34,7 +34,8 @@ reasoning_llm = LLM(
     api_key=OPENAI_API_KEY,
     temperature=0.2,
     max_tokens=23000,
-    timeout=1800
+    timeout=1800,
+    thinking={"type": "disabled"},
 )
 
 # Discover all skills in a directory
