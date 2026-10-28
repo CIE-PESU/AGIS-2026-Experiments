@@ -11,18 +11,17 @@ except ImportError:
     print("❌ Missing dependencies. Please run: pip install httpx python-dotenv")
     sys.exit(1)
 
-# Load backend/.env file to get the WORKER_INTERNAL_SECRET
-load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
+# The shared configuration lives at the repository root.
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
 
-BASE_URL = "http://localhost:8000/api/v1"
-INTERNAL_URL = "http://localhost:8000/internal"
-
-WORKER_SECRET = os.getenv("WORKER_INTERNAL_SECRET")
-if not WORKER_SECRET:
-    print("❌ WORKER_INTERNAL_SECRET not found. Make sure backend/.env is populated.")
-    sys.exit(1)
+BASE_URL = "http://localhost:8004/api/v1"
+INTERNAL_URL = "http://localhost:8004/internal"
 
 def run_smoke_test():
+    worker_secret = os.getenv("WORKER_INTERNAL_SECRET")
+    if not worker_secret:
+        print("❌ WORKER_INTERNAL_SECRET not found. Populate the root .env file.")
+        return 1
     print("\n" + "="*50)
     print(" AGIS Backend: B-19 Integration Smoke Test")
     print("="*50 + "\n")
@@ -108,7 +107,7 @@ def run_smoke_test():
         }
         resp = client.post(
             f"{INTERNAL_URL}/sessions/{session_id}/output",
-            headers={"X-Worker-Secret": WORKER_SECRET},
+            headers={"X-Worker-Secret": worker_secret},
             json=tipsc_output
         )
         if resp.status_code != 200:
@@ -162,7 +161,7 @@ def run_smoke_test():
         }
         resp = client.post(
             f"{INTERNAL_URL}/sessions/{session_id}/output",
-            headers={"X-Worker-Secret": WORKER_SECRET},
+            headers={"X-Worker-Secret": worker_secret},
             json=dfv_output
         )
         if resp.status_code != 200:
@@ -201,7 +200,7 @@ def run_smoke_test():
         }
         resp = client.post(
             f"{INTERNAL_URL}/sessions/{session_id}/output",
-            headers={"X-Worker-Secret": WORKER_SECRET},
+            headers={"X-Worker-Secret": worker_secret},
             json=discovery_output
         )
         if resp.status_code != 200:

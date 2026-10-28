@@ -93,6 +93,9 @@ class DiscoveryJobMessage(BaseModel):
 # ---------------------------------------------------------------------------
 
 class PMFJobPayload(BaseModel):
+    tipsc_summary: dict | None = None
+    dfv_summary: dict | None = None
+    discovery_summary: dict | None = None
     idea_name:         str = ""
     problem_statement: str = ""
     proposed_solution: str = ""

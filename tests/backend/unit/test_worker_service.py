@@ -26,6 +26,7 @@ class FakeSessionRepo:
     def __init__(self, session=None):
         self.session = session or FakeSessionSnapshot()
         self.update_flow_output_called_with = None
+        self.output_guards = None
         self.update_flow_failure_called_with = None
 
     async def find_by_id(self, session_id):
@@ -33,14 +34,21 @@ class FakeSessionRepo:
             return self.session
         return None
 
-    async def update_flow_output(self, session_id, flow, output, new_status, expected_version):
+    async def update_flow_output(self, session_id, flow, output, new_status, expected_version, expected_status=None, correlation_id=None):
         self.update_flow_output_called_with = (session_id, flow, output, new_status, expected_version)
+        self.output_guards = (expected_status, correlation_id)
+        if expected_status is not None and self.session.status != expected_status:
+            return False
+        if correlation_id is not None and self.session.correlation_id != correlation_id:
+            return False
         if self.session:
             self.session.status = new_status
             self.session.version += 1
         return True
 
-    async def update_flow_failure(self, session_id, new_status, failure_metadata):
+    async def update_flow_failure(self, session_id, new_status, failure_metadata, *, expected_version=None, expected_status=None, correlation_id=None):
+        if expected_version is not None and (self.session.version != expected_version or self.session.status != expected_status or self.session.correlation_id != correlation_id):
+            return False
         self.update_flow_failure_called_with = (session_id, new_status, failure_metadata)
         if self.session:
             self.session.status = new_status
@@ -159,6 +167,7 @@ async def test_valid_dfv_output_writes_and_sets_status(worker_service):
     assert res["status"] == "success"
     assert repo.update_flow_output_called_with[1] == "dfv"
     assert repo.update_flow_output_called_with[3] == SessionStatus.DFV_COMPLETED
+    assert repo.output_guards == (SessionStatus.DFV_RUNNING, "corr_1")
 
 @pytest.mark.asyncio
 async def test_valid_discovery_output_writes_and_sets_status(worker_service):

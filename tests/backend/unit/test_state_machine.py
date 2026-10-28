@@ -86,13 +86,10 @@ def test_specific_allowed_transitions_from_arch_doc():
 def test_archive_allowed_from_non_running_non_archived_states():
     archivable = [
         SessionStatus.CREATED,
-        SessionStatus.QUEUED,
         SessionStatus.TIPSC_COMPLETED,
         SessionStatus.TIPSC_FAILED,
-        SessionStatus.DFV_WAITING,
         SessionStatus.DFV_COMPLETED,
         SessionStatus.DFV_FAILED,
-        SessionStatus.DISCOVERY_WAITING,
         SessionStatus.DISCOVERY_FAILED,
         SessionStatus.COMPLETED,
         SessionStatus.FAILED,

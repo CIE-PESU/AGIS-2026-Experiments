@@ -24,15 +24,18 @@ import logging
 import os
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
 # third-party
 from aiokafka import AIOKafkaConsumer
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import ValidationError
+from bson import ObjectId
+from bson.errors import InvalidId
 
 # env + path bootstrap (must run before any local imports)
-_env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
+_env_path = os.path.join(os.path.dirname(__file__), "..", "..", ".env")
 load_dotenv(dotenv_path=_env_path)
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -75,10 +78,17 @@ class NotificationWorker:
         self.db = self.mongo_client[DB_NAME]
 
         await self.consumer.start()
+        await self.db.command("ping")
+        ready_file = os.getenv("AGIS_NOTIFICATION_READY_FILE")
+        if ready_file:
+            Path(ready_file).write_text("ready", encoding="utf-8")
         logger.info("Notification worker listening on %s (group=%s)",
                     NOTIFICATIONS_TOPIC, CONSUMER_GROUP)
 
     async def stop(self):
+        ready_file = os.getenv("AGIS_NOTIFICATION_READY_FILE")
+        if ready_file:
+            Path(ready_file).unlink(missing_ok=True)
         if self.consumer:
             await self.consumer.stop()
         if self.mongo_client:
@@ -89,7 +99,7 @@ class NotificationWorker:
         already written — avoids duplicate log entries on redelivery."""
         existing = await self.db[USER_SESSIONS_COLLECTION].find_one(
             {
-                "_id": note.userSession_id,
+                "_id": ObjectId(note.userSession_id),
                 "notificationLog": {
                     "$elemMatch": {
                         "correlation_id": note.correlation_id,
@@ -110,8 +120,8 @@ class NotificationWorker:
         """
         now = datetime.now(timezone.utc)
 
-        await self.db[USER_SESSIONS_COLLECTION].update_one(
-            {"_id": note.userSession_id},
+        result = await self.db[USER_SESSIONS_COLLECTION].update_one(
+            {"_id": ObjectId(note.userSession_id), "correlation_id": note.correlation_id},
             {
                 "$set": {
                     f"notifications.{note.flow}": {
@@ -133,8 +143,9 @@ class NotificationWorker:
                     }
                 },
             },
-            upsert=True,
+            upsert=False,
         )
+        return result.modified_count == 1
 
     async def _handle_message(self, raw_value: dict):
         try:
@@ -143,19 +154,30 @@ class NotificationWorker:
             logger.error(f"Malformed notification message, skipping: {e}")
             return
 
+        if note.flow not in {"tipsc", "dfv", "discovery", "pmf"}:
+            logger.error("Unknown notification flow %r, skipping", note.flow)
+            return
+        try:
+            ObjectId(note.userSession_id)
+        except (InvalidId, TypeError):
+            logger.error("Invalid notification session id, skipping")
+            return
+
         if await self._already_recorded(note):
             logger.info(f"[correlation={note.correlation_id}] Already recorded — skipping")
             return
 
-        await self._write_notification(note)
+        if not await self._write_notification(note):
+            logger.info("[correlation=%s] Session missing or superseded; notification skipped", note.correlation_id)
+            return
         logger.info(
             f"[correlation={note.correlation_id}] Recorded notification: "
             f"session={note.userSession_id} flow={note.flow} status={note.status.value}"
         )
 
     async def run(self):
-        await self.start()
         try:
+            await self.start()
             async for message in self.consumer:
                 await self._handle_message(message.value)
                 await self.consumer.commit()

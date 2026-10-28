@@ -106,6 +106,11 @@ class TestSessionCreateRequestValidation:
         return {
             "problem_statement": "A" * 50,   # exactly at min
             "idea": "B" * 10,                # exactly at min
+            "customer_segment": "Students who need stationery before class",
+            "consequence": "They miss class while waiting in the shop queue",
+            "proposed_solution": "Reserve stationery online for pickup",
+            "target_geography": "Bengaluru",
+            "industry_sector": "Campus retail",
             **overrides,
         }
 
@@ -125,13 +130,13 @@ class TestSessionCreateRequestValidation:
         with pytest.raises(ValidationError):
             SessionCreateRequest(**self._valid_body(problem_statement="A" * 5001))
 
-    def test_idea_below_min_rejected(self):
+    def test_proposed_solution_below_min_rejected(self):
         with pytest.raises(ValidationError):
-            SessionCreateRequest(**self._valid_body(idea="short"))
+            SessionCreateRequest(**self._valid_body(proposed_solution="short"))
 
-    def test_idea_above_max_rejected(self):
+    def test_proposed_solution_above_max_rejected(self):
         with pytest.raises(ValidationError):
-            SessionCreateRequest(**self._valid_body(idea="A" * 2001))
+            SessionCreateRequest(**self._valid_body(proposed_solution="A" * 3001))
 
     def test_whitespace_stripped(self):
         body = SessionCreateRequest(**self._valid_body(problem_statement="  " + "A" * 50 + "  "))
@@ -206,31 +211,26 @@ class TestIdempotencyC1:
         import inspect
         src = inspect.getsource(SessionService.create_session)
         assert "find_by_idempotency_key" in src
-        assert "return SessionResponse.from_document(existing)" in src
+        assert "SessionResponse.from_document(" in src
+        assert "existing" in src
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # D1 — Kafka down: 503, session stays CREATED not QUEUED
 # ─────────────────────────────────────────────────────────────────────────────
 
-class TestKafkaDownD1:
+class TestTIPSCUnavailableD1:
     """
-    D1 — When Kafka.publish raises, create_session must raise KafkaPublishError
-    (→ 503), and the session status must remain CREATED, not advance to QUEUED.
+    D1 — Session creation rejects requests if the direct TIPSC engine is unavailable.
     """
 
-    def test_kafka_failure_raises_kafka_publish_error(self):
+    def test_missing_tipsc_engine_is_rejected_before_creating_session(self):
         from services.session_service import SessionService
         import inspect
         src = inspect.getsource(SessionService.create_session)
-        # Session must stay CREATED — status only advances AFTER successful publish
-        assert "KafkaPublishError" in src
-        # The update_status to QUEUED comes AFTER the publish try block
-        kafka_pos = src.index("kafka_producer.publish")
-        queued_pos = src.index("SessionStatus.QUEUED")
-        assert queued_pos > kafka_pos, (
-            "Status must not be set to QUEUED before Kafka publish succeeds"
-        )
+        assert "executor = startup.tipsc_executor_instance" in src
+        assert "TIPSC engine is unavailable" in src
+        assert src.index("TIPSC engine is unavailable") < src.index("session_repo.create(")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

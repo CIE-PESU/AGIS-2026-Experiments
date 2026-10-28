@@ -1,6 +1,6 @@
 """Test script for AsyncPipelineExecutor with local MongoDB.
  
-Run with: python test_async_pipeline.py
+Run with: python tests/tipsc/manual_async_pipeline.py
 Requires: MongoDB running on 127.0.0.1:27017, LM Studio running.
  
 The executor no longer polls for answers — it parks at WAITING_FOR_FOUNDER
@@ -11,6 +11,7 @@ FastAPI /followup endpoint will make in production.
 """
 
 import asyncio
+import importlib.util
 import json
 import os
 import sys
@@ -25,9 +26,14 @@ os.environ["CREWAI_DISABLE_TELEMETRY"] = "true"
 from motor.motor_asyncio import AsyncIOMotorClient
 
 BASE_DIR = Path(__file__).resolve().parent
-sys.path.insert(0, str(BASE_DIR))
+TIPSC_SRC = BASE_DIR.parents[1] / "TIPSC-Agent" / "src"
+sys.path.insert(0, str(TIPSC_SRC))
 
-from main import load_yaml, load_text, load_llm
+spec = importlib.util.spec_from_file_location("tipsc_manual_main", TIPSC_SRC / "main.py")
+assert spec is not None and spec.loader is not None
+tipsc_main = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(tipsc_main)
+load_yaml, load_text, load_llm = tipsc_main.load_yaml, tipsc_main.load_text, tipsc_main.load_llm
 from engine.stages import PipelineStages
 from engine.async_pipeline_executor import AsyncPipelineExecutor, MAX_FOLLOWUP_TURNS
 from engine.db import SessionStore

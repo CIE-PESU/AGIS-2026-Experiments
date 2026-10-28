@@ -48,7 +48,7 @@ class Settings(BaseSettings):
 
     # ── CORS ───────────────────────────────────────────────────────────────────
     # Comma-separated list of allowed origins, e.g. "http://localhost:3000,https://app.agis.edu"
-    CORS_ALLOWED_ORIGINS: str = "http://localhost:3000"
+    CORS_ALLOWED_ORIGINS: str = "http://localhost:5176"
 
     # ── Internal Worker ────────────────────────────────────────────────────────
     WORKER_INTERNAL_SECRET: str
@@ -61,7 +61,7 @@ class Settings(BaseSettings):
     # ── Payload ────────────────────────────────────────────────────────────────
     MAX_REQUEST_BODY_BYTES: int = 10_485_760  # 10 MB (C4: returns 413 above this)
     # ── Agent Worker ──────────────────────────────────────────────────────────────
-    WORKER_BACKEND_URL: str = "http://127.0.0.1:8000"
+    WORKER_BACKEND_URL: str = "http://127.0.0.1:8004"
     WORKER_ID: str = "combined-agent-worker-1"
     AGENT_TIMEOUT_SECONDS: int = 1800
     AGENT_MAX_RETRIES: int = 3

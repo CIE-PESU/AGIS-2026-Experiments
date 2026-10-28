@@ -217,34 +217,6 @@ async def trigger_dfv(
     validate_object_id(session_id)
 
 
-    if idempotency_key:
-
-        session = await session_repo.find_by_id(
-            session_id
-        )
-
-        if (
-            session
-            and session.correlation_id
-            and session.status.value == "dfv_waiting"
-        ):
-
-            return success_response(
-                data={
-                    "session_id": session_id,
-                    "flow": "dfv",
-                    "status": session.status.value,
-                    "correlation_id": (
-                        session.correlation_id
-                    ),
-                    "triggered_at": (
-                        session.updated_at.isoformat()
-                    ),
-                },
-                request=request,
-            )
-
-
     flow_service = _get_flow_service()
 
     result = await flow_service.trigger_dfv(
@@ -252,6 +224,7 @@ async def trigger_dfv(
         student_id=current_user.user_id if current_user.is_student else None,
         dfv_inputs=body.model_dump(),
         workspace_id=current_user.workspace_id,
+        idempotency_key=idempotency_key,
     )
 
     return success_response(
@@ -287,35 +260,6 @@ async def trigger_discovery(
     validate_object_id(session_id)
 
 
-    if idempotency_key:
-
-        session = await session_repo.find_by_id(
-            session_id
-        )
-
-        if (
-            session
-            and session.correlation_id
-            and session.status.value
-            == "discovery_waiting"
-        ):
-
-            return success_response(
-                data={
-                    "session_id": session_id,
-                    "flow": "discovery",
-                    "status": session.status.value,
-                    "correlation_id": (
-                        session.correlation_id
-                    ),
-                    "triggered_at": (
-                        session.updated_at.isoformat()
-                    ),
-                },
-                request=request,
-            )
-
-
     flow_service = _get_flow_service()
 
     result = await flow_service.trigger_discovery(
@@ -323,6 +267,7 @@ async def trigger_discovery(
         student_id=current_user.user_id if current_user.is_student else None,
         discovery_inputs=body.model_dump(),
         workspace_id=current_user.workspace_id,
+        idempotency_key=idempotency_key,
     )
 
     return success_response(
@@ -355,26 +300,13 @@ async def trigger_pmf(
 ):
     validate_object_id(session_id)
 
-    if idempotency_key:
-        session = await session_repo.find_by_id(session_id)
-        if session and session.correlation_id and session.status.value == "pmf_waiting":
-            return success_response(
-                data={
-                    "session_id": session_id,
-                    "flow": "pmf",
-                    "status": session.status.value,
-                    "correlation_id": session.correlation_id,
-                    "triggered_at": session.updated_at.isoformat(),
-                },
-                request=request,
-            )
-
     flow_service = _get_flow_service()
 
     result = await flow_service.trigger_pmf(
         session_id=session_id,
         student_id=current_user.user_id if current_user.is_student else None,
         workspace_id=current_user.workspace_id,
+        idempotency_key=idempotency_key,
     )
 
     return success_response(

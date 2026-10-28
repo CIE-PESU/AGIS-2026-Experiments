@@ -47,142 +47,29 @@ def _sanitize_tool_choice(kwargs):
     return kwargs
 
 
+def _has_response_content(response):
+    if not response or not getattr(response, "choices", None):
+        return False
+    message = response.choices[0].message
+    return bool(getattr(message, "content", None) or getattr(message, "tool_calls", None))
+
+
 def _patched_litellm_completion(*args, **kwargs):
     kwargs = _sanitize_tool_choice(kwargs)
-    
-    # ── INSTRUMENTATION: Log prompt details before sending ──
-    messages = kwargs.get("messages", [])
-    total_chars = sum(len(m.get("content") or "") for m in messages)
-    system_chars = sum(len(m.get("content") or "") for m in messages if m.get("role") == "system")
-    user_chars = sum(len(m.get("content") or "") for m in messages if m.get("role") == "user")
-    assistant_chars = sum(len(m.get("content") or "") for m in messages if m.get("role") == "assistant")
-    
-    # Simple token estimation (~4 characters per token)
-    est_prompt_tokens = int(total_chars / 4)
-    
-    # Attempt to read target model context window from LM Studio API
-    context_window = 32768  # Default Qwen/Llama context window fallback
-    try:
-        import urllib.request
-        base_url = kwargs.get("base_url") or os.environ.get("LM_STUDIO_URL")
-        if base_url:
-            model_info_url = base_url.rstrip("/") + "/models"
-            with urllib.request.urlopen(model_info_url, timeout=2.0) as req:
-                info = json.loads(req.read().decode())
-                # If LM Studio exposes metadata or model list
-                if "data" in info and len(info["data"]) > 0:
-                    # Fallback to standard context length for detected model names
-                    model_id = info["data"][0].get("id", "").lower()
-                    if "qwen" in model_id:
-                        context_window = 32768
-                    elif "phi" in model_id:
-                        context_window = 16384
-                    elif "llama" in model_id:
-                        context_window = 131072
-    except Exception:
-        pass
-        
-    context_usage_pct = (est_prompt_tokens / context_window) * 100
-    
-    # Attempt to extract agent role or model configuration name to represent the active "user" in logs
-    agent_name = "Unknown Agent"
-    for m in messages:
-        # Check system prompts for agent identity hints
-        content = m.get("content") or ""
-        if "You are the " in content:
-            # e.g., "You are the Desirability Evaluation Agent"
-            start_idx = content.find("You are the ") + 12
-            end_idx = content.find(".", start_idx)
-            if end_idx != -1:
-                agent_name = content[start_idx:end_idx].strip()
-                break
-        elif "role=" in content:
-            # fallback parameter check
-            agent_name = content.split("role=")[1].split(",")[0].strip("'\"")
-            break
-
-    print("\n" + "="*50)
-    print("      LITELLM COMPLETION INSTRUMENTATION")
-    print("="*50)
-    print(f"Active Agent (User Name):            {agent_name}")
-    print(f"Total System Prompt Size (chars):   {system_chars}")
-    print(f"Total User/Task Prompt Size (chars): {user_chars}")
-    print(f"Total Assistant History Size (chars):{assistant_chars}")
-    print(f"Total Combined Payload Size (chars): {total_chars}")
-    print(f"Estimated Prompt Token Count:        {est_prompt_tokens}")
-    print(f"Target Model Context Window Limit:   {context_window}")
-    print(f"Estimated Context Window Usage:      {context_usage_pct:.2f}%")
-    print("="*50 + "\n")
-
-    max_retries = 3
-    for attempt in range(max_retries):
-        res = _original_litellm_completion(*args, **kwargs)
-        if res and hasattr(res, "choices") and len(res.choices) > 0:
-            msg = res.choices[0].message
-            content = getattr(msg, "content", None)
-            tool_calls = getattr(msg, "tool_calls", None)
-            if content or tool_calls:
-                print(f"[litellm_patch] SUCCESS: Attempt {attempt + 1} returned valid content.")
-                return res
-            if attempt < max_retries - 1:
-                print(f"[litellm_patch] WARNING: Empty response (attempt {attempt + 1}/{max_retries}). Retrying...")
-                continue
-        return res
-    return res
+    for attempt in range(3):
+        response = _original_litellm_completion(*args, **kwargs)
+        if _has_response_content(response) or attempt == 2:
+            return response
+    return response
 
 
 async def _patched_litellm_acompletion(*args, **kwargs):
     kwargs = _sanitize_tool_choice(kwargs)
-    
-    messages = kwargs.get("messages", [])
-    total_chars = sum(len(m.get("content") or "") for m in messages)
-    system_chars = sum(len(m.get("content") or "") for m in messages if m.get("role") == "system")
-    user_chars = sum(len(m.get("content") or "") for m in messages if m.get("role") == "user")
-    assistant_chars = sum(len(m.get("content") or "") for m in messages if m.get("role") == "assistant")
-    est_prompt_tokens = int(total_chars / 4)
-    context_window = 32768
-    context_usage_pct = (est_prompt_tokens / context_window) * 100
-    
-    # Attempt to extract agent role or model configuration name to represent the active "user" in logs
-    agent_name = "Unknown Agent"
-    for m in messages:
-        content = m.get("content") or ""
-        if "You are the " in content:
-            start_idx = content.find("You are the ") + 12
-            end_idx = content.find(".", start_idx)
-            if end_idx != -1:
-                agent_name = content[start_idx:end_idx].strip()
-                break
-        elif "role=" in content:
-            agent_name = content.split("role=")[1].split(",")[0].strip("'\"")
-            break
-
-    print("\n" + "="*50)
-    print("      LITELLM ASYNC COMPLETION INSTRUMENTATION")
-    print("="*50)
-    print(f"Active Agent (User Name):            {agent_name}")
-    print(f"Total System Prompt (chars):         {system_chars}")
-    print(f"Total User/Task Prompt (chars):       {user_chars}")
-    print(f"Total Assistant History (chars):      {assistant_chars}")
-    print(f"Total Combined Payload (chars):       {total_chars}")
-    print(f"Estimated Prompt Token Count:        {est_prompt_tokens}")
-    print(f"Estimated Context Window Usage:      {context_usage_pct:.2f}%")
-    print("="*50 + "\n")
-
-    max_retries = 3
-    for attempt in range(max_retries):
-        res = await _original_litellm_acompletion(*args, **kwargs)
-        if res and hasattr(res, "choices") and len(res.choices) > 0:
-            msg = res.choices[0].message
-            content = getattr(msg, "content", None)
-            tool_calls = getattr(msg, "tool_calls", None)
-            if content or tool_calls:
-                return res
-            if attempt < max_retries - 1:
-                print(f"[litellm_patch] WARNING: Empty async response (attempt {attempt + 1}/{max_retries}). Retrying...")
-                continue
-        return res
-    return res
+    for attempt in range(3):
+        response = await _original_litellm_acompletion(*args, **kwargs)
+        if _has_response_content(response) or attempt == 2:
+            return response
+    return response
 
 
 litellm.completion = _patched_litellm_completion
@@ -242,8 +129,12 @@ llm = LLM(
     base_url=os.environ["LM_STUDIO_URL"],
     api_key=os.environ["OPENAI_API_KEY"],
     temperature=0.1,
-    timeout=108000,
-    thinking={"type": "disabled"},
+    timeout=float(os.getenv("CREWAI_TIMEOUT_SECONDS", "600")),
+    extra_body=(
+        {"chat_template_kwargs": {"enable_thinking": False}}
+        if os.getenv("OPENAI_MODEL_NAME", "").endswith("nemotron-3.5-lightning-30b-a3b")
+        else {}
+    ),
 )
 
 # Discover and activate local business framework guidelines from markdown packages
@@ -434,7 +325,6 @@ def create_dfv_crew():
     )
     print(llm.model)
     print(llm.base_url)
-    print(llm.api_key)
     return Crew(
         agents=[desirability_agent, feasibility_agent, viability_agent, dfv_risk_decision_agent],
         tasks=[desirability_task, feasibility_task, viability_task, dfv_decision_task],

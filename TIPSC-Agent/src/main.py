@@ -15,7 +15,7 @@ from pathlib import Path
 
 import yaml
 from crewai import LLM
-from models import TIPSCOutput, EthicsOutput, ValidationOutput, RegulatoryOutput
+from tipsc_models import TIPSCOutput, EthicsOutput, ValidationOutput, RegulatoryOutput
 
 from engine.stages import PipelineStages
 from engine.pipeline_executor import PipelineExecutor
@@ -76,7 +76,12 @@ def load_llm() -> LLM:
         base_url=os.getenv("LM_STUDIO_URL"),
         api_key=os.getenv("OPENAI_API_KEY"),
         temperature=0.2,
-        thinking={"type": "disabled"},
+        timeout=float(os.getenv("CREWAI_TIMEOUT_SECONDS", "600")),
+        extra_body=(
+            {"chat_template_kwargs": {"enable_thinking": False}}
+            if os.getenv("OPENAI_MODEL_NAME", "").endswith("nemotron-3.5-lightning-30b-a3b")
+            else {}
+        ),
     )
 
 
@@ -94,7 +99,7 @@ def print_validation_summary(val: ValidationOutput) -> None:
     if val.market_notes:
         print(f"  Market notes: {val.market_notes}")
 
- 
+
 def print_regulatory_summary(reg: "RegulatoryOutput") -> None:
     burden_icon = {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🟢"}
     print(f"  Geography: {reg.target_geography}  |  Sector: {reg.industry_sector}")
@@ -113,17 +118,17 @@ def print_regulatory_summary(reg: "RegulatoryOutput") -> None:
             print(f"    • {risk}")
     print(f"\n  Summary: {reg.regulatory_summary}")
 
- 
+
 def print_ethics_result(ethics: EthicsOutput) -> None:
     gate_icon = lambda score: "✅" if score == "GREEN" else ("⚠️ " if score == "YELLOW" else "❌")
- 
+
     print(f"\n  Harm Vector:              {gate_icon(ethics.harm_vector)} {ethics.harm_vector}")
     print(f"    {ethics.harm_reason}")
     print(f"  Legal Risk:               {gate_icon(ethics.legal_risk)} {ethics.legal_risk}")
     print(f"    {ethics.legal_reason}")
     print(f"  Problem-Solution Integrity: {gate_icon(ethics.problem_solution_integrity)} {ethics.problem_solution_integrity}")
     print(f"    {ethics.integrity_reason}")
- 
+
     if ethics.compliance_flag:
         print("\n  ⚠️  COMPLIANCE FLAG: This idea operates in a regulated space.")
         print("     Ensure legal/compliance review before DFV.")
@@ -146,7 +151,7 @@ def print_tipsc_summary(tips_out: TIPSCOutput) -> None:
     if s.S_reason:
         print(f"      {s.S_reason}")
     print(f"\n  Readiness: {tips_out.overall_readiness}  |  DFV: {tips_out.ready_for_dfv}")
-    
+
 # ── Entry point ────────────────────────────────
 
 
@@ -191,7 +196,7 @@ async def main():
         "proposed_solution": input("Proposed Solution: "),
         "target_geography": input("Target Geography: "),
         "industry_sector": input("Industry Sector: "),
-    } 
+    }
 
     executor = PipelineExecutor(stages)
     results= await executor.run(preeval_input)
@@ -221,13 +226,13 @@ async def main():
     print("=" * 60)
     ethics_out = results["ethics"]
     save_json(ethics_out.model_dump(), "ethics_output.json")
- 
+
     print_ethics_result(ethics_out)
 
     if regulatory_out.requires_specialist_review and not ethics_out.compliance_flag:
         ethics_out.compliance_flag = True
-        print("  [Auto-correct] compliance_flag: False -> True (requires_specialist_review override)")  
- 
+        print("  [Auto-correct] compliance_flag: False -> True (requires_specialist_review override)")
+
     if not ethics_out.ethics_pass:
         print("\n" + "=" * 60)
         print("❌  IDEA REJECTED AT ETHICS GATE")
@@ -236,7 +241,7 @@ async def main():
         print("\n  This idea will not proceed to TIPSC evaluation.")
         print("\nDone.")
         sys.exit(0)
- 
+
     print("\n  ✅ Ethics gate passed. Proceeding to TIPSC evaluation.")
 
     compliance_context = results["compliance_context"]
@@ -250,7 +255,7 @@ async def main():
     save_json(tips_out.model_dump(), "tipsc_output.json")
     print()
     print_tipsc_summary(tips_out)
-    
+
     MAX_FOLLOWUP_TURNS = 3
     conversation = FollowUpContext()
 

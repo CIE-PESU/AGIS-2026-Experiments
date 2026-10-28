@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, Navigate } from "react-router-dom";
 import {
   CheckCircle2,
@@ -47,8 +47,15 @@ const discoveryFormFields: FieldConfig[] = [
   { id: "additionalNotes", label: "Anything else you would like the AI Coach to know?", placeholder: "Optional: any additional context", guide: { title: "Additional context", why: "Share any background info, constraints, or prior research that might help the AI Coach give you better feedback.", goodExample: "We've already done 3 informal interviews and noticed students rely heavily on WhatsApp groups for coordination.", avoidThis: "Don't feel pressured to fill this in — it's optional.", jtbdTip: "Any extra context helps the coach understand your starting point better." } },
 ];
 
-function DiscoveryQuestionsForm({ onSubmit }: { onSubmit: (data: Record<string, string>) => void }) {
-  const [formData, setFormData] = useState<Record<string, string>>({});
+function DiscoveryQuestionsForm({ onSubmit, initialData }: { onSubmit: (data: Record<string, string>) => void; initialData?: Record<string, string> }) {
+  const [formData, setFormData] = useState<Record<string, string>>(initialData || {});
+  const hydrated = useRef(Object.values(initialData || {}).some(Boolean));
+  useEffect(() => {
+    if (!hydrated.current && initialData && Object.values(initialData).some(Boolean)) {
+      hydrated.current = true;
+      setFormData((current) => Object.values(current).some(Boolean) ? current : initialData);
+    }
+  }, [initialData]);
   const [activeField, setActiveField] = useState("problem");
 
   const activeGuide = discoveryFormFields.find((f) => f.id === activeField)?.guide;
@@ -162,22 +169,38 @@ function DiscoveryGuideBit({ icon, label, text, italic }: { icon: React.ReactNod
 }
 
 export function DiscoveryFlow() {
-  const { session, sessionId, serverStatus, results, unlockNext, addEvent, formData, setFormData } = useAuth();
+  const { session, sessionId, serverStatus, results, sessionDoc, unlockNext, addEvent, formData, setFormData } = useAuth();
   
   const [loading, setLoading] = useState(serverStatus === "discovery_running" || serverStatus === "discovery_waiting");
   const result = results.discovery;
   const [discoveryInputs, setDiscoveryInputs] = useState<Record<string, string> | null>(null);
   const [checklistState, setChecklistState] = useState<Record<number, boolean>>({});
   const [activeGuideTab, setActiveGuideTab] = useState<"before" | "during" | "after">("before");
+  const savedInputs: any = sessionDoc?.discovery_inputs || {};
+  const asLines = (value: unknown) => Array.isArray(value) ? value.join("\n") : "";
+  const retryFormData = {
+    problem: formData.discovery_problem || savedInputs.problem_statement || "",
+    targetCustomer: formData.discovery_targetCustomer || savedInputs.target_customer_segment?.[0]?.segment || "",
+    importance: formData.discovery_importance || asLines(savedInputs.problem_consequence),
+    assumptions: formData.discovery_assumptions || asLines(savedInputs.key_assumptions),
+    learningObjectives: formData.discovery_learningObjectives || asLines(savedInputs.biggest_uncertainty),
+    additionalNotes: formData.discovery_additionalNotes || savedInputs.proposed_solution_context?.summary || ""
+  };
 
-  if (session.discovery === "locked") return <Navigate to="/workspace" replace />;
+
+
+  useEffect(() => {
+    if (serverStatus === "discovery_waiting" || serverStatus === "discovery_running") {
+      setLoading(true);
+    }
+  }, [serverStatus]);
 
   useEffect(() => {
     if (loading) {
       if (serverStatus === "completed" && results.discovery) {
         setLoading(false);
         addEvent("Discovery Completed");
-        unlockNext("discovery");
+
       } else if (serverStatus === "discovery_failed") {
         setLoading(false);
         toast.error("Discovery Analysis failed. Please try again.");
@@ -186,7 +209,7 @@ export function DiscoveryFlow() {
   }, [loading, serverStatus, results.discovery, addEvent, unlockNext]);
 
   async function startDiscovery() {
-    if (!discoveryInputs) return;
+    if (!discoveryInputs || !sessionId || loading) return;
     setLoading(true);
     addEvent("Discovery Triggered");
 
@@ -255,6 +278,8 @@ export function DiscoveryFlow() {
     setChecklistState((prev) => ({ ...prev, [index]: !prev[index] }));
   };
 
+  if (session.discovery === "locked") return <Navigate to="/workspace" replace />;
+
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
       {/* Header and Actions */}
@@ -277,9 +302,15 @@ export function DiscoveryFlow() {
         </div>
       </div>
 
+      {serverStatus === "discovery_failed" && !result && !loading && (
+        <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+          {sessionDoc?.failure_metadata?.error_message || "Discovery analysis failed. Please retry."}
+        </div>
+      )}
+
       {/* Step 1: Founder's own thinking, captured before the agent runs */}
       {!result && !loading && !discoveryInputs && (
-        <DiscoveryQuestionsForm onSubmit={handleFormSubmit} />
+        <DiscoveryQuestionsForm onSubmit={handleFormSubmit} initialData={retryFormData} />
       )}
 
       {/* Step 2: Original trigger area — gated behind the form now */}
@@ -293,6 +324,9 @@ export function DiscoveryFlow() {
             </p>
             <Button size="lg" className="w-full sm:w-auto" onClick={() => void startDiscovery()}>
               Trigger Discovery Planner
+            </Button>
+            <Button variant="outline" onClick={() => setDiscoveryInputs(null)}>
+              Edit answers
             </Button>
           </CardContent>
         </Card>

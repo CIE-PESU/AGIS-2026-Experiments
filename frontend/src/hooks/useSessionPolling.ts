@@ -2,7 +2,6 @@ import { useEffect, useRef } from "react";
 import { SESSION_POLL_INTERVAL_MS } from "@/constants";
 import { getSession } from "@/services/authSessions";
 import type { SessionDocument } from "@/types/api";
-console.count("Session polling effect");
 export function useSessionPolling(
   sessionId: string | null,
   onUpdate: (session: SessionDocument) => void,
@@ -16,8 +15,11 @@ export function useSessionPolling(
     if (!sessionId || !enabled) return;
 
     let active = true;
+    let inFlight = false;
 
     const poll = async () => {
+      if (!active || inFlight) return;
+      inFlight = true;
       try {
         const session = await getSession(sessionId);
 
@@ -25,10 +27,15 @@ export function useSessionPolling(
           onUpdateRef.current(session);
         }
       } catch (err: any) {
-        if (err?.response?.status === 404) {
+        if (err?.status === 401) {
+          active = false;
+          return;
+        }
+        if (err?.status === 404) {
           console.warn("Session no longer exists.");
 
           if (active) {
+            active = false;
             onNotFound();
           }
 
@@ -36,6 +43,8 @@ export function useSessionPolling(
         }
 
         console.error("Polling failed:", err);
+      } finally {
+        inFlight = false;
       }
     };
 

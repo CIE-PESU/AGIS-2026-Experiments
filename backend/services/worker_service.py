@@ -44,7 +44,7 @@ class WorkerService:
             flow_data = getattr(session, flow, None)
             if flow_data is not None:
                 existing_status = getattr(flow_data, "status", None)
-                if existing_status in ("done", "completed"):
+                if existing_status in ("done", "completed") and getattr(flow_data, "correlation_id", None) == correlation_id:
                     logger.info(
                         "Idempotency hit — skipping duplicate worker output | "
                         "session_id=%s flow=%s correlation_id=%s",
@@ -105,6 +105,8 @@ class WorkerService:
             output=parsed_output.model_dump(),
             new_status=target_status,
             expected_version=session.version,
+            expected_status=session.status,
+            correlation_id=correlation_id,
         )
         
         if not updated:
@@ -167,6 +169,9 @@ class WorkerService:
             session_id=session_id,
             new_status=target_status,
             failure_metadata=failure_metadata,
+            expected_version=session.version,
+            expected_status=session.status,
+            correlation_id=correlation_id,
         )
         
         if not updated:

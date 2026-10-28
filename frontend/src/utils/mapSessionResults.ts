@@ -27,6 +27,7 @@ export function mapDfvOutput(backend: any): DFVResult | null {
   const out = backend.output;
 
   return {
+    ...out,
     decision: out.decision ?? out.final_decision?.status ?? "NO-GO",
     executiveSummary: out.executive_summary ?? out.final_decision?.justification ?? "",
     dimensions: out.dimensions ?? undefined,

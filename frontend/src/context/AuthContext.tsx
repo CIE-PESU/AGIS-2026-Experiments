@@ -54,7 +54,7 @@ function inferMockRole(srn: string): Role {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(() => {
     const saved = localStorage.getItem("appUser");
-    return saved ? JSON.parse(saved) : null;
+    try { return saved ? JSON.parse(saved) : null; } catch { return null; }
   });
   const [sessionId, setSessionIdState] = useState<string | null>(() => localStorage.getItem("appSessionId"));
 
@@ -108,19 +108,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSessionDoc(null);
   }, []);
 
+  useEffect(() => {
+    const onAuthCleared = () => { setUser(null); resetWorkspace(); };
+    window.addEventListener("agis:auth-cleared", onAuthCleared);
+    return () => window.removeEventListener("agis:auth-cleared", onAuthCleared);
+  }, [resetWorkspace]);
+
   const login = useCallback(async (srn: string, password: string): Promise<Role> => {
     try {
       const data = await apiLogin(srn, password, undefined);
       let resolvedTeamId = data.user.team_id ?? null;
-      if (data.role === "student") {
-        if (!resolvedTeamId) {
-          const allStudents = await getStudents();
-          const existingStudent = allStudents.find((s: any) => s.srn === data.user.srn);
-          if (existingStudent) {
-            resolvedTeamId = existingStudent.teamId;
-          }
-        }
-      }
       setUser({
         userId: data.user.user_id,
         srn: data.user.srn,
@@ -186,29 +183,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [resetWorkspace]);
 
   const setSessionFromServer = useCallback((doc: SessionDocument) => {
-    console.log("Incoming session update:", doc.status);
     setSessionIdState(doc.session_id ?? (doc as any)._id ?? null);
     setServerStatus(doc.status);
     setPendingQuestion(doc.pending_question ?? null);
     setSession(deriveStageAccess(doc));
     setSessionDoc(doc);
 
-    if (doc.tipsc) {
-      const tipscData = doc.tipsc;
-      setResults(prev => ({ ...prev, tips: mapTipscOutput(tipscData) }));
-    }
-    if (doc.dfv) {
-      const dfvData = doc.dfv;
-      setResults(prev => ({ ...prev, dfv: mapDfvOutput(dfvData) }));
-    }
-    if (doc.discovery) {
-      const discoveryData = doc.discovery;
-      setResults(prev => ({ ...prev, discovery: mapDiscoveryOutput(discoveryData) }));
-    }
-    if (doc.pmf) {
-      const pmfData = doc.pmf;
-      setResults(prev => ({ ...prev, pmf: mapPmfOutput(pmfData) }));
-    }
+    setResults({
+      tips: mapTipscOutput(doc.tipsc),
+      dfv: mapDfvOutput(doc.dfv),
+      discovery: mapDiscoveryOutput(doc.discovery),
+      pmf: mapPmfOutput(doc.pmf),
+    });
   }, []);
 
   const unlockNext = useCallback((completed: keyof SessionState) => {

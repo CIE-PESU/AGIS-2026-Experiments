@@ -18,7 +18,12 @@ class KafkaProducerClient:
         if cls._instance is None:
             cls._instance = super(KafkaProducerClient, cls).__new__(cls)
             cls._instance._producer = None
+            cls._instance._running = False
         return cls._instance
+
+    @property
+    def is_running(self) -> bool:
+        return self._running
 
     async def start(self) -> None:
         """Initializes the producer. Called during backend startup events."""
@@ -29,7 +34,17 @@ class KafkaProducerClient:
                 key_serializer=lambda k: k.encode('utf-8') if k else None,
                 value_serializer=lambda v: json.dumps(v).encode('utf-8')
             )
-            await self._producer.start()
+            try:
+                await self._producer.start()
+            except Exception:
+                try:
+                    await self._producer.stop()
+                except Exception:
+                    logger.exception("Could not close Kafka producer after failed startup")
+                self._producer = None
+                self._running = False
+                raise
+            self._running = True
             logger.info("AIOKafkaProducer started successfully.")
 
     async def stop(self) -> None:
@@ -38,6 +53,7 @@ class KafkaProducerClient:
             logger.info("Stopping AIOKafkaProducer...")
             await self._producer.stop()
             self._producer = None
+            self._running = False
             logger.info("AIOKafkaProducer stopped cleanly.")
 
     async def publish(self, topic: str, payload: BaseModel) -> str:

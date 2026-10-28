@@ -329,27 +329,25 @@ class SessionRepository(BaseRepository[Session]):
         output: dict[str, Any],
         new_status: SessionStatus,
         expected_version: Optional[int] = None,
+        expected_status: Optional[SessionStatus] = None,
+        correlation_id: Optional[str] = None,
     ) -> bool:
-
+        filters = {"_id": PydanticObjectId(session_id)}
         if expected_version is not None:
-
-            query = Session.find_one(
-                Session.id
-                == PydanticObjectId(session_id),
-                Session.version == expected_version,
-            )
-
-        else:
-
-            query = Session.find_one(
-                Session.id
-                == PydanticObjectId(session_id)
-            )
+            filters["version"] = expected_version
+        if expected_status is not None:
+            filters["status"] = expected_status.value
+        if correlation_id is not None:
+            filters["correlation_id"] = correlation_id
+        query = Session.find_one(filters)
 
         result = await query.update(
             {
                 "$set": {
                     flow: output,
+                    "failure_metadata": None,
+                    "error": None,
+                    "flow_started_at": None,
                     "status": new_status.value,
                     "updated_at": utc_now(),
                 },
@@ -370,12 +368,19 @@ class SessionRepository(BaseRepository[Session]):
         session_id: str,
         new_status: SessionStatus,
         failure_metadata: dict[str, Any],
+        *,
+        expected_version: int | None = None,
+        expected_status: SessionStatus | None = None,
+        correlation_id: str | None = None,
     ) -> bool:
+        query = {"_id": PydanticObjectId(session_id)}
+        if expected_version is not None:
+            query["version"] = expected_version
+            query["correlation_id"] = correlation_id
+        if expected_status is not None:
+            query["status"] = expected_status.value
 
-        result = await Session.find_one(
-            Session.id
-            == PydanticObjectId(session_id)
-        ).update(
+        result = await Session.find_one(query).update(
             {
                 "$set": {
                     "failure_metadata": failure_metadata,
@@ -551,117 +556,34 @@ class SessionRepository(BaseRepository[Session]):
     # ATOMIC CAS FLOW STARTS
     # ──────────────────────────────────────────────────────────────────────
 
-    async def atomic_start_dfv_flow(
-        self,
-        session_id: str,
-        correlation_id: str,
-        dfv_inputs: dict[str, Any],
+    async def atomic_start_flow(
+        self, session_id: str, flow: str, correlation_id: str,
+        inputs: dict | None, expected_version: int, request_record: dict | None = None,
     ) -> bool:
-        """
-        Atomically transition session from allowed pre-DFV status (TIPSC_COMPLETED, DFV_FAILED)
-        to DFV_WAITING, setting correlation_id, flow_started_at, and dfv_inputs in one atomic operation.
-
-        Returns True if CAS won (update modified/matched 1 document), False if CAS lost (already waiting/running or invalid state).
-        """
+        allowed = {
+            "dfv": ["tipsc_completed", "dfv_failed", "dfv_completed", "completed"],
+            "discovery": ["dfv_completed", "discovery_failed"],
+            "pmf": ["completed", "pmf_failed", "pmf_completed"],
+        }
         now = utc_now()
-        allowed_statuses = [
-            SessionStatus.TIPSC_COMPLETED.value,
-            SessionStatus.DFV_FAILED.value,
-        ]
-        result = await Session.find_one(
-            Session.id == PydanticObjectId(session_id),
-            In("status", allowed_statuses),
-        ).update(
-            {
-                "$set": {
-                    "correlation_id": correlation_id,
-                    "dfv_inputs": dfv_inputs,
-                    "status": SessionStatus.DFV_WAITING.value,
-                    "flow_started_at": now,
-                    "updated_at": now,
-                },
-                "$inc": {"version": 1},
-            }
-        )
-        if result is None:
-            return False
-        matched = getattr(result, "matched_count", 0)
-        modified = getattr(result, "modified_count", 0)
-        return matched == 1 or modified == 1
-
-    async def atomic_start_discovery_flow(
-        self,
-        session_id: str,
-        correlation_id: str,
-        discovery_inputs: dict[str, Any],
-    ) -> bool:
-        """
-        Atomically transition session from allowed pre-Discovery status (DFV_COMPLETED, DISCOVERY_FAILED)
-        to DISCOVERY_WAITING, setting correlation_id, flow_started_at, and discovery_inputs in one atomic operation.
-
-        Returns True if CAS won (update modified/matched 1 document), False if CAS lost (already waiting/running or invalid state).
-        """
-        now = utc_now()
-        allowed_statuses = [
-            SessionStatus.DFV_COMPLETED.value,
-            SessionStatus.DISCOVERY_FAILED.value,
-        ]
-        result = await Session.find_one(
-            Session.id == PydanticObjectId(session_id),
-            In("status", allowed_statuses),
-        ).update(
-            {
-                "$set": {
-                    "correlation_id": correlation_id,
-                    "discovery_inputs": discovery_inputs,
-                    "status": SessionStatus.DISCOVERY_WAITING.value,
-                    "flow_started_at": now,
-                    "updated_at": now,
-                },
-                "$inc": {"version": 1},
-            }
-        )
-        if result is None:
-            return False
-        matched = getattr(result, "matched_count", 0)
-        modified = getattr(result, "modified_count", 0)
-        return matched == 1 or modified == 1
-
-    async def atomic_start_pmf_flow(
-        self,
-        session_id: str,
-        correlation_id: str,
-    ) -> bool:
-        """
-        Atomically transition session from allowed pre-PMF status (DISCOVERY_COMPLETED, COMPLETED, PMF_FAILED)
-        to PMF_WAITING.
-        """
-        now = utc_now()
-        allowed_statuses = [
-            SessionStatus.DISCOVERY_WAITING.value,
-            SessionStatus.DISCOVERY_RUNNING.value,
-            SessionStatus.COMPLETED.value,
-            SessionStatus.PMF_FAILED.value,
-        ]
-        result = await Session.find_one(
-            Session.id == PydanticObjectId(session_id),
-            In("status", allowed_statuses),
-        ).update(
-            {
-                "$set": {
-                    "correlation_id": correlation_id,
-                    "status": SessionStatus.PMF_WAITING.value,
-                    "flow_started_at": now,
-                    "updated_at": now,
-                },
-                "$inc": {"version": 1},
-            }
-        )
-        if result is None:
-            return False
-        matched = getattr(result, "matched_count", 0)
-        modified = getattr(result, "modified_count", 0)
-        return matched == 1 or modified == 1
+        patch = {
+            "correlation_id": correlation_id, "status": f"{flow}_waiting",
+            "flow_started_at": now, "updated_at": now, "error": None,
+            "failure_metadata": None, flow: None,
+        }
+        if inputs is not None:
+            patch[f"{flow}_inputs"] = inputs
+        if request_record:
+            patch[f"flow_requests.{flow}"] = request_record
+        if flow == "dfv":
+            patch.update(discovery=None, pmf=None, discovery_inputs=None)
+        elif flow == "discovery":
+            patch["pmf"] = None
+        result = await Session.find_one({
+            "_id": PydanticObjectId(session_id), "version": expected_version,
+            "status": {"$in": allowed[flow]},
+        }).update({"$set": patch, "$inc": {"version": 1}})
+        return result is not None and result.modified_count == 1
 
     async def set_correlation_id(
         self,

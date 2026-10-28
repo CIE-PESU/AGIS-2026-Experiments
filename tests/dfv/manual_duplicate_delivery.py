@@ -1,29 +1,28 @@
 """
-Idempotency test for the DFV worker.
+Manual duplicate-delivery probe for the DFV worker.
 
-Proves: if a message for a session/correlation_id that's already marked
-'done' in MongoDB arrives again (duplicate delivery, consumer restart,
-manual retry, etc.), the worker skips it instead of re-running CrewAI
-or overwriting the completed output.
+This republishes a completed job and can invoke the agent again. The backend
+must reject the stale output so the stored result remains unchanged. Run only
+when deliberately testing duplicate delivery; this can consume LLM tokens.
 
 Usage:
-    1. Make sure the DFV consumer (workers/dfv_consumer.py) is already
+    1. Make sure the combined agent worker is already
        running and has completed at least one job.
     2. Run this script:
-           uv run python -u -m tests.test_idempotency
-    3. Watch the consumer's terminal — you should see a line like:
-           [correlation=...] Already processed (idempotency check) — skipping
-       appear almost instantly (no CrewAI run, no token usage logs).
-    4. This script also independently verifies via Mongo that the
+           python tests/dfv/manual_duplicate_delivery.py
+    3. This script verifies via Mongo that the
        'completed_at' timestamp did NOT change after the duplicate
        message was sent — proof the output wasn't recomputed/overwritten.
 """
 
 import asyncio
 import json
+import sys
+from pathlib import Path
 from motor.motor_asyncio import AsyncIOMotorClient
 from aiokafka import AIOKafkaProducer
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
 from models.schema import DFVJobMessage, DFVJobPayload
 
 KAFKA_BOOTSTRAP_SERVERS = "127.0.0.1:9092"

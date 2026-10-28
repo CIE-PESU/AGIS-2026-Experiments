@@ -40,13 +40,8 @@ async def health_check() -> JSONResponse:
 
     mongo_ok = await ping_db()
 
-    # Kafka producer health — placeholder until Kafka module is integrated
-    kafka_ok = True
-    # try:
-    #     from kafka.producer import kafka_producer
-    #     kafka_ok = kafka_producer.is_running
-    # except Exception:
-    #     kafka_ok = False
+    from kafka.producer import kafka_producer
+    kafka_ok = kafka_producer.is_running
 
     all_healthy = mongo_ok and kafka_ok
     http_status = (
@@ -83,7 +78,8 @@ async def readiness_probe() -> JSONResponse:
     from database.mongodb import ping_db
 
     mongo_ok = await ping_db()
-    kafka_ok = True  # Placeholder until Kafka module is integrated
+    from kafka.producer import kafka_producer
+    kafka_ok = kafka_producer.is_running
 
     if mongo_ok and kafka_ok:
         return JSONResponse(

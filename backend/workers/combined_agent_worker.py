@@ -25,14 +25,14 @@ _local_appdata.mkdir(parents=True, exist_ok=True)
 os.environ['LOCALAPPDATA'] = str(_local_appdata)
 
 import asyncio
-import importlib.util
 import json
 import logging
 import os
 import sys
 import time
+import tempfile
+import signal
 from datetime import datetime, timezone
-from types import ModuleType
 from typing import Any
 import re
 import httpx
@@ -46,10 +46,6 @@ from pydantic import ValidationError
 
 BACKEND_ROOT = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..")
-)
-
-PROJECT_ROOT = os.path.abspath(
-    os.path.join(BACKEND_ROOT, "..")
 )
 
 if BACKEND_ROOT not in sys.path:
@@ -88,149 +84,38 @@ def _log(
     )
 
 
-# =============================================================================
-# AGENT MODULE LOADING
-# =============================================================================
+# Agent execution is isolated in workers.agent_runner.
 
-def _clear_conflicting_modules() -> None:
-    """
-    Agent projects contain their own `models` packages.
-
-    Clear cached agent model modules before loading another project to avoid
-    Python resolving `models.schema` from the wrong project.
-    """
-
-    for module_name in list(sys.modules):
-        if module_name == "models" or module_name.startswith("models."):
-            del sys.modules[module_name]
-
-
-def _load_module(
-    module_name: str,
-    file_path: str,
-) -> ModuleType:
-    """
-    Load a Python module directly from an explicit file path.
-    """
-
-    module_directory = os.path.dirname(file_path)
-
-    spec = importlib.util.spec_from_file_location(
-        module_name,
-        file_path,
-    )
-
-    if spec is None or spec.loader is None:
-        raise ImportError(
-            f"Unable to load module from {file_path}"
+async def _run_agent_subprocess(flow: str, payload: dict[str, Any]) -> Any:
+    """Kill the agent process on timeout so no timed-out job keeps running."""
+    with tempfile.TemporaryDirectory(prefix=f"agis-{flow}-") as directory:
+        result_path = os.path.join(directory, "result.json")
+        process = await asyncio.create_subprocess_exec(
+            sys.executable, "-m", "workers.agent_runner", flow, result_path,
+            cwd=BACKEND_ROOT,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE,
+            start_new_session=os.name != "nt",
         )
-
-    module = importlib.util.module_from_spec(spec)
-
-    path_added = False
-
-    if module_directory not in sys.path:
-        sys.path.insert(0, module_directory)
-        path_added = True
-
-    try:
-        spec.loader.exec_module(module)
-    finally:
-        if path_added:
-            sys.path.remove(module_directory)
-
-    return module
-
-
-def _load_dfv_agent():
-    dfv_path = os.path.join(
-        PROJECT_ROOT,
-        "DFV-agent",
-        "main.py",
-    )
-
-    try:
-        module = _load_module(
-            "agis_dfv_agent_main",
-            dfv_path,
-        )
-
-        logger.info(
-            "DFV agent loaded from %s",
-            dfv_path,
-        )
-
-        return module.run_analysis
-
-    except Exception:
-        logger.exception(
-            "Failed to load DFV agent"
-        )
-        raise
-
-
-def _load_discovery_agent():
-    discovery_path = os.path.join(
-        PROJECT_ROOT,
-        "customer-interview-planner-agent",
-        "main.py",
-    )
-
-    try:
-        module = _load_module(
-            "agis_discovery_agent_main",
-            discovery_path,
-        )
-
-        logger.info(
-            "Discovery agent loaded from %s",
-            discovery_path,
-        )
-
-        return module.run_discovery_analysis
-
-    except Exception:
-        logger.exception(
-            "Failed to load Discovery agent"
-        )
-        raise
-
-
-def _load_pmf_agent():
-    pmf_path = os.path.join(
-        PROJECT_ROOT,
-        "pmf-agent",
-        "main.py",
-    )
-
-    try:
-        module = _load_module(
-            "agis_pmf_agent_main",
-            pmf_path,
-        )
-
-        logger.info(
-            "PMF agent loaded from %s",
-            pmf_path,
-        )
-
-        return module.run_pmf_analysis
-
-    except Exception:
-        logger.exception(
-            "Failed to load PMF agent"
-        )
-        raise
-
-
-run_pmf_analysis = _load_pmf_agent()
-
-_clear_conflicting_modules()
-
-if BACKEND_ROOT in sys.path:
-    sys.path.remove(BACKEND_ROOT)
-
-sys.path.insert(0, BACKEND_ROOT)
+        try:
+            _, stderr = await asyncio.wait_for(
+                process.communicate(json.dumps(payload).encode("utf-8")),
+                timeout=settings.AGENT_TIMEOUT_SECONDS,
+            )
+        except (asyncio.TimeoutError, asyncio.CancelledError):
+            if process.returncode is None:
+                if os.name == "nt":
+                    process.kill()
+                else:
+                    os.killpg(process.pid, signal.SIGKILL)
+                await process.wait()
+            raise
+        if process.returncode != 0:
+            detail = stderr.decode("utf-8", errors="replace")[-1000:].strip()
+            raise RuntimeError(f"{flow} agent exited with code {process.returncode}: {detail}")
+        with open(result_path, encoding="utf-8") as result_file:
+            return json.load(result_file)
 
 
 # =============================================================================
@@ -278,7 +163,7 @@ def _parse_agent_output(result: Any) -> dict[str, Any]:
 
     cleaned = _extract_json_block(raw)
 
-    logger.info("PARSING AGENT OUTPUT DIAGNOSTICS: repr(raw)=%s, len(raw)=%d, repr(cleaned)=%s, len(cleaned)=%d", repr(raw), len(raw), repr(cleaned), len(cleaned))
+    logger.debug("Parsing agent output: raw_length=%d cleaned_length=%d", len(raw), len(cleaned))
 
     if not cleaned or not (cleaned.startswith("{") or cleaned.startswith("[")):
         raise ValueError(
@@ -339,7 +224,6 @@ class CombinedAgentWorker:
     # =========================================================================
 
     async def start(self) -> None:
-        print("START() ENTERED")
 
         logger.info(
             "Starting Combined Agent Worker"
@@ -396,15 +280,11 @@ class CombinedAgentWorker:
         )
 
         await self.consumer_dfv.start()
-        print("DFV consumer started")
 
         await self.consumer_discovery.start()
-        print("Discovery consumer started")
 
         await self.consumer_pmf.start()
-        print("PMF consumer started")
         await self.producer.start()
-        print("Producer started")
 
         logger.info(
             "Combined worker started | DFV=%s | Discovery=%s | PMF=%s",
@@ -412,9 +292,16 @@ class CombinedAgentWorker:
             KafkaTopic.USER_SESSION_DISCOVERY,
             KafkaTopic.USER_SESSION_PMF,
         )
+        ready_file = os.environ.get("AGIS_WORKER_READY_FILE")
+        if ready_file:
+            Path(ready_file).write_text("ready", encoding="utf-8")
 
 
     async def stop(self) -> None:
+
+        ready_file = os.environ.get("AGIS_WORKER_READY_FILE")
+        if ready_file:
+            Path(ready_file).unlink(missing_ok=True)
 
         logger.info(
             "Stopping Combined Agent Worker"
@@ -472,6 +359,10 @@ class CombinedAgentWorker:
 
         if response.is_error:
 
+            if response.status_code in (404, 409):
+                _log(correlation_id, f"Ignoring stale {flow} output callback", level="warning")
+                return
+
             raise RuntimeError(
                 "Backend rejected worker output "
                 f"[status={response.status_code}] "
@@ -512,12 +403,12 @@ class CombinedAgentWorker:
         )
 
         if response.is_error:
-
-            logger.error(
-                "Backend rejected failure report "
-                "[status=%s] %s",
-                response.status_code,
-                response.text,
+            if response.status_code in (404, 409):
+                _log(correlation_id, f"Ignoring stale {flow} failure callback", level="warning")
+                return
+            raise RuntimeError(
+                f"Backend rejected {flow} failure report "
+                f"[status={response.status_code}] {response.text}"
             )
 
 
@@ -546,16 +437,8 @@ class CombinedAgentWorker:
                 "feasibility": job.payload.feasibility_context,
                 "viability": job.payload.viability_context,
             }
-            print(">>> STARTING DFV ANALYSIS")
-            result = await asyncio.wait_for(
-                asyncio.to_thread(
-                    run_dfv_analysis,
-                    dfv_inputs,
-                ),
-                timeout=settings.AGENT_TIMEOUT_SECONDS,
-            )
+            result = await _run_agent_subprocess("dfv", dfv_inputs)
         parsed_output = _parse_agent_output(result)
-        print("Completed DFV")
         completed_at = datetime.now(timezone.utc)
 
         duration = time.monotonic() - start_time
@@ -578,7 +461,6 @@ class CombinedAgentWorker:
             output=dfv_output,
             duration_seconds=duration,
         )
-        print("4")
         decision = (
             parsed_output
             .get("final_decision", {})
@@ -614,15 +496,10 @@ class CombinedAgentWorker:
             "Starting Customer Discovery analysis",
         )
 
-        result = await asyncio.wait_for(
-            asyncio.to_thread(
-                run_discovery_analysis,
-                job.payload.model_dump(),
-            ),
-            timeout=settings.AGENT_TIMEOUT_SECONDS,
-        )
+        async with self._agent_lock:
+            result = await _run_agent_subprocess("discovery", job.payload.model_dump())
 
-        raw_output = getattr(result, "raw", str(result))
+        raw_output = result if isinstance(result, str) else json.dumps(result)
 
         parsed = {
             "report": raw_output
@@ -677,13 +554,7 @@ class CombinedAgentWorker:
         )
 
         async with self._agent_lock:
-            result = await asyncio.wait_for(
-                asyncio.to_thread(
-                    run_pmf_analysis,
-                    job.payload.model_dump(),
-                ),
-                timeout=settings.AGENT_TIMEOUT_SECONDS,
-            )
+            result = await _run_agent_subprocess("pmf", job.payload.model_dump())
 
         parsed = _parse_agent_output(result)
         completed_at = datetime.now(timezone.utc)
@@ -753,6 +624,7 @@ class CombinedAgentWorker:
                     "Failed to report DFV failure to backend: %s",
                     report_exc,
                 )
+                raise
 
 
     async def _handle_discovery(
@@ -791,6 +663,7 @@ class CombinedAgentWorker:
                     "Failed to report Discovery failure to backend: %s",
                     report_exc,
                 )
+                raise
 
 
     async def _handle_pmf(
@@ -829,6 +702,7 @@ class CombinedAgentWorker:
                     "Failed to report PMF failure to backend: %s",
                     report_exc,
                 )
+                raise
 
 
     # =========================================================================
@@ -843,8 +717,6 @@ class CombinedAgentWorker:
             )
 
         async for message in self.consumer_dfv:
-            print("RECEIVED DFV MESSAGE")
-            print(message.value)
             try:
                 await self._handle_dfv(
                     message.value
@@ -853,8 +725,8 @@ class CombinedAgentWorker:
                 logger.exception(
                     "Unexpected DFV consumer error"
                 )
-            finally:
-                await self.consumer_dfv.commit()
+                raise
+            await self.consumer_dfv.commit()
 
 
     async def _consume_discovery(self) -> None:
@@ -873,8 +745,8 @@ class CombinedAgentWorker:
                 logger.exception(
                     "Unexpected Discovery consumer error"
                 )
-            finally:
-                await self.consumer_discovery.commit()
+                raise
+            await self.consumer_discovery.commit()
 
 
     async def _consume_pmf(self) -> None:
@@ -893,8 +765,8 @@ class CombinedAgentWorker:
                 logger.exception(
                     "Unexpected PMF consumer error"
                 )
-            finally:
-                await self.consumer_pmf.commit()
+                raise
+            await self.consumer_pmf.commit()
 
 
     # =========================================================================
@@ -902,11 +774,8 @@ class CombinedAgentWorker:
     # =========================================================================
 
     async def run(self) -> None:
-
-        await self.start()
-
         try:
-
+            await self.start()
             await asyncio.gather(
                 self._consume_dfv(),
                 self._consume_discovery(),
@@ -914,7 +783,6 @@ class CombinedAgentWorker:
             )
 
         finally:
-
             await self.stop()
 
 
@@ -923,13 +791,13 @@ class CombinedAgentWorker:
 # =============================================================================
 
 async def main() -> None:
-    print("MAIN STARTED")
-
     worker = CombinedAgentWorker()
-
-    print("RUNNING WORKER")
     await worker.run()
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
     asyncio.run(main())

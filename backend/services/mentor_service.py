@@ -29,6 +29,9 @@ from repositories.session_repo import session_repo
 from schemas.mentor import MentorSessionListItem, MentorTeamResponse, TeamMemberInfo
 from state_machine.states import SessionStatus
 
+logger = logging.getLogger(__name__)
+
+
 async def sync_mentor_teams(mentor_id: str) -> list[str]:
     """
     Ensure User.mentor_team_ids matches all Team documents where mentor_id is assigned.

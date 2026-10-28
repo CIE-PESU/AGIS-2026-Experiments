@@ -38,6 +38,7 @@ export function setAccessTokenOnly(accessToken: string) {
 export function clearTokens() {
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
+  window.dispatchEvent(new Event("agis:auth-cleared"));
 }
 
 async function parseError(response: Response): Promise<ApiRequestError> {
@@ -54,7 +55,16 @@ async function parseError(response: Response): Promise<ApiRequestError> {
   }
 }
 
-async function refreshAccessToken(): Promise<boolean> {
+let refreshInFlight: Promise<boolean> | null = null;
+
+export function refreshAccessToken(): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = performRefresh().finally(() => { refreshInFlight = null; });
+  }
+  return refreshInFlight;
+}
+
+async function performRefresh(): Promise<boolean> {
   const refreshToken = getRefreshToken();
   if (!refreshToken) return false;
 
@@ -65,6 +75,7 @@ async function refreshAccessToken(): Promise<boolean> {
   });
 
   if (!response.ok) {
+    if (response.status !== 401 && response.status !== 403) throw await parseError(response);
     clearTokens();
     return false;
   }
@@ -79,10 +90,24 @@ type RequestOptions = {
   body?: unknown;
   auth?: boolean;
   idempotencyKey?: string;
+  signal?: AbortSignal;
+  raw?: boolean;
 };
 
-export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+export async function apiFetch(path: string, options: RequestOptions = {}): Promise<Response> {
   const { method = "GET", body, auth = true, idempotencyKey } = options;
+
+  if (auth && !getAccessToken()) {
+    if (!await refreshAccessToken()) {
+      clearTokens();
+      throw new ApiRequestError(401, {
+        code: "TOKEN_INVALID",
+        message: "Your session has ended. Please log in again.",
+        request_id: "",
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json"
@@ -99,6 +124,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     fetch(`${API_BASE_URL}${path}`, {
       method,
       headers,
+      signal: options.signal,
       body: body !== undefined ? JSON.stringify(body) : undefined
     });
 
@@ -106,13 +132,20 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 
   if (response.status === 401 && auth) {
     const refreshed = await refreshAccessToken();
-    if (refreshed) response = await send();
+    if (refreshed) {
+      headers.Authorization = `Bearer ${getAccessToken()}`;
+      response = await send();
+    }
+    if (response.status === 401) clearTokens();
   }
 
-  if (response.status === 204) return undefined as T;
-
   if (!response.ok) throw await parseError(response);
+  return response;
+}
 
-  const payload = (await response.json()) as ApiSuccess<T>;
-  return payload.data;
+export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const response = await apiFetch(path, options);
+  if (response.status === 204) return undefined as T;
+  const payload = await response.json();
+  return options.raw ? payload as T : payload.data as T;
 }

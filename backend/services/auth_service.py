@@ -21,7 +21,7 @@ from auth.jwt import create_access_token, create_refresh_token, verify_refresh_t
 from auth.pes_client import pes_auth_client
 from core.config import settings
 from core.constants import AuditEvent
-from exceptions.base import RefreshTokenExpiredError, RefreshTokenInvalidError
+from exceptions.base import InvalidCredentialsError, RefreshTokenExpiredError, RefreshTokenInvalidError
 from models.refresh_token import RefreshToken
 from models.user import User
 from schemas.auth import LoginResponse, MeResponse, RefreshResponse, UserInfo
@@ -142,7 +142,11 @@ class AuthService:
             raise RefreshTokenExpiredError()
 
         # Revoke the old token immediately (token rotation)
-        await token_doc.set({RefreshToken.revoked: True})
+        claimed = await RefreshToken.find_one(
+            RefreshToken.id == token_doc.id, RefreshToken.revoked == False,
+        ).update({"$set": {"revoked": True}})
+        if claimed is None or claimed.modified_count != 1:
+            raise RefreshTokenInvalidError("Refresh token was already used.")
 
         # Load the user to re-issue token with current claims
         user = await User.get(token_doc.user_id)
@@ -162,12 +166,14 @@ class AuthService:
             name=user.name,
             team_id=user.team_id,
             mentor_team_ids=mentor_team_ids,
+            workspace_id=token_doc.workspace_id,
         )
         raw_refresh, hashed_refresh = create_refresh_token()
         new_token_doc = RefreshToken.create_for_user(
             user_id=str(user.id),
             token_hash=hashed_refresh,
             expiry_days=settings.REFRESH_TOKEN_EXPIRY_DAYS,
+            workspace_id=token_doc.workspace_id,
         )
         await new_token_doc.insert()
 

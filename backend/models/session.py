@@ -92,7 +92,7 @@ class TIPSCOutput(BaseModel):
     Persisted TIPSC result.
 
     Must remain compatible with:
-        TIPSC-Agent/src/models.py:TIPSCOutput
+        TIPSC-Agent/src/tipsc_models.py:TIPSCOutput
 
     Backend-only metadata fields are also included.
     """
@@ -307,6 +307,7 @@ class Session(Document):
 
     # ── DFV founder context ────────────────────────────────────────────────
 
+    flow_requests: dict[str, Any] = Field(default_factory=dict)
     dfv_inputs: Optional[DFVInputs] = None
     
     # ── Discovery founder context ─────────────────────────────────────────
