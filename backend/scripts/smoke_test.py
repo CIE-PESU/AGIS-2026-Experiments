@@ -21,14 +21,15 @@ if not WORKER_SECRET:
     print("❌ WORKER_INTERNAL_SECRET not found. Make sure backend/.env is populated.")
     sys.exit(1)
 
+
 def run_smoke_test():
-    print("\n" + "="*50)
+    print("\n" + "=" * 50)
     print(" AGIS Backend: B-19 Integration Smoke Test")
-    print("="*50 + "\n")
-    
+    print("=" * 50 + "\n")
+
     print("This script will run the full 10-step happy path for a session lifecycle.")
     print("Please ensure your local server is running (uvicorn app.main:app).\n")
-    
+
     # Hardcoded dummy credentials for automated testing
     srn = "PES1UG24CS115"
     password = "testpass"
@@ -41,7 +42,7 @@ def run_smoke_test():
             print(f"❌ Login failed! HTTP {resp.status_code}")
             print(resp.text)
             sys.exit(1)
-            
+
         token = resp.json()["data"]["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
         print("✅ Login successful. Acquired JWT token.")
@@ -61,22 +62,22 @@ def run_smoke_test():
         session_payload = {
             "team_id": "TEST_TEAM",
             "problem_statement": "This is a completely valid fifty character long problem statement designed to pass the new B-21 edge case rules.",
-            "idea": "An AI agent that automatically writes integration smoke tests."
+            "idea": "An AI agent that automatically writes integration smoke tests.",
         }
-        
+
         resp = client.post(
-            f"{BASE_URL}/sessions", 
-            headers={**headers, "Idempotency-Key": idempotency_key}, 
-            json=session_payload
+            f"{BASE_URL}/sessions",
+            headers={**headers, "Idempotency-Key": idempotency_key},
+            json=session_payload,
         )
         if resp.status_code != 201:
             print(f"❌ Session creation failed! HTTP {resp.status_code}")
             print(resp.text)
             sys.exit(1)
-            
+
         resp_json = resp.json()
         print("DEBUG CREATE SESSION RESP:", resp_json)
-        
+
         session_id = resp_json["data"]["session_id"]
         status = resp_json["data"]["status"]
         print(f"✅ Session created: {session_id} (Status: {status})")
@@ -102,13 +103,13 @@ def run_smoke_test():
                 "compliance_flag": False,
                 "compliance_issues": [],
                 "followups_asked": 0,
-                "reasoning": "The idea is highly structured and feasible."
-            }
+                "reasoning": "The idea is highly structured and feasible.",
+            },
         }
         resp = client.post(
             f"{INTERNAL_URL}/sessions/{session_id}/output",
             headers={"X-Worker-Secret": WORKER_SECRET},
-            json=tipsc_output
+            json=tipsc_output,
         )
         if resp.status_code != 200:
             print(f"❌ Worker output failed: {resp.text}")
@@ -130,13 +131,15 @@ def run_smoke_test():
         dfv_payload = {
             "desirability_context": "D" * 105,
             "feasibility_context": "F" * 105,
-            "viability_context": "V" * 105
+            "viability_context": "V" * 105,
         }
-        resp = client.post(f"{BASE_URL}/sessions/{session_id}/trigger/dfv", headers=headers, json=dfv_payload)
+        resp = client.post(
+            f"{BASE_URL}/sessions/{session_id}/trigger/dfv", headers=headers, json=dfv_payload
+        )
         if resp.status_code != 200:
             print(f"❌ DFV trigger failed! HTTP {resp.status_code}\n{resp.text}")
             sys.exit(1)
-            
+
         resp_json = resp.json()
         payload = resp_json.get("data", resp_json)
         status = payload.get("status")
@@ -156,13 +159,13 @@ def run_smoke_test():
                 "viability": {"score": 4, "report": "Good market.", "recommendations": []},
                 "overall_decision": "GO",
                 "summary": "Proceed to discovery phase.",
-                "json_report": {}
-            }
+                "json_report": {},
+            },
         }
         resp = client.post(
             f"{INTERNAL_URL}/sessions/{session_id}/output",
             headers={"X-Worker-Secret": WORKER_SECRET},
-            json=dfv_output
+            json=dfv_output,
         )
         if resp.status_code != 200:
             print(f"❌ Worker output failed: {resp.text}")
@@ -175,7 +178,7 @@ def run_smoke_test():
         if resp.status_code != 200:
             print(f"❌ Discovery trigger failed! HTTP {resp.status_code}\n{resp.text}")
             sys.exit(1)
-            
+
         resp_json = resp.json()
         payload = resp_json.get("data", resp_json)
         status = payload.get("status")
@@ -190,18 +193,20 @@ def run_smoke_test():
             "duration_seconds": 4.1,
             "worker_id": "test_worker_bot",
             "output": {
-                "jtbd_elements": [{"job": "Testing software", "outcome": "Success", "pain": "Manual effort"}],
+                "jtbd_elements": [
+                    {"job": "Testing software", "outcome": "Success", "pain": "Manual effort"}
+                ],
                 "interview_plan": {
-                    "target_segment": "Software Engineers", 
-                    "interview_questions": ["What is hard about testing?"], 
-                    "hypothesis_to_validate": "Engineers want automation."
-                }
-            }
+                    "target_segment": "Software Engineers",
+                    "interview_questions": ["What is hard about testing?"],
+                    "hypothesis_to_validate": "Engineers want automation.",
+                },
+            },
         }
         resp = client.post(
             f"{INTERNAL_URL}/sessions/{session_id}/output",
             headers={"X-Worker-Secret": WORKER_SECRET},
-            json=discovery_output
+            json=discovery_output,
         )
         if resp.status_code != 200:
             print(f"❌ Worker output failed: {resp.text}")
@@ -224,16 +229,17 @@ def run_smoke_test():
         resp_json = resp.json()
         print("DEBUG HISTORY RESP:", resp_json)
         history = resp_json.get("data", resp_json)
-        
+
         print(f"✅ Found {len(history)} audit events. Timeline:")
         for idx, event in enumerate(reversed(history), 1):
-            actor_type = event.get('actor_role', 'worker')
+            actor_type = event.get("actor_role", "worker")
             print(f"   {idx}. {event['event']} (by {actor_type})")
-            
+
         if len(history) < 9:
             print(f"⚠️ Warning: Expected at least 9 events, but found {len(history)}.")
         else:
             print("\n🎉 SMOKE TEST PASSED END-TO-END! 🎉")
+
 
 if __name__ == "__main__":
     run_smoke_test()

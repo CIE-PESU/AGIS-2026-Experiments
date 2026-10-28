@@ -11,7 +11,9 @@ class WorkspaceCreateRequest(BaseModel):
     """POST /admin/workspaces request body."""
 
     name: str = Field(description="Name or description for this workspace link.")
-    mentor_id: str | None = Field(default=None, description="Optional Mentor ID associated with this workspace.")
+    mentor_id: str | None = Field(
+        default=None, description="Optional Mentor ID associated with this workspace."
+    )
 
 
 class WorkspaceResponse(BaseModel):

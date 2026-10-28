@@ -42,7 +42,7 @@ export function PreEvaluationCard({ data }: Props) {
         />
 
         <Field
-          label="Industry Sector"
+          label="Industry Sector/Domain of Problem Statement"
           value={data.industry_sector}
         />
 
@@ -52,7 +52,7 @@ export function PreEvaluationCard({ data }: Props) {
           </h4>
 
           <ul className="list-disc pl-5 space-y-2 text-muted-foreground">
-            {data.assumptions.map((item, index) => (
+            {(data.assumptions ?? []).map((item, index) => (
               <li key={index}>{item}</li>
             ))}
           </ul>

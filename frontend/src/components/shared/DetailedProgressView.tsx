@@ -91,7 +91,7 @@ export function DetailedProgressView({ student }: { student: StudentDetail }) {
           : sessionData?.preeval_input?.assumptions || "",
         "Proposed Solution": sessionData?.preeval_input?.proposed_solution || sessionData?.idea || "",
         "Geography": sessionData?.preeval_input?.target_geography || "",
-        "Sector": sessionData?.preeval_input?.industry_sector || ""
+        "Industry Sector/Domain of Problem Statement": sessionData?.preeval_input?.industry_sector || ""
       }
     : null;
 

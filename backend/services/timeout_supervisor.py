@@ -61,7 +61,9 @@ class TimeoutSupervisor:
 
             for session in stuck_dfv:
                 start_time = session.flow_started_at or session.updated_at
-                if not start_time or (now - _as_utc(start_time)) < timedelta(seconds=timeout_seconds):
+                if not start_time or (now - _as_utc(start_time)) < timedelta(
+                    seconds=timeout_seconds
+                ):
                     continue
 
                 session_id = str(session.id)
@@ -69,6 +71,8 @@ class TimeoutSupervisor:
                 updated = await session_repo.update_flow_failure(
                     session_id=session_id,
                     new_status=SessionStatus.DFV_FAILED,
+                    expected_version=session.version,
+                    correlation_id=session.correlation_id,
                     failure_metadata={
                         "flow": "dfv",
                         "error_code": "DFV_TIMEOUT",
@@ -96,12 +100,17 @@ class TimeoutSupervisor:
 
             # 2. Recover stuck Discovery sessions using flow_started_at (fallback to updated_at if flow_started_at is None)
             stuck_discovery = await Session.find(
-                In("status", [SessionStatus.DISCOVERY_WAITING.value, SessionStatus.DISCOVERY_RUNNING.value]),
+                In(
+                    "status",
+                    [SessionStatus.DISCOVERY_WAITING.value, SessionStatus.DISCOVERY_RUNNING.value],
+                ),
             ).to_list()
 
             for session in stuck_discovery:
                 start_time = session.flow_started_at or session.updated_at
-                if not start_time or (now - _as_utc(start_time)) < timedelta(seconds=timeout_seconds):
+                if not start_time or (now - _as_utc(start_time)) < timedelta(
+                    seconds=timeout_seconds
+                ):
                     continue
 
                 session_id = str(session.id)
@@ -109,6 +118,8 @@ class TimeoutSupervisor:
                 updated = await session_repo.update_flow_failure(
                     session_id=session_id,
                     new_status=SessionStatus.DISCOVERY_FAILED,
+                    expected_version=session.version,
+                    correlation_id=session.correlation_id,
                     failure_metadata={
                         "flow": "discovery",
                         "error_code": "DISCOVERY_TIMEOUT",
@@ -134,6 +145,39 @@ class TimeoutSupervisor:
                         },
                     )
 
+            # In-process TIPSC work lost on reload/restart becomes explicitly retryable.
+            tipsc_states = [
+                "queued",
+                "pre_eval",
+                "validation_running",
+                "ethics_running",
+                "tipsc_running",
+                "tipsc_reevaluation",
+            ]
+            stuck_tipsc = await Session.find(
+                {
+                    "status": {"$in": tipsc_states},
+                    "updated_at": {"$lt": now - timedelta(seconds=timeout_seconds)},
+                }
+            ).to_list()
+            for session in stuck_tipsc:
+                updated = await session_repo.update_flow_failure(
+                    session_id=str(session.id),
+                    new_status=SessionStatus.TIPSC_FAILED,
+                    expected_version=session.version,
+                    correlation_id=session.correlation_id,
+                    failure_metadata={
+                        "flow": "tipsc",
+                        "error_code": "TIPSC_TIMEOUT",
+                        "error_message": "Pipeline timed out or its process stopped. Retry TIPSC.",
+                        "retry_count": 0,
+                    },
+                )
+                if updated:
+                    from services.session_task_registry import cancel_session_task
+
+                    cancel_session_task(str(session.id))
+
         except Exception as exc:
             logger.exception("Error in timeout supervisor execution: %s", exc)
 
@@ -153,7 +197,9 @@ class TimeoutSupervisor:
             return
         self._running = True
         self._task = asyncio.create_task(self._loop(check_interval_seconds=check_interval_seconds))
-        logger.info("Timeout supervisor background task started (interval=%ds)", check_interval_seconds)
+        logger.info(
+            "Timeout supervisor background task started (interval=%ds)", check_interval_seconds
+        )
 
     async def stop(self) -> None:
         if not self._running:

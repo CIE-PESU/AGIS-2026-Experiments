@@ -7,15 +7,12 @@ into a single 10-parameter assessment. Runs in-process via CrewAI agent.
 
 from __future__ import annotations
 
-import importlib.util
+import asyncio
 import logging
-import os
-import sys
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, Request, status
-from pydantic import BaseModel, Field
-from quickstart_agent.models import QuickstartInput as AgentInput
+from quickstart_agent.models import ParameterRating, QuickstartInput, QuickstartOutput
 
 from core.constants import UserRole
 from dependencies.auth import require_role
@@ -30,104 +27,15 @@ router = APIRouter(
 )
 
 
-class QuickstartInput(BaseModel):
-    problem: str = Field(..., description="Core problem being solved")
-    customer: str = Field(..., description="Who experiences this problem")
-    solution: str = Field(..., description="Proposed solution")
-    consequence: str = Field(..., description="What happens if problem unsolved")
-    business_model: str = Field(..., description="How it makes money / who pays")
-    urgency: str = Field(..., description="Why now / timeline")
-    hurdles: str = Field(..., description="Biggest tech/legal/regulatory hurdles")
-
-
-class ParameterRating(BaseModel):
-    name: str
-    rating: str
-    reason: str
-
-
-class QuickstartOutput(BaseModel):
-    input: QuickstartInput
-    parameters: list[ParameterRating]
-    red_count: int
-    yellow_count: int
-    green_count: int
-    parameter_advice: dict[str, str]
-    priority_advice: list[str]
-    timestamp: str
-
-
-# =============================================================================
-# Agent Loading (same pattern as DFV/Discovery agents in combined_agent_worker)
-# =============================================================================
-
-BACKEND_ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..")
-)
-
-PROJECT_ROOT = os.path.abspath(
-    os.path.join(BACKEND_ROOT, "..")
-)
-
-def _load_module(module_name: str, module_path: str):
-    """Load a module from a specific file path."""
-    spec = importlib.util.spec_from_file_location(module_name, module_path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Could not load module from {module_path}")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[module_name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-def _load_quickstart_agent():
-    """Load the quickstart agent dynamically from project root."""
-    quickstart_agent_dir = os.path.join(
-        PROJECT_ROOT,
-        "quickstart-agent",
-    )
-    quickstart_path = os.path.join(
-        quickstart_agent_dir,
-        "quickstart_agent",
-        "main.py",
-    )
-
-    # Add quickstart-agent to sys.path so relative imports work
-    if quickstart_agent_dir not in sys.path:
-        sys.path.insert(0, quickstart_agent_dir)
-
-    try:
-        module = _load_module(
-            "agis_quickstart_agent_main",
-            quickstart_path,
-        )
-
-        logger.info(
-            "Quickstart agent loaded from %s",
-            quickstart_path,
-        )
-
-        return module.run_quickstart_eval
-
-    except Exception:
-        logger.exception(
-            "Failed to load Quickstart agent"
-        )
-        raise
-
-
-# Load agent before restoring backend models
-run_quickstart_eval = _load_quickstart_agent()
-
-
 async def run_quickstart_agent(input_data: QuickstartInput) -> QuickstartOutput:
     """Run the quickstart evaluation agent in-process (async)."""
     try:
         # Convert to agent's input model
-        agent_input = AgentInput(**input_data.model_dump())
+        agent_input = QuickstartInput(**input_data.model_dump())
 
         # Run the evaluation (async)
         from quickstart_agent.main import run_quickstart_eval_async
+
         agent_output = await run_quickstart_eval_async(agent_input)
 
         # Convert back to API output model
@@ -165,5 +73,14 @@ async def evaluate_quickstart(
     Evaluates 10 parameters across Ethics (3), TIPSC (4), and DFV (3) frameworks.
     Returns GREEN/YELLOW/RED ratings with reasons and actionable advice.
     """
-    result = await run_quickstart_agent(input_data)
+    from fastapi import HTTPException
+
+    from core.config import settings
+
+    try:
+        result = await asyncio.wait_for(
+            run_quickstart_agent(input_data), settings.CREWAI_TIMEOUT_SECONDS
+        )
+    except TimeoutError as exc:
+        raise HTTPException(504, "Quickstart evaluation timed out. Please retry.") from exc
     return success_response(data=result, request=request)

@@ -1,109 +1,19 @@
-# Model Configuration
+# Model configuration
 
-This document describes the LLM models and configuration used across all agents in the AGIS platform.
+The root `.env` supplies `OPENAI_MODEL_NAME`, `LM_STUDIO_URL` (an OpenAI-compatible `/v1` endpoint), and `OPENAI_API_KEY`. TIPSC, DFV, Discovery, and Quickstart read this shared configuration. Never commit keys. Exact CrewAI, tools, and LiteLLM versions are resolved together by the root lockfile; the LiteLLM dependency is explicit rather than CrewAI's optional pinned extra.
 
----
+The template uses NVIDIA NIM:
 
-## TIPSC Agent
-
-| Setting | Value |
-|---------|-------|
-| **Model** | `bonsai-8b` (served via LM Studio) |
-| **Endpoint** | `http://127.0.0.1:1234/v1` |
-| **Temperature** | `0.1` |
-| **Max Tokens** | `4096` |
-| **Framework** | CrewAI with sequential/parallel task execution |
-| **System Prompt** | Embedded in `TIPSC-Agent/src/agents/` |
-| **Tools** | RAG retrieval (pinecone/local), web search (criteria evaluation |
-
----
-
-## DFV Agent (Desirability/Feasibility/Viability)
-
-| Setting | Value |
-|---------|-------|
-| **Model** | `mistral-7b-instruct` (served via LM Studio) |
-| **Endpoint** | `http://127.0.0.1:1234/v1` |
-| **Temperature** | `0.2` |
-| **Max Tokens** | `4096` |
-| **Framework** | CrewAI with 3 parallel sub-agents |
-| **System Prompt** | Embedded in `dfv-agent/src/agents/` |
-| **Tools** | Financial modeling calculator, market data lookup |
-
----
-
-## Discovery Agent (Customer Interview Planner)
-
-| Setting | Value |
-|---------|-------|
-| **Model** | `mistral-7b-instruct` (served via LM Studio) |
-| **Endpoint** | `http://127.0.0.1:1234/v1` |
-| **Temperature** | `0.3` |
-| **Max Tokens** | `4096` |
-| **Framework** | CrewAI with JTBD specialist + interview planner |
-| **System Prompt** | Embedded in `customer-interview-planner-agent/src/agents/` |
-| **Tools** | None (pure reasoning) |
-
----
-
-## LM Studio Setup
-
-1. Download and install LM Studio
-2. Load models:
-   - `bonsai-8b` for TIPSC
-   - `mistral-7b-instruct` for DFV & Discovery
-3. Enable **Local Server** on port `1234`
-4. Verify: `curl http://127.0.0.1:1234/v1/models`
-
----
-
-## Environment Variables
-
-### Backend (.env)
-```
-LM_STUDIO_URL=http://127.0.0.1:1234/v1
-TIPSC_MODEL=bonsai-8b
-DFV_MODEL=mistral-7b-instruct
-DISCOVERY_MODEL=mistral-7b-instruct
+```dotenv
+OPENAI_MODEL_NAME=openai/nvidia/nemotron-3.5-lightning-30b-a3b
+LM_STUDIO_URL=https://integrate.api.nvidia.com/v1
+OPENAI_API_KEY=YOUR_NVIDIA_NIM_API_KEY
 ```
 
-### Workers (.env)
-```
-LM_STUDIO_URL=http://127.0.0.1:1234/v1
-LM_STUDIO_MODEL=bonsai-8b  # TIPSC worker
-# or
-LM_STUDIO_MODEL=mistral-7b-instruct  # Combined worker
-```
+For local LM Studio, set the model identifier to the model actually served and use `http://127.0.0.1:1234/v1`. Model availability is provider-dependent; template names are examples, not guaranteed entitlements. Keep the provider prefix required by CrewAI/LiteLLM. The agents omit reasoning for the specifically configured lightning model; other models use their provider defaults.
 
----
+Search-enabled agents use `TAVILY_API_KEY` and/or `SERPER_API_KEY`. Configure both for the complete pipeline. LLM and search service outages are independent of MongoDB/Kafka readiness. A ready API does not prove provider credentials are valid.
 
-## Model Selection Rationale
+`AGENT_TIMEOUT_SECONDS` limits the combined worker's agent subprocess. TIPSC uses stage-level validation/regulatory timeouts where configured and the timeout supervisor for abandoned pipeline work. Review provider limits and total pipeline duration before changing these values. A subprocess timeout stops the local process; it cannot guarantee a remote provider cancels billing for a request already accepted.
 
-| Agent | Model | Why |
-|-------|-------|-----|
-| TIPSC | Bonsai-8B | Fine-tuned for structured evaluation tasks, follows rubric precisely |
-| DFV | Mistral-7B | Strong reasoning for business analysis, financial modeling |
-| Discovery | Mistral-7B | Creative JTBD generation, interview question design |
-
----
-
-## Token Limits & Timeouts
-
-| Agent | Max Tokens | Timeout (seconds) |
-|-------|------------|-------------------|
-| TIPSC | 4096 | 900 (15 min) |
-| DFV | 4096 | 1200 (20 min) |
-| Discovery | 4096 | 600 (10 min) |
-
-Workers enforce timeouts and will fail the flow if exceeded (error code: `CREWAI_TIMEOUT`).
-
----
-
-## Prompt Versioning
-
-All system prompts are versioned in the agent source code:
-- `TIPSC-Agent/src/agents/v1_prompts.py`
-- `dfv-agent/src/agents/v1_prompts.py`
-- `customer-interview-planner-agent/src/agents/v1_prompts.py`
-
-When prompts change, bump the `schema_version` in Kafka payloads.
+Automated integration tests use controlled agent outputs and never call these providers. A live provider check must use non-sensitive sample input and be run separately from ordinary CI.

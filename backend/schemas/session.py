@@ -36,13 +36,9 @@ class TIPSCRefinedIdeaSchema(BaseModel):
 
 
 class TIPSCOutputSchema(BaseModel):
-    tips_rag_scores: TIPSCRAGScoresSchema = Field(
-        default_factory=TIPSCRAGScoresSchema
-    )
+    tips_rag_scores: TIPSCRAGScoresSchema = Field(default_factory=TIPSCRAGScoresSchema)
 
-    refined_idea: TIPSCRefinedIdeaSchema = Field(
-        default_factory=TIPSCRefinedIdeaSchema
-    )
+    refined_idea: TIPSCRefinedIdeaSchema = Field(default_factory=TIPSCRefinedIdeaSchema)
 
     solution_alignment: str = ""
     overall_readiness: str = ""
@@ -51,13 +47,9 @@ class TIPSCOutputSchema(BaseModel):
 
     needs_followup: bool = False
 
-    missing_criteria: list[str] = Field(
-        default_factory=list
-    )
+    missing_criteria: list[str] = Field(default_factory=list)
 
-    criteria_state: dict[str, Any] = Field(
-        default_factory=dict
-    )
+    criteria_state: dict[str, Any] = Field(default_factory=dict)
 
     compliance_flag: bool = False
 
@@ -176,7 +168,6 @@ class SessionCreateRequest(BaseModel):
 
     team_id: str | None = None
 
-
     @field_validator(
         "problem_statement",
         "customer_segment",
@@ -189,7 +180,6 @@ class SessionCreateRequest(BaseModel):
     @classmethod
     def strip_strings(cls, value: Any) -> str:
         return str(value).strip()
-
 
     @field_validator(
         "assumptions",
@@ -208,11 +198,7 @@ class SessionCreateRequest(BaseModel):
             return [value.strip()]
 
         if isinstance(value, list):
-            return [
-                str(item).strip()
-                for item in value
-                if str(item).strip()
-            ]
+            return [str(item).strip() for item in value if str(item).strip()]
 
         return []
 
@@ -238,7 +224,6 @@ class SessionResponse(BaseModel):
 
     version: int
 
-
     # ── Pipeline intermediate state ───────────────────────────────────────
 
     preeval: dict[str, Any] | None = None
@@ -250,7 +235,6 @@ class SessionResponse(BaseModel):
     ethics: dict[str, Any] | None = None
 
     compliance_context: str | None = None
-
 
     # ── Outputs ───────────────────────────────────────────────────────────
 
@@ -264,19 +248,13 @@ class SessionResponse(BaseModel):
 
     discovery_inputs: dict[str, Any] | None = None
 
-
     # ── Follow-up state ───────────────────────────────────────────────────
 
     pending_question: str | None = None
 
     followup_turn: int = 0
 
-    followup_history: list[
-        FollowupHistoryItemSchema
-    ] = Field(
-        default_factory=list
-    )
-
+    followup_history: list[FollowupHistoryItemSchema] = Field(default_factory=list)
 
     # ── Execution metadata ────────────────────────────────────────────────
 
@@ -286,7 +264,6 @@ class SessionResponse(BaseModel):
 
     rejection_reason: str | None = None
 
-
     # ── Timestamps ────────────────────────────────────────────────────────
 
     created_at: datetime
@@ -295,7 +272,6 @@ class SessionResponse(BaseModel):
 
     archived_at: datetime | None = None
 
-
     @classmethod
     def from_document(
         cls,
@@ -303,78 +279,45 @@ class SessionResponse(BaseModel):
     ) -> SessionResponse:
         return cls(
             session_id=str(session.id),
-
             student_id=session.student_id,
-
             team_id=session.team_id,
-
             workspace_id=session.workspace_id,
-
             problem_statement=session.problem_statement,
-
             idea=session.idea,
-
             preeval_input=session.preeval_input,
-
-            status=(
-                session.status.value
-                if hasattr(session.status, "value")
-                else session.status
-            ),
-
+            status=(session.status.value if hasattr(session.status, "value") else session.status),
             version=session.version,
-
             preeval=session.preeval,
-
             validation=session.validation,
-
             regulatory=session.regulatory,
-
             ethics=session.ethics,
-
             compliance_context=session.compliance_context,
-
             tipsc=(
                 TIPSCOutputSchema.model_validate(session.tipsc.model_dump())
                 if session.tipsc
                 else None
             ),
-
-            dfv=(
-                DFVOutputSchema.model_validate(session.dfv.model_dump())
-                if session.dfv
-                else None
-            ),
-
+            dfv=(DFVOutputSchema.model_validate(session.dfv.model_dump()) if session.dfv else None),
             discovery=(
                 DiscoveryOutputSchema.model_validate(session.discovery.model_dump())
                 if session.discovery
                 else None
             ),
-
             dfv_inputs=session.dfv_inputs.model_dump() if session.dfv_inputs else None,
-
-            discovery_inputs=session.discovery_inputs.model_dump() if session.discovery_inputs else None,
-
+            discovery_inputs=session.discovery_inputs.model_dump()
+            if session.discovery_inputs
+            else None,
             pending_question=session.pending_question,
-
             followup_turn=session.followup_turn,
-
             followup_history=[
-            FollowupHistoryItemSchema.model_validate(item.model_dump())
-            for item in (session.followup_history or [])
+                FollowupHistoryItemSchema.model_validate(item.model_dump())
+                for item in (session.followup_history or [])
             ],
-
             correlation_id=session.correlation_id,
-
             error=session.error,
-
             rejection_reason=session.rejection_reason,
-
             created_at=session.created_at,
-
             updated_at=session.updated_at,
-
             archived_at=session.archived_at,
         )
 
@@ -398,10 +341,6 @@ class SessionListResponse(SessionResponse):
         session: Any,
     ) -> SessionListResponse:
 
-        response = SessionResponse.from_document(
-            session
-        )
+        response = SessionResponse.from_document(session)
 
-        return cls(
-            **response.model_dump()
-        )
+        return cls(**response.model_dump())

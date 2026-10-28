@@ -16,4 +16,5 @@ async def run():
     students = await User.find(User.role == "student").to_list()
     print("STUDENTS:", [s.model_dump() for s in students])
 
+
 asyncio.run(run())

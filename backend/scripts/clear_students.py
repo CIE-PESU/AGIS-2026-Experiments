@@ -16,4 +16,5 @@ async def run():
         await u.save()
     print("Cleared all student team associations")
 
+
 asyncio.run(run())

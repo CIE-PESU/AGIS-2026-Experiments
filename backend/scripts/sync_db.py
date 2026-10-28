@@ -29,17 +29,20 @@ async def sync():
 
     print(f"Connecting to MongoDB at {settings.MONGODB_URI}...")
     client = AsyncIOMotorClient(settings.MONGODB_URI)
-    print(f"Found {len(data.get('users', []))} users and {len(data.get('teams', []))} teams in seed_data.json. Syncing...")
-    
+    print(
+        f"Found {len(data.get('users', []))} users and {len(data.get('teams', []))} teams in seed_data.json. Syncing..."
+    )
+
     from models.team import Team
+
     await init_beanie(database=client[settings.MONGODB_DB_NAME], document_models=[User, Team])
-    
+
     # Sync Users
     for item in data.get("users", []):
         srn = item.get("srn")
         if not srn:
             continue
-            
+
         user = await User.find_one(User.srn == srn)
         if not user:
             user = User(
@@ -47,8 +50,7 @@ async def sync():
                 name=item.get("name", srn),
                 email=item.get("email"),
                 role=item.get("role", "student"),
-                encrypted_password=item.get("encrypted_password"),
-                team_id=item.get("team_id")
+                team_id=item.get("team_id"),
             )
             await user.insert()
             print(f"  [Inserted User] {srn}")
@@ -57,23 +59,22 @@ async def sync():
             user.email = item.get("email", user.email)
             user.role = item.get("role", user.role)
             user.team_id = item.get("team_id")
-            if "encrypted_password" in item:
-                user.encrypted_password = item["encrypted_password"]
             await user.save()
             print(f"  [Updated User]  {srn}")
 
     # Sync Teams (overwrite by ID or name)
     from bson import ObjectId
+
     for item in data.get("teams", []):
         team_id = item.get("id")
         team = None
         if team_id:
             team = await Team.get(team_id)
-            
+
         if not team:
             # If not found by ID, try by name, or insert new
             team = await Team.find_one(Team.team_name == item.get("team_name"))
-            
+
         if not team:
             # Recreate with the exact same ID if possible
             new_id = ObjectId(team_id) if team_id else None
@@ -81,7 +82,7 @@ async def sync():
                 id=new_id,
                 team_name=item.get("team_name"),
                 mentor_id=item.get("mentor_id"),
-                members=item.get("members", [])
+                members=item.get("members", []),
             )
             await team.insert()
             print(f"  [Inserted Team] {team.team_name}")
@@ -91,8 +92,9 @@ async def sync():
             team.members = item.get("members", [])
             await team.save()
             print(f"  [Updated Team]  {team.team_name}")
-            
+
     print("Sync complete.")
+
 
 if __name__ == "__main__":
     asyncio.run(sync())

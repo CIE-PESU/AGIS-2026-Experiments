@@ -164,12 +164,14 @@ export interface CriteriaState {
 
 export interface TipsRagScores {
   T: "GREEN" | "YELLOW" | "RED";
-  I: "GREEN" | "YELLOW" | "RED";
+  I?: "GREEN" | "YELLOW" | "RED";
+  IMPORTANT?: "GREEN" | "YELLOW" | "RED";
   P: "GREEN" | "YELLOW" | "RED";
   S: "GREEN" | "YELLOW" | "RED";
 
   T_reason: string;
-  I_reason: string;
+  I_reason?: string;
+  IMPORTANT_reason?: string;
   P_reason: string;
   S_reason: string;
 }

@@ -1,28 +1,42 @@
+"""Generate the API contract from the active app, or check that it is current."""
+
+import argparse
 import json
-import os
 import sys
+from pathlib import Path
 
-# Add backend directory to sys.path so app can be imported properly
-current_dir = os.path.dirname(os.path.abspath(__file__))
-backend_dir = os.path.abspath(os.path.join(current_dir, ".."))
-if backend_dir not in sys.path:
-    sys.path.insert(0, backend_dir)
-
-# Import after path setup
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "backend"))
 from main import app  # noqa: E402
 
 
 def main():
-    openapi_schema = app.openapi()
-    
-    # Workspace root is two levels up from scripts directory
-    workspace_root = os.path.abspath(os.path.join(current_dir, "..", ".."))
-    output_path = os.path.join(workspace_root, "docs", "api-spec-generated.json")
-    
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(openapi_schema, f, indent=2)
-    print(f"Exported OpenAPI schema to {output_path}")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--check", action="store_true")
+    parser.add_argument("--output", type=Path, default=ROOT / "docs/api-spec-generated.json")
+    args = parser.parse_args()
+    schema = app.openapi()
+    from models.session import Session
+
+    session_schema = (
+        json.dumps(Session.model_json_schema(mode="serialization"), indent=2, sort_keys=True) + "\n"
+    )
+    schema_path = ROOT / "docs/schema.json"
+    if args.check:
+        if not schema_path.exists() or schema_path.read_text() != session_schema:
+            raise SystemExit("Session schema is stale; regenerate OpenAPI")
+    else:
+        schema_path.write_text(session_schema)
+    output = json.dumps(schema, indent=2, sort_keys=True) + "\n"
+    if args.check:
+        if not args.output.exists() or args.output.read_text() != output:
+            raise SystemExit(
+                "OpenAPI is stale; run uv run python backend/scripts/export_openapi.py"
+            )
+    else:
+        args.output.write_text(output)
+    print("OpenAPI contract is current")
+
 
 if __name__ == "__main__":
     main()

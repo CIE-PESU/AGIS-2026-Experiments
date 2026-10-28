@@ -61,10 +61,15 @@ class WorkspaceService:
         clean_name = name.strip()
 
         # Enforce 1 Active Workspace per mentor: Auto-revoke any pre-existing active workspaces for mentor_id or name
-        existing_active = await workspace_repo.find_active_workspaces(mentor_id=mentor_id, name=clean_name)
+        existing_active = await workspace_repo.find_active_workspaces(
+            mentor_id=mentor_id, name=clean_name
+        )
         for old_ws in existing_active:
             await workspace_repo.revoke(old_ws.workspace_id)
-            logger.info("Auto-revoked prior active workspace for mentor re-issuance: workspace_id=%s", old_ws.workspace_id)
+            logger.info(
+                "Auto-revoked prior active workspace for mentor re-issuance: workspace_id=%s",
+                old_ws.workspace_id,
+            )
 
         raw_token = secrets.token_urlsafe(32)
         token_digest = hash_token(raw_token)
@@ -89,7 +94,12 @@ class WorkspaceService:
             created_at=workspace.created_at.isoformat(),
         )
 
-        logger.info("Created magic link workspace: workspace_id=%s admin_id=%s mentor_id=%s", workspace.workspace_id, admin_id, mentor_id)
+        logger.info(
+            "Created magic link workspace: workspace_id=%s admin_id=%s mentor_id=%s",
+            workspace.workspace_id,
+            admin_id,
+            mentor_id,
+        )
         return raw_token, response
 
     async def redeem_magic_link(self, raw_token: str) -> WorkspaceAccessResponse:
@@ -177,6 +187,7 @@ class WorkspaceService:
 
         # 3. Audit log revocation
         from services.audit_service import audit_service
+
         await audit_service.log_event(
             session_id=None,
             event="WORKSPACE_REVOKED",
@@ -212,9 +223,14 @@ class WorkspaceService:
             # Delete comments on sessions belonging to this workspace
             sessions = await session_repo.find_by_workspace_id(workspace_id)
             session_ids = [str(s.id) for s in sessions]
+            from services.session_task_registry import cancel_session_task
+
+            for session_id in session_ids:
+                cancel_session_task(session_id)
 
             if session_ids:
                 from models.comment import MentorComment
+
                 await MentorComment.find({"session_id": {"$in": session_ids}}).delete()
 
             # Delete refresh tokens
@@ -229,7 +245,11 @@ class WorkspaceService:
                 deleted_sessions_count,
             )
         except Exception as exc:
-            logger.exception("Error during background workspace data purge: workspace_id=%s | %s", workspace_id, str(exc))
+            logger.exception(
+                "Error during background workspace data purge: workspace_id=%s | %s",
+                workspace_id,
+                str(exc),
+            )
 
 
 # Global singleton

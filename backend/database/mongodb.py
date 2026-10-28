@@ -58,12 +58,13 @@ async def disconnect_db() -> None:
         _client = None
         logger.info("MongoDB disconnected.")
 
+
 async def ping_db() -> bool:
     """Ping the database to verify the connection is active."""
     if _client is None:
         return False
     try:
-        await _client.admin.command('ping')
+        await _client.admin.command("ping")
         return True
     except Exception as e:
         logger.warning(f"MongoDB ping failed: {e}")

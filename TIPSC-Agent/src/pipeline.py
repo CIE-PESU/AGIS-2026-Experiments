@@ -2,7 +2,7 @@ import os,re
 import json
 from crewai import Agent, Crew, LLM, Process, Task
 from crewai_tools import TavilySearchTool
-from models import PreEvalOutput, TIPSCOutput, FollowUpOutput, EthicsOutput, ValidationOutput, RegulatoryOutput
+from tipsc_models import PreEvalOutput, TIPSCOutput, FollowUpOutput, EthicsOutput, ValidationOutput, RegulatoryOutput
 
 
 
@@ -95,7 +95,7 @@ def clean_json(text: str) -> str:
                 return "".join(out)
         elif start is not None:
             out.append(ch)
- 
+
     raise ValueError(
         f"clean_json: no complete JSON object found.\nFirst 200 chars: {text[:200]!r}"
     )
@@ -113,9 +113,9 @@ JSON_SYSTEM_PREFIX = (
 def call_llm_for_json(llm: LLM, messages: list) -> str:
 
     non_system = [m for m in messages if m.get("role") != "system"]
-    enforced = [{"role": "system", "content": JSON_SYSTEM_PREFIX}] + non_system 
+    enforced = [{"role": "system", "content": JSON_SYSTEM_PREFIX}] + non_system
     return llm.call(enforced).strip()
- 
+
 
 def run_preeval(llm: LLM, skill_text: str, preeval_input: dict,) -> PreEvalOutput:
 
@@ -160,7 +160,7 @@ def run_preeval(llm: LLM, skill_text: str, preeval_input: dict,) -> PreEvalOutpu
                 {founder_context}
 
                 Convert the founder's responses into the following JSON schema.
-                
+
                 {{
                 "problem_statement": "one sentence describing the core problem",
                 "customer_segment": "who experiences the problem",
@@ -173,7 +173,7 @@ def run_preeval(llm: LLM, skill_text: str, preeval_input: dict,) -> PreEvalOutpu
 
                 Normalize grammar and wording where appropriate without changing the founder's intended meaning.
 
-                Do not invent, infer, or assume any information that is not explicitly provided.                
+                Do not invent, infer, or assume any information that is not explicitly provided.
                 Output ONLY valid JSON.
             """
         }
@@ -218,7 +218,7 @@ def normalize_validation_dict(data: dict, preeval: PreEvalOutput) -> dict:
     """
     if not isinstance(data, dict):
         return data
- 
+
     # Case: model wrapped the whole payload under one top-level key
     # e.g. {"competitor_landscape": {"geography": ..., "checked_assumptions": [...]}}
     known_keys = {
@@ -229,7 +229,7 @@ def normalize_validation_dict(data: dict, preeval: PreEvalOutput) -> dict:
         inner = next(iter(data.values()))
         if isinstance(inner, dict):
             data = inner
- 
+
     # competitor_landscape returned as dict instead of string -> stringify it
     cl = data.get("competitor_landscape")
     if isinstance(cl, dict):
@@ -237,7 +237,7 @@ def normalize_validation_dict(data: dict, preeval: PreEvalOutput) -> dict:
         data["competitor_landscape"] = "; ".join(parts)
     elif isinstance(cl, list):
         data["competitor_landscape"] = "; ".join(str(x) for x in cl)
- 
+
     # market_notes returned as dict/list -> stringify
     mn = data.get("market_notes")
     if isinstance(mn, (dict, list)):
@@ -283,9 +283,9 @@ def normalize_validation_dict(data: dict, preeval: PreEvalOutput) -> dict:
     data.setdefault("competitor_landscape", "No competitor data found.")
     data.setdefault("market_notes", "No additional market notes.")
     data.setdefault("validation_summary", "WEAK")
- 
+
     return data
- 
+
 
 def run_validation(
     llm: LLM,
@@ -302,7 +302,7 @@ def run_validation(
         max_iter=8,
         max_execution_time=int(os.environ.get("VALIDATION_TIMEOUT_SECS", 600)),
     )
- 
+
     research_task = Task(
         description=task_cfg["validation_task"]["description"].format(
             preeval_json=preeval.model_dump_json(indent=2),
@@ -315,14 +315,14 @@ def run_validation(
         ),
         agent=research_agent,
     )
- 
+
     crew = Crew(
         agents=[research_agent],
         tasks=[research_task],
         process=Process.sequential,
         verbose=False,
     )
- 
+
     try:
         result = crew.kickoff()
         research_notes = result.raw
@@ -336,7 +336,7 @@ def run_validation(
             f"Assumptions to cover:\n"
             + "\n".join(f"- {a}" for a in preeval.assumptions)
         )
- 
+
     # Step 2: format-only pass (no tools, no ReAct loop). A separate,
     # single-shot call whose only job is to convert the research notes
     # above into the exact flat schema.
@@ -365,13 +365,13 @@ def run_validation(
         "never objects or arrays.\n\n"
         f"Research notes:\n{research_notes}"
     )
- 
+
     def _attempt_format(prompt_text: str) -> ValidationOutput:
         raw = call_llm_for_json(llm, [{"role": "user", "content": prompt_text}])
         cleaned = clean_json(raw)
         data = normalize_validation_dict(json.loads(cleaned), preeval)
         return ValidationOutput.model_validate(data)
- 
+
     try:
         return _attempt_format(format_prompt)
     except Exception as e:
@@ -441,7 +441,7 @@ def run_regulatory(
     agents_cfg: dict,
     task_cfg: dict,
 ) -> "RegulatoryOutput":
- 
+
     agent = Agent(
         role=agents_cfg["regulatory_agent"]["role"],
         goal=agents_cfg["regulatory_agent"]["goal"],
@@ -451,7 +451,7 @@ def run_regulatory(
         max_iter=6,
         max_execution_time=int(os.environ.get("REGULATORY_TIMEOUT_SECS", 300)),
     )
- 
+
     task = Task(
         description=task_cfg["regulatory_task"]["description"].format(
             preeval_json=preeval.model_dump_json(indent=2),
@@ -459,21 +459,21 @@ def run_regulatory(
         expected_output=task_cfg["regulatory_task"]["expected_output"],
         agent=agent,
     )
- 
+
     crew = Crew(
         agents=[agent],
         tasks=[task],
         process=Process.sequential,
         verbose=False,
     )
- 
+
     try:
         result = crew.kickoff()
         research_notes = result.raw
     except TimeoutError:
         print("  Regulatory research timed out. Returning minimal regulatory output.")
         research_notes = None
- 
+
     if research_notes is None:
         return RegulatoryOutput(
             target_geography=preeval.target_geography,
@@ -483,7 +483,7 @@ def run_regulatory(
             requires_specialist_review=True,
             key_compliance_risks=["Research timed out — specialist review required."],
         )
- 
+
     schema_hint = json.dumps(RegulatoryOutput.model_json_schema(), indent=2)
     format_prompt = (
         "Convert the regulatory research notes below into ONE flat JSON object "
@@ -504,13 +504,13 @@ def run_regulatory(
         "regulatory_summary and key_compliance_risks MUST be a plain string and plain list respectively.\n\n"
         f"Research notes:\n{research_notes}"
     )
- 
+
     def _attempt_format(prompt_text: str) -> "RegulatoryOutput":
         raw = call_llm_for_json(llm, [{"role": "user", "content": prompt_text}])
         cleaned = clean_json(raw)
         data = normalize_regulatory_dict(json.loads(cleaned), preeval)
         return RegulatoryOutput.model_validate(data)
- 
+
     try:
         return _attempt_format(format_prompt)
     except Exception as e:
@@ -541,11 +541,11 @@ def run_regulatory(
                 requires_specialist_review=True,
                 key_compliance_risks=["Formatting error — specialist review required."],
             )
- 
+
 
  # ── Phase 4: Ethics pre-screen ────────────────────────────────────────────────
- 
- 
+
+
 def run_ethics(
     llm: LLM,
     preeval: PreEvalOutput,
@@ -572,7 +572,7 @@ def run_ethics(
         expected_output=task_cfg["ethics_task"]["expected_output"],
         agent=agent,
     )
- 
+
     crew = Crew(
         agents=[agent],
         tasks=[task],
@@ -589,7 +589,7 @@ def run_ethics(
         print("Raw output:")
         print(result.raw)
         raise
- 
+
 
 def run_tipsc(
     llm: LLM,
@@ -689,14 +689,14 @@ def build_compliance_context(ethics: EthicsOutput, regulatory: "RegulatoryOutput
     """
     if not ethics.compliance_flag:
         return ""
- 
+
     lines = [
         "COMPLIANCE NOTICE: This idea operates in a regulated space.",
         f"Specialist review required: {regulatory.requires_specialist_review}",
         f"Ethics legal risk verdict: {ethics.legal_risk} — {ethics.legal_reason}",
         "",
     ]
- 
+
     if regulatory.applicable_regulations:
         lines.append("Applicable regulations:")
         for r in regulatory.applicable_regulations:
@@ -705,15 +705,15 @@ def build_compliance_context(ethics: EthicsOutput, regulatory: "RegulatoryOutput
                 f"[{r.compliance_burden} burden]: {r.brief_requirement}"
             )
         lines.append("")
- 
+
     if regulatory.key_compliance_risks:
         lines.append("Key compliance risks:")
         for risk in regulatory.key_compliance_risks:
             lines.append(f"  - {risk}")
         lines.append("")
- 
+
     lines.append(f"Regulatory summary: {regulatory.regulatory_summary}")
- 
+
     return "\n".join(lines)
 
 

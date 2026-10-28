@@ -13,4 +13,5 @@ async def main():
     teams = await Team.find_all().to_list()
     print("Teams:", teams)
 
+
 asyncio.run(main())

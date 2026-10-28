@@ -9,6 +9,8 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 
+from bson import ObjectId
+
 from models.workspace import Workspace, WorkspaceStatus, WorkspaceType
 from repositories.base import BaseRepository
 
@@ -20,7 +22,6 @@ def utc_now() -> datetime:
 
 
 class WorkspaceRepository(BaseRepository[Workspace]):
-
     def __init__(self) -> None:
         super().__init__(Workspace)
 
@@ -68,6 +69,8 @@ class WorkspaceRepository(BaseRepository[Workspace]):
 
     async def find_by_id(self, workspace_id: str) -> Workspace | None:
         """Lookup workspace by ObjectId string."""
+        if not ObjectId.is_valid(workspace_id):
+            return None
         return await Workspace.get(workspace_id)
 
     async def find_by_token_hash(self, token_hash: str) -> Workspace | None:

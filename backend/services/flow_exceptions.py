@@ -36,7 +36,7 @@ class FlowServiceError(AppException):
 
     error_code: str = "FLOW_SERVICE_ERROR"
     http_status: int = 500
-    
+
     def __init__(self, message: str):
         super().__init__(message)
 
@@ -58,8 +58,7 @@ class FlowAlreadyRunningError(FlowServiceError):
         self.session_id = session_id
         self.current_status = current_status
         super().__init__(
-            f"Session '{session_id}' already has a flow running "
-            f"(status: {current_status})"
+            f"Session '{session_id}' already has a flow running (status: {current_status})"
         )
 
 
@@ -70,9 +69,7 @@ class InvalidStateTransitionError(FlowServiceError):
     def __init__(self, current_status, target_status):
         self.current_status = current_status
         self.target_status = target_status
-        super().__init__(
-            f"Cannot transition from '{current_status}' to '{target_status}'"
-        )
+        super().__init__(f"Cannot transition from '{current_status}' to '{target_status}'")
 
 
 class DFVNotUnlockedError(FlowServiceError):
@@ -81,9 +78,7 @@ class DFVNotUnlockedError(FlowServiceError):
 
     def __init__(self, session_id: str):
         self.session_id = session_id
-        super().__init__(
-            f"Session '{session_id}' has not passed TIPSC's ready_for_dfv gate"
-        )
+        super().__init__(f"Session '{session_id}' has not passed TIPSC's ready_for_dfv gate")
 
 
 class KafkaUnavailableError(FlowServiceError):
@@ -102,6 +97,5 @@ class SessionUpdateConflictError(FlowServiceError):
     def __init__(self, session_id: str):
         self.session_id = session_id
         super().__init__(
-            f"Session '{session_id}' was modified concurrently "
-            "(optimistic lock version mismatch)"
+            f"Session '{session_id}' was modified concurrently (optimistic lock version mismatch)"
         )

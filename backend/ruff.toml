@@ -1,5 +1,5 @@
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 
 [lint]
 select = [
@@ -12,6 +12,7 @@ select = [
 ignore = [
     "E501",  # line length handled by ruff format, not the linter
     "B008",  # Depends(...) in argument defaults is the standard FastAPI idiom
+    "UP046", # Pydantic/Beanie generics retain the supported Generic[T] declaration
     "UP042", # SessionStatus(str, Enum) is intentional — kept for Pydantic/JSON
              # serialization compatibility; 233 state-machine tests already
              # depend on this exact form.

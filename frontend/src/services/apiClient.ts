@@ -57,7 +57,7 @@ async function parseError(response: Response): Promise<ApiRequestError> {
 
 let refreshInFlight: Promise<boolean> | null = null;
 
-function refreshAccessToken(): Promise<boolean> {
+export function refreshAccessToken(): Promise<boolean> {
   if (!refreshInFlight) {
     refreshInFlight = performRefresh().finally(() => { refreshInFlight = null; });
   }
@@ -89,9 +89,11 @@ type RequestOptions = {
   body?: unknown;
   auth?: boolean;
   idempotencyKey?: string;
+  signal?: AbortSignal;
+  raw?: boolean;
 };
 
-export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+export async function apiFetch(path: string, options: RequestOptions = {}): Promise<Response> {
   const { method = "GET", body, auth = true, idempotencyKey } = options;
 
   if (auth && !getAccessToken()) {
@@ -121,6 +123,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     fetch(`${API_BASE_URL}${path}`, {
       method,
       headers,
+      signal: options.signal,
       body: body !== undefined ? JSON.stringify(body) : undefined
     });
 
@@ -135,10 +138,13 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     if (response.status === 401) clearTokens();
   }
 
-  if (response.status === 204) return undefined as T;
-
   if (!response.ok) throw await parseError(response);
+  return response;
+}
 
-  const payload = (await response.json()) as ApiSuccess<T>;
-  return payload.data;
+export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const response = await apiFetch(path, options);
+  if (response.status === 204) return undefined as T;
+  const payload = await response.json();
+  return options.raw ? payload as T : payload.data as T;
 }

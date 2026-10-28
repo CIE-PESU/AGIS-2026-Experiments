@@ -1,3 +1,4 @@
+import { apiFetch } from "@/services/apiClient";
 import { useState, useMemo, useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import { Plus, Trash2, Edit, Users, UserCheck, BookOpen, Layers, Settings, ShieldAlert, LogOut, Copy, Link2, RefreshCw, Ban, CheckCircle2 } from "lucide-react";
@@ -26,7 +27,7 @@ import {
 
 export function AdminDashboard() {
   const { user, logout } = useAuth();
-  
+
   const [mentors, setMentors] = useState<Mentor[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -57,14 +58,15 @@ export function AdminDashboard() {
 
   // Load and refresh data
   const refreshData = async () => {
-    setMentors(await getMentors());
-    setTeams(await getTeams());
-    setStudents(await getStudents());
-    setWorkspaces(await getWorkspaces());
+    const [mentors, teams, students, workspaces] = await Promise.all([getMentors(), getTeams(), getStudents(), getWorkspaces()]);
+    setMentors(mentors);
+    setTeams(teams);
+    setStudents(students);
+    setWorkspaces(workspaces);
   };
 
   useEffect(() => {
-    refreshData();
+    refreshData().catch(error => toast.error(error.message || "Failed to load dashboard"));
   }, []);
 
   const saveTokenCache = (wsId: string, rawToken: string) => {
@@ -209,20 +211,16 @@ export function AdminDashboard() {
     }
 
     try {
-      const url = isAddTeamMode ? "/api/v1/admin/teams" : `/api/v1/admin/teams/${editingTeam?.id}`;
+      const url = isAddTeamMode ? "/admin/teams" : `/admin/teams/${editingTeam?.id}`;
       const method = isAddTeamMode ? "POST" : "PUT";
-      
-      const res = await fetch(url, {
+
+      const res = await apiFetch(url, {
         method,
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("agis_access_token")}`
-        },
-        body: JSON.stringify({
+        body: {
           name: dialogTeamName,
           mentor_id: dialogMentorId === "unassigned" ? null : dialogMentorId,
           members: dialogTeamMembers.map(m => m.srn)
-        })
+        }
       });
 
       if (!res.ok) {
@@ -242,12 +240,11 @@ export function AdminDashboard() {
   const handleDeleteTeam = async (teamId: string) => {
     if (confirm("Are you sure you want to delete this team? Members will be unassigned.")) {
       try {
-        const res = await fetch(`/api/v1/admin/teams/${teamId}`, {
+        const res = await apiFetch(`/admin/teams/${teamId}`, {
           method: "DELETE",
-          headers: { "Authorization": `Bearer ${localStorage.getItem("agis_access_token")}` }
         });
         if (!res.ok) throw new Error("Failed to delete team");
-        
+
         await refreshData();
         toast.success("Team deleted successfully");
       } catch (err: any) {
@@ -311,9 +308,9 @@ export function AdminDashboard() {
     }
 
     try {
-      const url = isAddMentorMode ? "/api/v1/admin/mentors" : `/api/v1/admin/mentors/${editingMentor?.id}`;
+      const url = isAddMentorMode ? "/admin/mentors" : `/admin/mentors/${editingMentor?.id}`;
       const method = isAddMentorMode ? "POST" : "PUT";
-      
+
       const bodyPayload: any = {
         name: dialogMentorName.trim()
       };
@@ -325,13 +322,9 @@ export function AdminDashboard() {
         }
       }
 
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("agis_access_token")}`
-        },
-        body: JSON.stringify(bodyPayload)
+        body: bodyPayload
       });
 
       if (!res.ok) {
@@ -370,12 +363,11 @@ export function AdminDashboard() {
           }
         }
 
-        const res = await fetch(`/api/v1/admin/mentors/${mentorId}`, {
+        const res = await apiFetch(`/admin/mentors/${mentorId}`, {
           method: "DELETE",
-          headers: { "Authorization": `Bearer ${localStorage.getItem("agis_access_token")}` }
         });
         if (!res.ok) throw new Error("Failed to delete advisor");
-        
+
         await refreshData();
         toast.success("Advisor deleted successfully");
       } catch (err: any) {
@@ -791,7 +783,7 @@ export function AdminDashboard() {
               {/* Field: Teammates */}
               <div className="border rounded-lg p-4 bg-slate-50/50">
                 <h3 className="font-bold text-sm text-primary uppercase tracking-wider mb-2">Team Members</h3>
-                
+
                 {/* Current Members */}
                 <div className="space-y-2 max-h-36 overflow-y-auto mb-3">
                   {dialogTeamMembers.length === 0 ? (

@@ -68,5 +68,7 @@ def validate_object_id(value: str, field_name: str = "id") -> str:
         ValueError: If value is not a valid ObjectId.
     """
     if not is_valid_object_id(value):
-        raise ValueError(f"{field_name} must be a valid MongoDB ObjectId (24-character hex string).")
+        raise ValueError(
+            f"{field_name} must be a valid MongoDB ObjectId (24-character hex string)."
+        )
     return value

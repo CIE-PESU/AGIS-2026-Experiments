@@ -1,7 +1,8 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
-import { ArrowRight, CheckCircle2, Loader2, XCircle, Sparkles, Brain, Scale, Heart, Wrench, DollarSign, Shield, TrendingUp, Target } from "lucide-react";
+import { ArrowRight, CheckCircle2, Loader2, XCircle, Sparkles, Brain, Scale, Heart, Wrench, DollarSign, Shield, TrendingUp, Target, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,6 +13,7 @@ import { toast } from "sonner";
 import type { QuickstartInput, QuickstartOutput, QuickstartParameterRating } from "@/types/api";
 import type { ReactNode } from "react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { clearQuickstartState, loadQuickstartState, saveQuickstartState } from "@/utils/quickstartState";
 
 const QUESTIONS: { key: keyof QuickstartInput; label: string; prompt: string; type: "input" | "textarea" }[] = [
   { key: "problem", label: "Core Problem", prompt: "What is the core problem you're solving? Be specific.", type: "textarea" },
@@ -57,14 +59,39 @@ const GROUP_COLORS: Record<GroupKey, string> = {
 };
 
 export function QuickstartFlow() {
-  const { session, sessionId, addEvent, archiveSession } = useAuth();
-  const [local, setLocal] = useState<Record<string, string>>({});
+  const { user, session, sessionId, addEvent, archiveSession } = useAuth();
+  const [initialState] = useState(() => loadQuickstartState(user?.userId));
+  const [loadedUserId, setLoadedUserId] = useState(user?.userId ?? null);
+  const [local, setLocal] = useState<Record<string, string>>(initialState.answers);
   const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState<QuickstartOutput | null>(null);
+  const [result, setResult] = useState<QuickstartOutput | null>(initialState.result);
   const [error, setError] = useState<string | null>(null);
-  const [activeGroup, setActiveGroup] = useState<GroupKey>("ethics");
+  const [activeGroup, setActiveGroup] = useState<GroupKey>(initialState.activeGroup);
+  const skipNextSave = useRef(false);
+
+  useEffect(() => {
+    if (!user?.userId || user.userId === loadedUserId) return;
+    const saved = loadQuickstartState(user.userId);
+    setLocal(saved.answers);
+    setResult(saved.result);
+    setActiveGroup(saved.activeGroup);
+    setLoadedUserId(user.userId);
+  }, [user?.userId, loadedUserId]);
+
+  useEffect(() => {
+    if (user?.userId && user.userId === loadedUserId) {
+      if (skipNextSave.current) {
+        skipNextSave.current = false;
+        return;
+      }
+      saveQuickstartState(user.userId, { answers: local, result, activeGroup });
+    }
+  }, [user?.userId, loadedUserId, local, result, activeGroup]);
 
   const filled = QUESTIONS.every((q) => local[q.key]?.trim());
+
+  if (!user) return <Navigate to="/login?redirect=/quickstart" replace />;
+  if (user.role === "mentor") return <Navigate to="/mentor" replace />;
 
   if (session.quickstart === "locked") {
     return <Navigate to="/workspace" replace />;
@@ -143,9 +170,20 @@ export function QuickstartFlow() {
     }));
   }
 
+  function deleteQuickstartSession() {
+    if (!user?.userId || submitting) return;
+    skipNextSave.current = true;
+    clearQuickstartState(user.userId);
+    setLocal({});
+    setResult(null);
+    setError(null);
+    setActiveGroup("ethics");
+    toast.success("Quickstart session deleted. You can start a new evaluation.");
+  }
+
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
-      <Header title="Quickstart Evaluation" subtitle="Rapid AI assessment: Ethics + TIPSC + DFV" />
+      <Header title="Quickstart Evaluation" subtitle="Assess your defined or active idea across Ethics, TIPSC, and DFV" onDelete={Object.keys(local).length > 0 || result ? deleteQuickstartSession : undefined} deletingDisabled={submitting} />
 
       {!result && !error && (
         <Card>
@@ -155,8 +193,9 @@ export function QuickstartFlow() {
               Quickstart Evaluation Form
             </CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
-              Answer 7 questions → Get 10 parameter ratings (GREEN/YELLOW/RED) with reasons and advice
+              Describe the idea you have structured or already put into action. Get ten evidence-aware ratings, reasons, and guidance on what to improve or test next.
             </p>
+            <p className="text-xs text-muted-foreground mt-2">Your answers are saved in this browser as you type.</p>
           </CardHeader>
           <CardContent>
             <form onSubmit={submitForm} className="space-y-5">
@@ -218,7 +257,7 @@ export function QuickstartFlow() {
   );
 }
 
-function Header({ title, subtitle }: { title: string; subtitle: string }) {
+function Header({ title, subtitle, onDelete, deletingDisabled }: { title: string; subtitle: string; onDelete?: () => void; deletingDisabled?: boolean }) {
   return (
     <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
       <div>
@@ -226,6 +265,21 @@ function Header({ title, subtitle }: { title: string; subtitle: string }) {
         <p className="text-muted-foreground">{subtitle}</p>
       </div>
       <div className="flex items-center gap-3">
+        {onDelete && <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="destructive" disabled={deletingDisabled}><Trash2 className="h-4 w-4" /> Delete Quickstart Session</Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete this Quickstart session?</AlertDialogTitle>
+              <AlertDialogDescription>Your saved answers and evaluation results in this browser will be removed. This cannot be undone.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={onDelete}>Delete Session</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>}
         <ThemeToggle />
         <Button asChild variant="outline">
           <Link to="/">Back to Home</Link>
@@ -311,7 +365,7 @@ function ResultView({
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
               <Sparkles className="h-5 w-5" />
-              Priority Next Steps
+              Guidance for Your Next Steps
             </CardTitle>
           </CardHeader>
           <CardContent>

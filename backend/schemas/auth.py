@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 # SRN regex pattern: PES<digit>UG<2 digits><2 uppercase letters><3 digits>
 # Examples: PES2UG22CS001, PES1UG23EC047
@@ -20,6 +20,7 @@ _SRN_PATTERN = re.compile(r"^PES\dUG\d{2}[A-Z]{2}\d{3}$")
 # ─────────────────────────────────────────────────────────────────────────────
 # Request Schemas
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class LoginRequest(BaseModel):
     """POST /auth/login request body."""
@@ -44,8 +45,6 @@ class LoginRequest(BaseModel):
     @field_validator("password")
     @classmethod
     def validate_password(cls, v: str) -> str:
-        if v in ("dev", "Stake", "FIFA", "Meghana"):
-            return v
         if len(v) < 6:
             raise ValueError("Password must be at least 6 characters.")
         if len(v) > 128:
@@ -56,18 +55,19 @@ class LoginRequest(BaseModel):
 class RefreshRequest(BaseModel):
     """POST /auth/refresh request body."""
 
-    refresh_token: str
+    refresh_token: str = Field(min_length=1, max_length=256)
 
 
 class LogoutRequest(BaseModel):
     """POST /auth/logout request body."""
 
-    refresh_token: str
+    refresh_token: str = Field(min_length=1, max_length=256)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Response Schemas
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class UserInfo(BaseModel):
     """Embedded user object returned in login response."""
@@ -82,9 +82,9 @@ class LoginResponse(BaseModel):
     """Success payload inside data envelope for POST /auth/login."""
 
     access_token: str
-    refresh_token: str
+    refresh_token: str = Field(min_length=1, max_length=256)
     token_type: str = "bearer"
-    expires_in: int           # seconds until access token expiry
+    expires_in: int  # seconds until access token expiry
     role: str
     user: UserInfo
 
@@ -93,7 +93,7 @@ class RefreshResponse(BaseModel):
     """Success payload inside data envelope for POST /auth/refresh."""
 
     access_token: str
-    refresh_token: str
+    refresh_token: str = Field(min_length=1, max_length=256)
     expires_in: int
 
 
@@ -103,7 +103,7 @@ class MeResponse(BaseModel):
     user_id: str
     name: str
     srn: str
-    email: str
+    email: str | None = None
     role: str
     team_id: str | None = None
     mentor_team_ids: list[str] = []
@@ -112,6 +112,7 @@ class MeResponse(BaseModel):
 # ─────────────────────────────────────────────────────────────────────────────
 # Internal — OwnerContext & CurrentUser (used by dependency injector)
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class OwnerContext(BaseModel):
     """

@@ -67,7 +67,7 @@ export function generateMarkdown(
       `- **Consequence:** ${preeval.consequence || "Not provided"}`,
       `- **Proposed Solution:** ${preeval.proposed_solution || "Not provided"}`,
       `- **Target Geography:** ${preeval.target_geography || "Not provided"}`,
-      `- **Industry Sector:** ${preeval.industry_sector || "Not provided"}`,
+      `- **Industry Sector/Domain of Problem Statement:** ${preeval.industry_sector || "Not provided"}`,
       `- **Assumptions:**`
     );
     (preeval.assumptions || []).forEach((a) => lines.push(`  - ${a}`));
@@ -80,7 +80,7 @@ export function generateMarkdown(
   if (sessionDoc?.validation) {
     const v = sessionDoc.validation;
     lines.push("", "## Validation Agent Output");
-    lines.push(`- **Target Geography:** ${v.target_geography || "-"}`, `- **Industry Sector:** ${v.industry_sector || "-"}`);
+    lines.push(`- **Target Geography:** ${v.target_geography || "-"}`, `- **Industry Sector/Domain of Problem Statement:** ${v.industry_sector || "-"}`);
     lines.push("", "### Checked Assumptions");
     (v.checked_assumptions || []).forEach((c) => {
       lines.push(`- **${c.assumption}** — ${c.verdict}`, `  - Evidence: ${c.evidence}`);
@@ -97,7 +97,7 @@ export function generateMarkdown(
   if (sessionDoc?.regulatory) {
     const r = sessionDoc.regulatory;
     lines.push("", "## Regulatory Agent Output");
-    lines.push(`- **Target Geography:** ${r.target_geography || "-"}`, `- **Industry Sector:** ${r.industry_sector || "-"}`);
+    lines.push(`- **Target Geography:** ${r.target_geography || "-"}`, `- **Industry Sector/Domain of Problem Statement:** ${r.industry_sector || "-"}`);
     lines.push("", "### Applicable Regulations");
     (r.applicable_regulations || []).forEach((reg) => {
       lines.push(

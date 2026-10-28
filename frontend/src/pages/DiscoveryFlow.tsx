@@ -808,12 +808,12 @@ function MarkdownRenderer({ content }: { content: string }) {
     const parts = text.split(/\*\*(.*?)\*\*/g);
     return parts.map((part, i) => {
       if (i % 2 === 1) {
-        return <strong key={i} className="font-bold text-slate-800">{part}</strong>;
+        return <strong key={i} className="font-bold text-slate-800 dark:text-[#dddde4]">{part}</strong>;
       }
       const subParts = part.split(/\*(.*?)\*/g);
       return subParts.map((subPart, j) => {
         if (j % 2 === 1) {
-          return <em key={j} className="italic text-slate-700">{subPart}</em>;
+          return <em key={j} className="italic text-slate-700 dark:text-[#b9b9c4]">{subPart}</em>;
         }
         return subPart;
       });
@@ -823,22 +823,22 @@ function MarkdownRenderer({ content }: { content: string }) {
   const flushTable = (key: number) => {
     if (tableHeaders.length === 0 && tableRows.length === 0) return null;
     const element = (
-      <div key={`table-${key}`} className="my-6 overflow-x-auto rounded-lg border bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-slate-200">
-          <thead className="bg-slate-50/50">
+      <div key={`table-${key}`} className="my-6 overflow-x-auto rounded-lg border border-border bg-white shadow-sm dark:bg-[#111115]">
+        <table className="min-w-full divide-y divide-slate-200 dark:divide-white/10">
+          <thead className="bg-slate-50/50 dark:bg-white/[0.05]">
             <tr>
               {tableHeaders.map((h, i) => (
-                <th key={i} className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
+                <th key={i} className="px-4 py-3 text-left text-xs font-bold text-slate-500 dark:text-[#b9b9c4] uppercase tracking-wider">
                   {parseInline(h)}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-slate-200">
+          <tbody className="bg-white divide-y divide-slate-200 dark:bg-[#111115] dark:divide-white/10">
             {tableRows.map((row, idx) => (
-              <tr key={idx} className="hover:bg-slate-50/30 transition-colors">
+              <tr key={idx} className="hover:bg-slate-50/30 dark:hover:bg-white/[0.04] transition-colors">
                 {row.map((cell, i) => (
-                  <td key={i} className="px-4 py-3 text-sm text-slate-600 leading-relaxed">
+                  <td key={i} className="px-4 py-3 text-sm text-slate-600 dark:text-[#b9b9c4] leading-relaxed">
                     {parseInline(cell)}
                   </td>
                 ))}
@@ -881,32 +881,32 @@ function MarkdownRenderer({ content }: { content: string }) {
     if (line.startsWith("# ")) {
       renderedElements.push(<h1 key={idx} className="text-2xl md:text-3xl font-extrabold text-primary tracking-tight mt-8 mb-4 border-b pb-2">{parseInline(line.slice(2))}</h1>);
     } else if (line.startsWith("## ")) {
-      renderedElements.push(<h2 key={idx} className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight mt-6 mb-3">{parseInline(line.slice(3))}</h2>);
+      renderedElements.push(<h2 key={idx} className="text-xl md:text-2xl font-bold text-slate-800 dark:text-[#dddde4] tracking-tight mt-6 mb-3">{parseInline(line.slice(3))}</h2>);
     } else if (line.startsWith("### ")) {
-      renderedElements.push(<h3 key={idx} className="text-lg font-bold text-slate-800 mt-4 mb-2">{parseInline(line.slice(4))}</h3>);
+      renderedElements.push(<h3 key={idx} className="text-lg font-bold text-slate-800 dark:text-[#dddde4] mt-4 mb-2">{parseInline(line.slice(4))}</h3>);
     } else if (line.startsWith("#### ")) {
-      renderedElements.push(<h4 key={idx} className="text-base font-bold text-slate-700 mt-3 mb-2">{parseInline(line.slice(5))}</h4>);
+      renderedElements.push(<h4 key={idx} className="text-base font-bold text-slate-700 dark:text-[#c9c9d2] mt-3 mb-2">{parseInline(line.slice(5))}</h4>);
     } else if (line.startsWith(">")) {
       renderedElements.push(
-        <blockquote key={idx} className="border-l-4 border-secondary/50 bg-secondary/5 p-4 my-4 rounded-r-lg italic text-slate-700 leading-relaxed">
+        <blockquote key={idx} className="border-l-4 border-secondary/50 bg-secondary/5 p-4 my-4 rounded-r-lg italic text-slate-700 dark:text-[#b9b9c4] leading-relaxed">
           {parseInline(line.slice(1).trim())}
         </blockquote>
       );
     } else if (line.startsWith("- ") || line.startsWith("* ")) {
       renderedElements.push(
         <ul key={idx} className="list-disc pl-6 space-y-1.5 my-2">
-          <li className="text-sm text-slate-600 leading-relaxed">{parseInline(line.slice(2))}</li>
+          <li className="text-sm text-slate-600 dark:text-[#b9b9c4] leading-relaxed">{parseInline(line.slice(2))}</li>
         </ul>
       );
     } else if (/^\d+\.\s/.test(line)) {
       const contentStr = line.replace(/^\d+\.\s/, "");
       renderedElements.push(
         <ol key={idx} className="list-decimal pl-6 space-y-1.5 my-2">
-          <li className="text-sm text-slate-600 leading-relaxed">{parseInline(contentStr)}</li>
+          <li className="text-sm text-slate-600 dark:text-[#b9b9c4] leading-relaxed">{parseInline(contentStr)}</li>
         </ol>
       );
     } else {
-      renderedElements.push(<p key={idx} className="text-sm text-slate-600 leading-relaxed my-3">{parseInline(line)}</p>);
+      renderedElements.push(<p key={idx} className="text-sm text-slate-600 dark:text-[#b9b9c4] leading-relaxed my-3">{parseInline(line)}</p>);
     }
   }
 

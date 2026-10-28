@@ -1,0 +1,44 @@
+{
+  "PYSEC-2026-311": {
+    "package": "chromadb",
+    "version": "1.5.9",
+    "review_by": "2027-01-01",
+    "reason": "Required by CrewAI; no patched release published. AGIS does not run a Chroma HTTP server or accept Chroma collection configuration. See docs/dependency-security.md."
+  },
+  "PYSEC-2026-3814": {
+    "package": "chromadb",
+    "version": "1.5.9",
+    "review_by": "2027-01-01",
+    "reason": "Required by CrewAI; no patched release published. AGIS does not run a Chroma HTTP server or accept Chroma collection configuration. See docs/dependency-security.md."
+  },
+  "PYSEC-2026-3815": {
+    "package": "chromadb",
+    "version": "1.5.9",
+    "review_by": "2027-01-01",
+    "reason": "Required by CrewAI; no patched release published. AGIS does not run a Chroma HTTP server or accept Chroma collection configuration. See docs/dependency-security.md."
+  },
+  "PYSEC-2026-3813": {
+    "package": "chromadb",
+    "version": "1.5.9",
+    "review_by": "2027-01-01",
+    "reason": "Required by CrewAI; no patched release published. AGIS does not run a Chroma HTTP server or accept Chroma collection configuration. See docs/dependency-security.md."
+  },
+  "GHSA-v4x8-3wr5-3wq8": {
+    "package": "filelock",
+    "version": "3.32.7",
+    "review_by": "2027-01-01",
+    "reason": "LiteLLM requires filelock<4, blocking patched 4.2.1. Use private, non-shared cache/lock directories; no AGIS ReadWriteLock API. See docs/dependency-security.md."
+  },
+  "GHSA-9vhv-jxww-xfm5": {
+    "package": "filelock",
+    "version": "3.32.7",
+    "review_by": "2027-01-01",
+    "reason": "LiteLLM requires filelock<4, blocking patched 4.2.1. Use private, non-shared cache/lock directories; no AGIS ReadWriteLock API. See docs/dependency-security.md."
+  },
+  "GHSA-567q-5qvw-pf92": {
+    "package": "filelock",
+    "version": "3.32.7",
+    "review_by": "2027-01-01",
+    "reason": "LiteLLM requires filelock<4, blocking patched 4.2.1. Use private, non-shared cache/lock directories; no AGIS ReadWriteLock API. See docs/dependency-security.md."
+  }
+}

@@ -22,7 +22,7 @@ export function ValidationCard({ data }: Props) {
         />
 
         <Field
-          label="Industry Sector"
+          label="Industry Sector/Domain of Problem Statement"
           value={data.industry_sector}
         />
 
@@ -32,7 +32,7 @@ export function ValidationCard({ data }: Props) {
           </h4>
 
           <div className="space-y-5">
-            {data.checked_assumptions.map((item, index) => (
+            {(data.checked_assumptions ?? []).map((item, index) => (
               <div
                 key={index}
                 className="rounded-lg border p-4"

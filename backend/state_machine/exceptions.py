@@ -25,6 +25,5 @@ class InvalidStateTransitionError(Exception):
         self.current_status = current_status
         self.target_status = target_status
         super().__init__(
-            f"Cannot transition session from '{current_status.value}' "
-            f"to '{target_status.value}'"
+            f"Cannot transition session from '{current_status.value}' to '{target_status.value}'"
         )

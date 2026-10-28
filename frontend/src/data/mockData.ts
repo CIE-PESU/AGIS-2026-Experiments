@@ -71,7 +71,7 @@ export const preEvaluationQuestions = [
   { key: "assumptions", label: "Assumptions", type: "textarea", prompt: "What assumptions are behind your idea?" },
   { key: "solution", label: "Proposed Solution", type: "textarea", prompt: "Describe your proposed solution." },
   { key: "geography", label: "Geography", type: "input", prompt: "Where will you begin?" },
-  { key: "sector", label: "Sector", type: "input", prompt: "Which sector best fits this idea?" }
+  { key: "sector", label: "Industry Sector/Domain of Problem Statement", type: "input", prompt: "Which industry sector or domain does the problem statement belong to?" }
 ] as const;
 
 export const mockComplianceResult = [

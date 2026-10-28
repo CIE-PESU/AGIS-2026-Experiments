@@ -43,6 +43,11 @@ def _is_rate_limited(window: dict[str, deque], key: str, limit: int) -> bool:
     Returns True if the request should be rejected.
     """
     now = time.monotonic()
+    if len(window) > 10000:
+        for stale in [
+            k for k, entries in window.items() if not entries or entries[-1] < now - _WINDOW_SECONDS
+        ]:
+            window.pop(stale, None)
     cutoff = now - _WINDOW_SECONDS
     dq = window[key]
 
@@ -83,6 +88,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         path = request.url.path
 
+        if path in {"/api/v1/health", "/api/v1/ready", "/api/v1/live"}:
+            return await call_next(request)
+
         # ── Login rate limit (per IP) ──────────────────────────────────────────
         if path.endswith("/auth/login"):
             client_ip = request.client.host if request.client else "unknown"
@@ -109,4 +117,3 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 return _rate_limit_error()
 
         return await call_next(request)
-

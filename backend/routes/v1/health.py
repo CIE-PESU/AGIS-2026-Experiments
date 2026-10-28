@@ -40,20 +40,14 @@ async def health_check() -> JSONResponse:
     """
     mongo_ok = await ping_db()
 
-    # Kafka producer health — placeholder until Kafka module is integrated
-    kafka_ok = True
-    # try:
-    #     from kafka.producer import kafka_producer
-    #     kafka_ok = kafka_producer.is_running
-    # except Exception:
-    #     kafka_ok = False
+    from events import startup
+    from kafka.producer import kafka_producer
 
-    all_healthy = mongo_ok and kafka_ok
-    http_status = (
-        status.HTTP_200_OK
-        if all_healthy
-        else status.HTTP_503_SERVICE_UNAVAILABLE
-    )
+    kafka_ok = await kafka_producer.check_health()
+    tipsc_ok = startup.tipsc_executor_instance is not None
+
+    all_healthy = mongo_ok and kafka_ok and tipsc_ok
+    http_status = status.HTTP_200_OK if all_healthy else status.HTTP_503_SERVICE_UNAVAILABLE
 
     return JSONResponse(
         status_code=http_status,
@@ -63,6 +57,7 @@ async def health_check() -> JSONResponse:
             "services": {
                 "mongodb": "connected" if mongo_ok else "disconnected",
                 "kafka_producer": "connected" if kafka_ok else "disconnected",
+                "tipsc_executor": "ready" if tipsc_ok else "unavailable",
             },
         },
     )
@@ -81,9 +76,12 @@ async def readiness_probe() -> JSONResponse:
     Returns 200 only when DB is connected and Kafka is ready.
     """
     mongo_ok = await ping_db()
-    kafka_ok = True  # Placeholder until Kafka module is integrated
+    from events import startup
+    from kafka.producer import kafka_producer
 
-    if mongo_ok and kafka_ok:
+    kafka_ok = await kafka_producer.check_health()
+
+    if mongo_ok and kafka_ok and startup.tipsc_executor_instance is not None:
         return JSONResponse(
             status_code=status.HTTP_200_OK,
             content={

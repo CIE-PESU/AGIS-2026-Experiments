@@ -210,10 +210,6 @@ function Navbar() {
             </>
           ) : (
             <>
-              <Link to="/login?redirect=/quickstart"
-                className="rounded-full bg-accent px-5 py-2 text-[13px] font-semibold text-accent-foreground transition-opacity hover:opacity-90">
-                Quickstart
-              </Link>
               <Link to="/login"
                 className="rounded-full bg-accent px-5 py-2 text-[13px] font-semibold text-accent-foreground transition-opacity hover:opacity-90">
                 Sign In
@@ -251,9 +247,6 @@ function Navbar() {
               </>
             ) : (
               <>
-                <Link to="/login?redirect=/quickstart"
-                  className="mt-1 rounded-full bg-accent px-5 py-2.5 text-center text-sm font-semibold text-accent-foreground"
-                  onClick={() => setOpen(false)}>Quickstart</Link>
                 <Link to="/login"
                   className="mt-1 rounded-full bg-accent px-5 py-2.5 text-center text-sm font-semibold text-accent-foreground"
                   onClick={() => setOpen(false)}>Sign In</Link>
@@ -376,10 +369,18 @@ export function LandingPage() {
                 style={{ background: "linear-gradient(135deg,#34305e,#3999c2)" }}>
                 Start Evaluating <ArrowRight className="h-4 w-4" />
               </Link>
+              <Link to="/login?redirect=/quickstart"
+                className="inline-flex items-center gap-2 rounded-full border border-secondary/40 bg-background/80 px-6 py-3.5 text-[13px] font-semibold text-secondary shadow-sm transition-colors hover:bg-secondary/10 dark:bg-card/80">
+                Quickstart <Zap className="h-4 w-4" />
+              </Link>
               <a href="#how-it-works"
                 className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-muted-foreground transition-colors hover:text-primary">
                 See how it works <ArrowRight className="h-3.5 w-3.5" />
               </a>
+            </div>
+            <div className="mt-5 max-w-[440px] rounded-xl border border-secondary/20 bg-background/75 p-4 backdrop-blur-sm dark:bg-card/75">
+              <p className="text-sm font-semibold text-foreground">Already have a fully structured idea, or one you have put into action?</p>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Use Quickstart to see how it holds up across Ethics, TIPSC, and DFV, and get focused guidance on what to improve or test next.</p>
             </div>
           </div>
 
@@ -602,19 +603,19 @@ export function LandingPage() {
              <span className="block h-0.5 w-5 rounded-full bg-accent" />Quickstart
            </p>
            <h2 className="font-poppins text-[clamp(26px,3.5vw,40px)] font-extrabold leading-[1.15] tracking-tight text-primary">
-             Not ready for the full pipeline?<br />Get a rapid AI evaluation in minutes.
+             Already have a defined idea?<br />See how it holds up and what to do next.
            </h2>
            <div className="mt-10 grid gap-5 md:grid-cols-3">
-<div className="rounded-2xl border border-primary/20 bg-primary/5 p-8">
+             <div className="rounded-2xl border border-primary/20 bg-primary/5 p-8">
                <div className="flex items-center gap-3 mb-4">
                  <div className="h-12 w-12 flex items-center justify-center rounded-xl bg-[#3999c2]/10">
                    <Zap className="h-6 w-6 text-[#3999c2]" />
                  </div>
                  <span className="inline-block rounded-full bg-[#3999c2]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[1px] text-[#3999c2]">Speed</span>
                </div>
-               <h3 className="font-poppins mb-3 text-lg font-bold text-primary">7 Questions, 10 Parameters</h3>
+               <h3 className="font-poppins mb-3 text-lg font-bold text-primary">A quick, focused assessment</h3>
                <p className="text-[13.5px] text-muted-foreground mb-6">
-                 Answer 7 focused questions about your idea. Get instant ratings across Ethics (3), TIPSC (4), and DFV (3) — each with a GREEN/YELLOW/RED traffic light and a one-sentence reason.
+                 Answer seven questions about the problem, customer, solution, and business model. See ten ratings with a short reason for each one.
                </p>
                <ul className="flex flex-col gap-2 text-[12px] text-muted-foreground">
                  <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-[#3999c2]" />Ethics: Harm Vector, Legal Risk, Integrity</li>
@@ -629,17 +630,17 @@ export function LandingPage() {
                  </div>
                  <span className="inline-block rounded-full bg-[#7c6fc4]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[1px] text-[#7c6fc4]">Insight</span>
                </div>
-               <h3 className="font-poppins mb-3 text-lg font-bold text-primary">Actionable Startup Advice</h3>
+               <h3 className="font-poppins mb-3 text-lg font-bold text-primary">Know what to improve</h3>
                <p className="text-[13.5px] text-muted-foreground mb-6">
-                 Every YELLOW or RED parameter comes with specific, actionable advice. Plus 3 priority next steps ranked by impact — so you know exactly what to fix first.
+                 Get a clear reason behind each rating. Yellow and red signals include practical advice, followed by three priorities for your next steps.
                </p>
                <ul className="flex flex-col gap-2 text-[12px] text-muted-foreground">
-                 <li className="flex items-center gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-[#7c6fc4]" />Red flags get fix-it-now guidance</li>
-                 <li className="flex items-center gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-[#7c6fc4]" />Yellow flags get mitigation suggestions</li>
-                 <li className="flex items-center gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-[#7c6fc4]" />Priority steps ranked by severity</li>
+                 <li className="flex items-center gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-[#7c6fc4]" />Understand why each signal was given</li>
+                 <li className="flex items-center gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-[#7c6fc4]" />See what to test or revise next</li>
+                 <li className="flex items-center gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-[#7c6fc4]" />Focus on three priority actions</li>
                </ul>
              </div>
-             <div className="rounded-2xl border border-accent/20 bg-accent/5 p-8 flex flex-col justify-between">
+             <div className="rounded-2xl border border-accent/20 bg-accent/5 p-8">
                <div>
                  <div className="flex items-center gap-3 mb-4">
                    <div className="h-12 w-12 flex items-center justify-center rounded-xl bg-[#e9a800]/10">
@@ -647,17 +648,24 @@ export function LandingPage() {
                    </div>
                    <span className="inline-block rounded-full bg-[#e9a800]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[1px] text-[#e9a800]">Path</span>
                  </div>
-                 <h3 className="font-poppins mb-3 text-lg font-bold text-primary">Seamless Full Pipeline</h3>
-                 <p className="text-[13.5px] text-muted-foreground">
-                   Quickstart isn't a dead end — it's a gateway. After your rapid evaluation, proceed directly to the full TIPSC → DFV → Discovery pipeline with one click. Your answers carry forward.
+                 <h3 className="font-poppins mb-3 text-lg font-bold text-primary">Choose your next move</h3>
+                 <p className="text-[13.5px] text-muted-foreground mb-6">
+                   Use the feedback to sharpen your idea, then explore the full TIPSC → DFV → Customer Discovery pipeline when you are ready for a deeper review.
                  </p>
+                 <ul className="flex flex-col gap-2 text-[12px] text-muted-foreground">
+                   <li className="flex items-center gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-[#e9a800]" />Revisit your answers and results</li>
+                   <li className="flex items-center gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-[#e9a800]" />Refine the weakest assumptions</li>
+                   <li className="flex items-center gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-[#e9a800]" />Continue with the full evaluation</li>
+                 </ul>
                </div>
-<Button asChild variant="accent" size="lg" className="mt-6 w-full rounded-full">
-                  <Link to="/login?redirect=/quickstart" className="inline-flex items-center justify-center gap-2">
-                    <Sparkles className="h-4 w-4" /> Quickstart Evaluation
-                  </Link>
-                </Button>
              </div>
+           </div>
+           <div className="mt-10 flex justify-center">
+             <Button asChild variant="accent" size="lg" className="min-w-64 rounded-full">
+               <Link to="/login?redirect=/quickstart" className="inline-flex items-center justify-center gap-2">
+                 <Sparkles className="h-4 w-4" /> Start Quickstart Evaluation
+               </Link>
+             </Button>
            </div>
          </div>
        </section>

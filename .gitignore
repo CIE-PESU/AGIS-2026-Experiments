@@ -19,8 +19,6 @@ outputs/
 # Python build artifacts
 *.egg-info/
 
-# Legacy dead directories
-workers/
 .env
 
 # =========================
@@ -58,7 +56,7 @@ backend/backend.log
 # =========================
 .env
 .env.*
-.env.example
+!.env.example
 
 # =========================
 # Node / React
@@ -109,3 +107,7 @@ Thumbs.db
 *.pid
 *.seed
 *.out
+.venv*/
+.local/
+playwright-report/
+test-results/

@@ -11,7 +11,7 @@ load_dotenv()
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-BACKEND_ENV = PROJECT_ROOT / "backend" / ".env"
+BACKEND_ENV = PROJECT_ROOT / ".env"
 
 load_dotenv(dotenv_path=BACKEND_ENV)
 
@@ -40,7 +40,7 @@ reasoning_llm = LLM(
         else {}
     ),
     max_tokens=23000,
-    timeout=1800
+    timeout=float(os.getenv("CREWAI_TIMEOUT_SECONDS", "600"))
 )
 
 # Discover all skills in a directory
@@ -53,8 +53,8 @@ customer_discovery_planner = Agent(
     role="Customer Discovery Planner",
     goal="Help students design effective customer discovery interviews.",
     backstory="""
-        You are an experienced customer discovery coach. 
-        You help student entrepreneurs validate assumptions, understand customer behavior, 
+        You are an experienced customer discovery coach.
+        You help student entrepreneurs validate assumptions, understand customer behavior,
         and gather evidence through interviews.
     """,
     llm=reasoning_llm,
@@ -104,7 +104,7 @@ The purpose of customer interviews is to gather
 evidence that either supports or contradicts
 these assumptions.
 
-# Current Project Understanding is avaiable here: 
+# Current Project Understanding is avaiable here:
 {inputs}
 
 Your task is to create a complete Customer Discovery Plan using the JTBD interviewing methodology available

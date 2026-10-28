@@ -2,10 +2,10 @@
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Query
-from pydantic import BaseModel
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from pydantic import BaseModel, ConfigDict, Field
 
-from core.security import cipher
+from core.security import hash_password
 from core.sync import dump_seed_data
 from dependencies.auth import require_admin, require_mentor_or_admin
 from models.session import Session
@@ -27,61 +27,71 @@ async def sync_student_session_teams(student_srns: list[str], new_team_id: str |
     students = await User.find({"srn": {"$in": student_srns}}).to_list()
     student_ids = [str(s.id) for s in students]
     if student_ids:
-        await Session.find({
-            "student_id": {"$in": student_ids},
-            "status": {"$ne": SessionStatus.ARCHIVED.value}
-        }).update({"$set": {"team_id": new_team_id or ""}})
+        await Session.find(
+            {"student_id": {"$in": student_ids}, "status": {"$ne": SessionStatus.ARCHIVED.value}}
+        ).update({"$set": {"team_id": new_team_id or ""}})
+
 
 class MentorCreateRequest(BaseModel):
-    name: str
+    model_config = ConfigDict(str_strip_whitespace=True)
+    name: str = Field(min_length=1, max_length=200)
     email: str | None = None
-    password: str | None = None
+    password: str | None = Field(default=None, min_length=8, max_length=128)
+
 
 class MentorUpdateRequest(BaseModel):
-    name: str
+    model_config = ConfigDict(str_strip_whitespace=True)
+    name: str = Field(min_length=1, max_length=200)
     email: str | None = None
 
+
 class TeamCreateRequest(BaseModel):
-    name: str
+    model_config = ConfigDict(str_strip_whitespace=True)
+    name: str = Field(min_length=1, max_length=200)
     mentor_id: str | None = None
-    members: list[str] = []
+    members: list[str] = Field(default_factory=list)
+
 
 class TeamUpdateRequest(BaseModel):
-    name: str
+    model_config = ConfigDict(str_strip_whitespace=True)
+    name: str = Field(min_length=1, max_length=200)
     mentor_id: str | None = None
-    members: list[str] = []
+    members: list[str] = Field(default_factory=list)
+
 
 # Remove the global admin lock so mentors can access read-only routes
-router = APIRouter(
-    tags=["Admin"]
-)
+router = APIRouter(tags=["Admin"])
+
 
 @router.post("/mentors", dependencies=[Depends(require_admin())])
 async def create_mentor(req: MentorCreateRequest, background_tasks: BackgroundTasks):
     """Admin: Create a new mentor without credentials."""
     import uuid
+
     clean_name = req.name.strip()
-    email = req.email.strip() if req.email and req.email.strip() else f"{clean_name.lower().replace(' ', '_')}_{uuid.uuid4().hex[:6]}@agis.local"
+    email = (
+        req.email.strip()
+        if req.email and req.email.strip()
+        else f"{clean_name.lower().replace(' ', '_')}_{uuid.uuid4().hex[:6]}@agis.local"
+    )
     srn = email.upper()
 
     # Check if mentor already exists
     existing = await User.find_one(User.srn == srn)
     if existing:
-        return {"error": "Mentor already exists"}
-    
-    enc_pw = cipher.encrypt(req.password.encode()).decode() if req.password and req.password.strip() else None
-    new_mentor = User(
-        srn=srn,
-        name=clean_name,
-        email=email,
-        role="mentor",
-        encrypted_password=enc_pw
-    )
+        raise HTTPException(409, "Mentor already exists")
+
+    enc_pw = hash_password(req.password) if req.password and req.password.strip() else None
+    new_mentor = User(srn=srn, name=clean_name, email=email, role="mentor", password_hash=enc_pw)
     await new_mentor.insert()
-    
+
     background_tasks.add_task(dump_seed_data)
-            
-    return {"message": "Mentor created successfully", "data": {"id": str(new_mentor.id), "name": new_mentor.name}}
+
+    return {
+        "message": "Mentor created successfully",
+        "data": {"id": str(new_mentor.id), "name": new_mentor.name},
+    }
+
 
 @router.get("/mentors", dependencies=[Depends(require_mentor_or_admin())])
 async def list_mentors():
@@ -91,15 +101,19 @@ async def list_mentors():
     for m in mentors:
         m_dict = m.model_dump()
         m_dict["id"] = str(m.id)
-        m_dict["encrypted_password"] = None
+        m_dict.pop("encrypted_password", None)
+        m_dict.pop("password_hash", None)
         data.append(m_dict)
     return {"data": data}
 
+
 @router.put("/mentors/{mentor_id}", dependencies=[Depends(require_admin())])
-async def update_mentor(mentor_id: str, req: MentorUpdateRequest, background_tasks: BackgroundTasks):
+async def update_mentor(
+    mentor_id: str, req: MentorUpdateRequest, background_tasks: BackgroundTasks
+):
     mentor = await User.get(mentor_id)
     if not mentor:
-        return {"error": "Mentor not found"}
+        raise HTTPException(404, "Mentor not found")
     mentor.name = req.name.strip()
     if req.email and req.email.strip():
         mentor.email = req.email.strip()
@@ -108,25 +122,31 @@ async def update_mentor(mentor_id: str, req: MentorUpdateRequest, background_tas
     background_tasks.add_task(dump_seed_data)
     return {"message": "Mentor updated successfully"}
 
+
 @router.delete("/mentors/{mentor_id}", dependencies=[Depends(require_admin())])
 async def delete_mentor(mentor_id: str, background_tasks: BackgroundTasks):
     mentor = await User.get(mentor_id)
     if not mentor:
-        return {"error": "Mentor not found"}
+        raise HTTPException(404, "Mentor not found")
     await mentor.delete()
     background_tasks.add_task(dump_seed_data)
     return {"message": "Mentor deleted"}
 
+
 @router.get("/students", dependencies=[Depends(require_mentor_or_admin())])
-async def list_students():
+async def list_students(current_user: Annotated[CurrentUser, Depends(require_mentor_or_admin())]):
     """Admin: List all students."""
-    students = await User.find(User.role == "student").to_list()
+    query: dict = {"role": "student"}
+    if current_user.is_mentor:
+        query["team_id"] = {"$in": current_user.mentor_team_ids}
+    students = await User.find(query).to_list()
     data = []
     for s in students:
         s_dict = s.model_dump()
         s_dict["id"] = str(s.id)
-        s_dict["encrypted_password"] = None
-        
+        s_dict.pop("encrypted_password", None)
+        s_dict.pop("password_hash", None)
+
         # Attach real active session data
         active_session = await session_repo.find_active_by_student(str(s.id))
         if active_session:
@@ -145,20 +165,24 @@ async def list_students():
             s_dict["status"] = None
             s_dict["tips"] = {}
             s_dict["dfv"] = "Pending"
-            
+
         data.append(s_dict)
     return {"data": data}
 
+
 @router.get("/teams", dependencies=[Depends(require_mentor_or_admin())])
-async def list_teams():
+async def list_teams(current_user: Annotated[CurrentUser, Depends(require_mentor_or_admin())]):
     """Admin: List all teams."""
-    teams = await Team.find_all().to_list()
+    teams = await Team.find(
+        {"mentor_id": current_user.user_id} if current_user.is_mentor else {}
+    ).to_list()
     data = []
     for t in teams:
         t_dict = t.model_dump()
         t_dict["id"] = str(t.id)
         data.append(t_dict)
     return {"data": data}
+
 
 @router.post("/teams", dependencies=[Depends(require_admin())])
 async def create_team(req: TeamCreateRequest, background_tasks: BackgroundTasks):
@@ -174,57 +198,58 @@ async def create_team(req: TeamCreateRequest, background_tasks: BackgroundTasks)
     background_tasks.add_task(dump_seed_data)
     return {"message": "Team created", "team": team.model_dump()}
 
+
 @router.put("/teams/{team_id}", dependencies=[Depends(require_admin())])
 async def update_team(team_id: str, req: TeamUpdateRequest, background_tasks: BackgroundTasks):
     """Admin: Update an existing team."""
     team = await Team.get(team_id)
     if not team:
-        return {"error": "Team not found"}
-    
+        raise HTTPException(404, "Team not found")
+
     old_mentor_id = team.mentor_id
     old_members = team.members or []
-    
+
     # Clear old members' team_id and sessions
     if old_members:
         await User.find({"srn": {"$in": old_members}}).update({"$set": {"team_id": None}})
         await sync_student_session_teams(old_members, None)
-    
+
     team.team_name = req.name
     team.mentor_id = req.mentor_id or ""
     team.members = req.members
     await team.save()
-    
+
     # Set new members' team_id and sessions
     if req.members:
         await User.find({"srn": {"$in": req.members}}).update({"$set": {"team_id": str(team.id)}})
         await sync_student_session_teams(req.members, str(team.id))
-    
+
     if old_mentor_id and old_mentor_id != req.mentor_id:
         await sync_mentor_teams(old_mentor_id)
     if req.mentor_id:
         await sync_mentor_teams(req.mentor_id)
-    
+
     background_tasks.add_task(dump_seed_data)
     return {"message": "Team updated"}
+
 
 @router.delete("/teams/{team_id}", dependencies=[Depends(require_admin())])
 async def delete_team(team_id: str, background_tasks: BackgroundTasks):
     team = await Team.get(team_id)
     if not team:
-        return {"error": "Team not found"}
-    
+        raise HTTPException(404, "Team not found")
+
     old_mentor_id = team.mentor_id
     if team.members:
         await User.find({"srn": {"$in": team.members}}).update({"$set": {"team_id": None}})
         await sync_student_session_teams(team.members, None)
-        
+
     await team.delete()
     if old_mentor_id:
         await sync_mentor_teams(old_mentor_id)
-    
+
     background_tasks.add_task(dump_seed_data)
     return {"message": "Team deleted"}
-
 
 
 @router.get("/sessions", dependencies=[Depends(require_admin())])
@@ -233,15 +258,16 @@ async def list_all_sessions(
     team_id: str | None = None,
     student_id: str | None = None,
     page: int = Query(1, ge=1),
-    limit: int = Query(20, le=100)
+    limit: int = Query(20, ge=1, le=100),
 ):
     """Admin: List all sessions across the platform."""
     filters = {"status": status, "team_id": team_id, "student_id": student_id}
     # Clean out None values
     filters = {k: v for k, v in filters.items() if v is not None}
-    
+
     sessions = await admin_service.get_all_sessions(filters, page, limit)
     return {"data": sessions, "pagination": {"page": page, "limit": limit}}
+
 
 @router.get("/audit", dependencies=[Depends(require_admin())])
 async def get_system_audit_log(
@@ -251,17 +277,21 @@ async def get_system_audit_log(
     from_date: datetime | None = Query(None, alias="from"),
     to_date: datetime | None = Query(None, alias="to"),
     page: int = Query(1, ge=1),
-    limit: int = Query(50, le=200)
+    limit: int = Query(50, ge=1, le=200),
 ):
     """Admin: View system-wide audit logs."""
     filters = {
-        "event": event, "actor": actor, "session_id": session_id,
-        "from_date": from_date, "to_date": to_date
+        "event": event,
+        "actor": actor,
+        "session_id": session_id,
+        "from_date": from_date,
+        "to_date": to_date,
     }
     filters = {k: v for k, v in filters.items() if v is not None}
-    
+
     logs = await admin_service.get_audit_log(filters, page, limit)
     return {"data": logs, "pagination": {"page": page, "limit": limit}}
+
 
 @router.get("/metrics", dependencies=[Depends(require_admin())])
 async def get_platform_metrics():
@@ -273,6 +303,7 @@ async def get_platform_metrics():
 # ─────────────────────────────────────────────────────────────────────────────
 # Workspace Link Management (Admin Only)
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @router.post("/workspaces")
 async def create_workspace_magic_link(
@@ -293,7 +324,7 @@ async def create_workspace_magic_link(
 async def list_workspaces(
     current_user: Annotated[CurrentUser, Depends(require_admin())],
     page: int = Query(1, ge=1),
-    limit: int = Query(50, le=100),
+    limit: int = Query(50, ge=1, le=100),
 ):
     """Admin: List created workspaces."""
     items, total = await workspace_service.list_workspaces(page=page, limit=limit)

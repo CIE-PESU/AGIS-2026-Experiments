@@ -51,7 +51,6 @@ router = APIRouter(
 def _get_flow_service() -> FlowService:
 
     class KafkaAdaptor:
-
         async def publish(
             self,
             topic: str,
@@ -68,6 +67,7 @@ def _get_flow_service() -> FlowService:
                 KafkaTopic.USER_SESSION_DISCOVERY: DiscoveryJobMessage,
             }
 
+            validated_payload: BaseModel | dict
             if isinstance(payload, BaseModel):
                 validated_payload = payload
             else:
@@ -78,14 +78,14 @@ def _get_flow_service() -> FlowService:
                 else:
                     validated_payload = payload
 
+            if not isinstance(validated_payload, BaseModel):
+                raise ValueError("Unknown flow topic")
             return await kafka_producer.publish(
                 topic=topic,
                 payload=validated_payload,
             )
 
-
     class AuditAdaptor:
-
         async def log_event(
             self,
             session_id: str,
@@ -102,7 +102,6 @@ def _get_flow_service() -> FlowService:
                 actor_role=actor_role,
                 metadata=metadata,
             )
-
 
     return FlowService(
         session_repo=session_repo,
@@ -213,41 +212,13 @@ async def trigger_dfv(
 
     validate_object_id(session_id)
 
-
-    if idempotency_key:
-
-        session = await session_repo.find_by_id(
-            session_id
-        )
-
-        if (
-            session
-            and session.correlation_id
-            and session.status.value == "dfv_waiting"
-        ):
-
-            return success_response(
-                data={
-                    "session_id": session_id,
-                    "flow": "dfv",
-                    "status": session.status.value,
-                    "correlation_id": (
-                        session.correlation_id
-                    ),
-                    "triggered_at": (
-                        session.updated_at.isoformat()
-                    ),
-                },
-                request=request,
-            )
-
-
     flow_service = _get_flow_service()
 
     result = await flow_service.trigger_dfv(
         session_id=session_id,
         student_id=current_user.user_id if current_user.is_student else None,
         dfv_inputs=body.model_dump(),
+        idempotency_key=idempotency_key,
         workspace_id=current_user.workspace_id,
     )
 
@@ -283,42 +254,13 @@ async def trigger_discovery(
 
     validate_object_id(session_id)
 
-
-    if idempotency_key:
-
-        session = await session_repo.find_by_id(
-            session_id
-        )
-
-        if (
-            session
-            and session.correlation_id
-            and session.status.value
-            == "discovery_waiting"
-        ):
-
-            return success_response(
-                data={
-                    "session_id": session_id,
-                    "flow": "discovery",
-                    "status": session.status.value,
-                    "correlation_id": (
-                        session.correlation_id
-                    ),
-                    "triggered_at": (
-                        session.updated_at.isoformat()
-                    ),
-                },
-                request=request,
-            )
-
-
     flow_service = _get_flow_service()
 
     result = await flow_service.trigger_discovery(
         session_id=session_id,
         student_id=current_user.user_id if current_user.is_student else None,
         discovery_inputs=body.model_dump(),
+        idempotency_key=idempotency_key,
         workspace_id=current_user.workspace_id,
     )
 

@@ -1,13 +1,13 @@
 [project]
 name = "customer-interview-planner-agent"
 version = "0.1.0"
-description = "Add your description here"
+description = "Jobs-To-Be-Done customer interview planning"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.14"
 dependencies = [
     "aiokafka>=0.14.0",
-    "crewai>=1.15.28",
-    "litellm>=1.105.1",
+    "crewai>=1.15.32,<2",
+    "litellm>=1.106.5,<2",
     "motor>=3.7.1",
     "pydantic>=2.12.5",
     "python-dotenv>=1.2.4",

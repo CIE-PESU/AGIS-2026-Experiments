@@ -20,6 +20,7 @@ from pydantic import BaseModel
 # api-spec.md Section 7.1
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class MentorSessionListItem(BaseModel):
     """
     Summary session shape for the mentor's session list.
@@ -34,10 +35,10 @@ class MentorSessionListItem(BaseModel):
 
     session_id: str
     team_id: str
-    team_name: str | None = None       # resolved from teams collection in service
-    student_name: str | None = None    # resolved from users collection in service
+    team_name: str | None = None  # resolved from teams collection in service
+    student_name: str | None = None  # resolved from users collection in service
     status: str
-    tipsc_score: int | None = None     # null until TIPSC completes
+    tipsc_score: int | None = None  # null until TIPSC completes
     ready_for_dfv: bool | None = None  # null until TIPSC completes
     created_at: datetime
     updated_at: datetime
@@ -46,6 +47,7 @@ class MentorSessionListItem(BaseModel):
 # ─────────────────────────────────────────────────────────────────────────────
 # Team member info — embedded inside MentorTeamResponse
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TeamMemberInfo(BaseModel):
     """Minimal user info embedded in team detail — api-spec.md Section 7.3."""
@@ -60,6 +62,7 @@ class TeamMemberInfo(BaseModel):
 # api-spec.md Section 7.3
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class MentorTeamResponse(BaseModel):
     """
     Team detail returned by GET /mentor/teams.
@@ -71,5 +74,5 @@ class MentorTeamResponse(BaseModel):
     team_id: str
     team_name: str
     member_count: int
-    active_session_count: int = 0       # computed in service layer
+    active_session_count: int = 0  # computed in service layer
     members: list[TeamMemberInfo] = []  # full member list with user details

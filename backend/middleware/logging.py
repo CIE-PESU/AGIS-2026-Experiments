@@ -44,6 +44,8 @@ def _extract_user_id(request: Request) -> str:
     except Exception:
         pass
     return "anonymous"
+
+
 class LoggingMiddleware(BaseHTTPMiddleware):
     """
 
@@ -71,4 +73,3 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         )
 
         return response
-

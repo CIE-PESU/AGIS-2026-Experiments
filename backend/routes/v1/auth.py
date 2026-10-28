@@ -60,9 +60,9 @@ async def login(request: Request, body: LoginRequest):
       429 RATE_LIMIT_EXCEEDED   — too many attempts
     """
     result = await auth_service.login(
-    srn=body.srn,
-    password=body.password,
-    team_id=body.team_id,
+        srn=body.srn,
+        password=body.password,
+        team_id=body.team_id,
     )
     return success_response(data=result.model_dump(), request=request)
 
@@ -134,5 +134,19 @@ async def get_me(
     Errors:
       401           — missing, expired, or invalid token
     """
+    if current_user.is_mentor_workspace:
+        return success_response(
+            data={
+                "user_id": current_user.user_id,
+                "name": current_user.name,
+                "srn": "",
+                "email": None,
+                "role": current_user.role,
+                "workspace_id": current_user.workspace_id,
+                "team_id": None,
+                "mentor_team_ids": [],
+            },
+            request=request,
+        )
     profile = await auth_service.get_current_user_profile(user_id=current_user.user_id)
     return success_response(data=profile.model_dump(), request=request)

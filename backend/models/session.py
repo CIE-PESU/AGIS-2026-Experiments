@@ -7,10 +7,10 @@ Source of truth for the complete AGIS session lifecycle.
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated, Any
 
 from beanie import Document, Indexed
-from pydantic import BaseModel, Field, model_validator
+from pydantic import AliasChoices, BaseModel, Field, model_validator
 from pymongo import ASCENDING, DESCENDING, IndexModel
 
 from models.schema import DiscoveryJobPayload
@@ -55,12 +55,14 @@ class TIPSValidatedMetrics(BaseModel):
 
 class TIPSCRAGScores(BaseModel):
     T: str = ""
-    IMPORTANT: str = ""
+    IMPORTANT: str = Field(default="", validation_alias=AliasChoices("IMPORTANT", "I"))
     P: str = ""
     S: str = ""
 
     T_reason: str = ""
-    IMPORTANT_reason: str = ""
+    IMPORTANT_reason: str = Field(
+        default="", validation_alias=AliasChoices("IMPORTANT_reason", "I_reason")
+    )
     P_reason: str = ""
     S_reason: str = ""
 
@@ -69,20 +71,20 @@ class TIPSCRAGScores(BaseModel):
     def handle_case_insensitivity(cls, data: dict):
         if not isinstance(data, dict):
             return data
-        
+
         # Check for lowercase or capitalized variants of reason fields
         for letter in ["T", "I", "P", "S"]:
             upper_key = f"{letter}_reason"
             lower_key = f"{letter.lower()}_reason"
             title_key = f"{letter}_Reason"
-            
+
             # If the correct key is missing, try to find an alternative
             if upper_key not in data or not data[upper_key]:
                 if lower_key in data and data[lower_key]:
                     data[upper_key] = data[lower_key]
                 elif title_key in data and data[title_key]:
                     data[upper_key] = data[title_key]
-                    
+
         return data
 
 
@@ -96,19 +98,13 @@ class TIPSCOutput(BaseModel):
     Backend-only metadata fields are also included.
     """
 
-    refined_idea: TIPSCRefinedIdea = Field(
-        default_factory=TIPSCRefinedIdea
-    )
+    refined_idea: TIPSCRefinedIdea = Field(default_factory=TIPSCRefinedIdea)
 
     solution_alignment: str = ""
 
-    tips_validated_metrics: TIPSValidatedMetrics = Field(
-        default_factory=TIPSValidatedMetrics
-    )
+    tips_validated_metrics: TIPSValidatedMetrics = Field(default_factory=TIPSValidatedMetrics)
 
-    tips_rag_scores: TIPSCRAGScores = Field(
-        default_factory=TIPSCRAGScores
-    )
+    tips_rag_scores: TIPSCRAGScores = Field(default_factory=TIPSCRAGScores)
 
     overall_readiness: str = ""
 
@@ -116,13 +112,9 @@ class TIPSCOutput(BaseModel):
 
     needs_followup: bool = False
 
-    missing_criteria: list[str] = Field(
-        default_factory=list
-    )
+    missing_criteria: list[str] = Field(default_factory=list)
 
-    criteria_state: dict[str, Any] = Field(
-        default_factory=dict
-    )
+    criteria_state: dict[str, Any] = Field(default_factory=dict)
 
     # Backend enrichment fields
 
@@ -153,9 +145,7 @@ class FollowupExchange(BaseModel):
 
     turn: int
 
-    answered_at: datetime = Field(
-        default_factory=utc_now
-    )
+    answered_at: datetime = Field(default_factory=utc_now)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -229,9 +219,7 @@ class WorkerFailureMetadata(BaseModel):
 
     retry_count: int = 0
 
-    failed_at: datetime = Field(
-        default_factory=utc_now
-    )
+    failed_at: datetime = Field(default_factory=utc_now)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -240,14 +228,13 @@ class WorkerFailureMetadata(BaseModel):
 
 
 class Session(Document):
-
     # ── Ownership ──────────────────────────────────────────────────────────
 
-    student_id: Indexed(str) | None = None
+    student_id: Annotated[str, Indexed()] | None = None
 
-    team_id: Indexed(str) | None = None
+    team_id: Annotated[str, Indexed()] | None = None
 
-    workspace_id: Indexed(str) | None = None
+    workspace_id: Annotated[str, Indexed()] | None = None
 
     # ── Founder input ──────────────────────────────────────────────────────
 
@@ -289,7 +276,7 @@ class Session(Document):
     # ── DFV founder context ────────────────────────────────────────────────
 
     dfv_inputs: DFVInputs | None = None
-    
+
     # ── Discovery founder context ─────────────────────────────────────────
 
     discovery_inputs: DiscoveryJobPayload | None = None
@@ -309,13 +296,12 @@ class Session(Document):
     followup_turn: int | None = 0
 
     # Only completed Q&A exchanges.
-    followup_history: list[FollowupExchange] = Field(
-        default_factory=list
-    )
+    followup_history: list[FollowupExchange] = Field(default_factory=list)
 
     # ── Execution metadata ─────────────────────────────────────────────────
 
     correlation_id: str | None = None
+    flow_requests: dict[str, dict[str, Any]] = Field(default_factory=dict)
 
     flow_started_at: datetime | None = None
 
@@ -329,21 +315,15 @@ class Session(Document):
 
     idempotency_key: str | None = None
 
-    state_history: list[StateTransition] = Field(
-        default_factory=list
-    )
+    state_history: list[StateTransition] = Field(default_factory=list)
 
     # ── Lifecycle timestamps ───────────────────────────────────────────────
 
     archived_at: datetime | None = None
 
-    created_at: datetime = Field(
-        default_factory=utc_now
-    )
+    created_at: datetime = Field(default_factory=utc_now)
 
-    updated_at: datetime = Field(
-        default_factory=utc_now
-    )
+    updated_at: datetime = Field(default_factory=utc_now)
 
     # ── MongoDB configuration ──────────────────────────────────────────────
 
@@ -351,6 +331,28 @@ class Session(Document):
         name = "sessions"
 
         indexes = [
+            IndexModel(
+                [("workspace_id", ASCENDING)],
+                name="uq_active_workspace_id",
+                unique=True,
+                partialFilterExpression={
+                    "workspace_id": {"$type": "string"},
+                    "status": {
+                        "$in": [s.value for s in SessionStatus if s != SessionStatus.ARCHIVED]
+                    },
+                },
+            ),
+            IndexModel(
+                [("student_id", ASCENDING)],
+                name="uq_active_student_id",
+                unique=True,
+                partialFilterExpression={
+                    "student_id": {"$type": "string"},
+                    "status": {
+                        "$in": [s.value for s in SessionStatus if s != SessionStatus.ARCHIVED]
+                    },
+                },
+            ),
             IndexModel(
                 [("workspace_id", ASCENDING)],
                 name="ix_sessions_workspace_id",

@@ -8,8 +8,8 @@ Access Token (JWT):
   - exp claim is ALWAYS present and ALWAYS checked
 
 Refresh Token:
-  - Opaque UUID4 string returned raw to the client
-  - Stored in MongoDB as bcrypt hash with TTL index
+  - Opaque high-entropy string returned raw to the client
+  - Stored in MongoDB as SHA-256 digest with TTL index
   - Never carries any user claims — lookup is by hash
 
 Token Decoding:
@@ -20,25 +20,27 @@ Token Decoding:
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import logging
+import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-import bcrypt
-from jose import ExpiredSignatureError, JWTError, jwt
+import jwt
+from jwt import ExpiredSignatureError, InvalidTokenError
 
 from core.config import settings
 from exceptions.base import TokenExpiredError, TokenInvalidError
 
 logger = logging.getLogger(__name__)
 
-# We use bcrypt directly to avoid passlib incompatibilities in Python 3.13+ / bcrypt 4+
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def _utc_now() -> datetime:
     return datetime.now(UTC)
@@ -47,6 +49,7 @@ def _utc_now() -> datetime:
 # ─────────────────────────────────────────────────────────────────────────────
 # Access Token
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def create_access_token(
     user_id: str,
@@ -74,25 +77,28 @@ def create_access_token(
     expire = now + timedelta(minutes=settings.JWT_EXPIRY_MINUTES)
 
     payload: dict[str, Any] = {
-        "sub": user_id,                        # Subject (user ID)
+        "sub": user_id,  # Subject (user ID)
         "role": role,
         "name": name,
         "team_id": team_id,
         "workspace_id": workspace_id,
         "mentor_team_ids": mentor_team_ids or [],
-        "iat": now,                            # Issued-at
-        "exp": expire,                         # Expiry — ALWAYS present
-        "jti": str(uuid.uuid4()),              # JWT ID — unique per token
+        "iat": now,  # Issued-at
+        "exp": expire,  # Expiry — ALWAYS present
+        "jti": str(uuid.uuid4()),  # JWT ID — unique per token
     }
 
     token = jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
-    logger.debug("Access token created for user_id=%s role=%s exp=%s", user_id, role, expire.isoformat())
+    logger.debug(
+        "Access token created for user_id=%s role=%s exp=%s", user_id, role, expire.isoformat()
+    )
     return token
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Refresh Token
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def create_refresh_token() -> tuple[str, str]:
     """
@@ -103,29 +109,22 @@ def create_refresh_token() -> tuple[str, str]:
         - raw_token    → sent to the client.
         - hashed_token → stored in MongoDB refresh_tokens collection.
     """
-    raw = str(uuid.uuid4())
-    salt = bcrypt.gensalt()
-    hashed = bcrypt.hashpw(raw.encode('utf-8'), salt).decode('ascii')
-    return raw, hashed
+    raw = secrets.token_urlsafe(48)
+    return raw, refresh_token_digest(raw)
+
+
+def refresh_token_digest(raw_token: str) -> str:
+    return hashlib.sha256(raw_token.encode()).hexdigest()
 
 
 def verify_refresh_token(raw_token: str, stored_hash: str) -> bool:
-    """
-    Verify a raw refresh token against its stored bcrypt hash.
-
-    Args:
-        raw_token: The token value received from the client.
-        stored_hash: The bcrypt hash retrieved from MongoDB.
-
-    Returns:
-        True if the token matches, False otherwise.
-    """
-    return bcrypt.checkpw(raw_token.encode('utf-8'), stored_hash.encode('ascii'))
+    return hmac.compare_digest(refresh_token_digest(raw_token), stored_hash)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Token Decoding
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def decode_token(token: str) -> dict[str, Any]:
     """
@@ -150,12 +149,12 @@ def decode_token(token: str) -> dict[str, Any]:
             token,
             settings.JWT_SECRET,
             algorithms=[settings.JWT_ALGORITHM],
-            options={"require_exp": True},    # exp MUST be present
+            options={"require": ["exp", "sub", "iat", "jti"]},  # exp MUST be present
         )
     except ExpiredSignatureError as exc:
         logger.info("Expired JWT received")
         raise TokenExpiredError() from exc
-    except JWTError as exc:
+    except InvalidTokenError as exc:
         logger.warning("Invalid JWT | %s", str(exc))
         raise TokenInvalidError() from exc
 

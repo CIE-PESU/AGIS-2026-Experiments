@@ -6,6 +6,8 @@ Workers subscribe to these same topics.
 
 Naming convention: <domain>.<consumer>
 """
+
+
 class KafkaTopic:
     """All Kafka topic names used across AGIS workers."""
 

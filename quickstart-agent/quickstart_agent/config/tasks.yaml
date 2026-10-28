@@ -1,6 +1,10 @@
 evaluate_idea:
   description: |
-    Evaluate the following startup idea across 10 parameters.
+    Evaluate the founder's structured or already active startup idea across 10 parameters.
+    Explain how the idea holds up based on the evidence provided, and identify
+    concrete improvements or tests that should come next. Do not claim that
+    demand, payments, partnerships, launch, or traction have been validated
+    unless the input or a cited tool result establishes it.
 
     INPUT:
     - Problem: {problem}

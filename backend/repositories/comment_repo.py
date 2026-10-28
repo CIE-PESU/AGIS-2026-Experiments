@@ -89,9 +89,7 @@ class CommentRepository(BaseRepository[MentorComment]):
             return None
         return await MentorComment.get(oid)
 
-    async def find_by_id_and_mentor(
-        self, comment_id: str, mentor_id: str
-    ) -> MentorComment | None:
+    async def find_by_id_and_mentor(self, comment_id: str, mentor_id: str) -> MentorComment | None:
         """
         Ownership-filtered fetch.
         Returns None if the comment exists but belongs to a different mentor.

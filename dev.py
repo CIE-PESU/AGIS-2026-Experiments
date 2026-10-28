@@ -1,63 +1,77 @@
 #!/usr/bin/env python3
-"""One-command dev server: starts backend, workers, and frontend."""
-import subprocess
-import signal
-import sys
+"""Run with `uv run python dev.py`; stop all services on failure or Ctrl+C."""
+from __future__ import annotations
 import os
-
-procs = []
-
-def start(cmd, cwd=None, env=None):
-    full_env = os.environ.copy()
-    if env:
-        full_env.update(env)
-    p = subprocess.Popen(cmd, shell=True, cwd=cwd, env=full_env)
-    procs.append(p)
-    return p
-
-def cleanup(*_):
-    for p in procs:
-        p.terminate()
-    for p in procs:
-        try:
-            p.wait(timeout=3)
-        except subprocess.TimeoutExpired:
-            p.kill()
-    sys.exit(0)
-
-signal.signal(signal.SIGINT, cleanup)
-signal.signal(signal.SIGTERM, cleanup)
-
-root = os.path.dirname(os.path.abspath(__file__))
-backend = os.path.join(root, "backend")
-frontend = os.path.join(root, "frontend")
-
-# Activate venv for backend commands
-venv_python = os.path.join(root, ".venv", "bin", "python")
-venv_bin = os.path.join(root, ".venv", "bin")
-
-# Backend API
-start(f"{venv_python} -m uvicorn main:app --reload --host 0.0.0.0 --port 8008", cwd=backend)
-
-# Give backend time to initialize Kafka, MongoDB, etc.
+from pathlib import Path
+import signal
+import subprocess
+import sys
 import time
-time.sleep(5)
+import urllib.error
+import urllib.request
 
-# Combined Agent Worker (DFV + Discovery)
-start(f"{venv_python} -m workers.combined_agent_worker", cwd=backend)
+ROOT = Path(__file__).resolve().parent
 
-# Notification Worker
-start(f"{venv_python} -m workers.notification_worker", cwd=backend)
 
-# Give workers time to connect to Kafka
-time.sleep(3)
+def main() -> int:
+    processes: list[subprocess.Popen] = []
+    def start(arguments, cwd, extra=None):
+        env = {**os.environ, **(extra or {})}
+        process = subprocess.Popen(arguments, cwd=cwd, env=env, start_new_session=os.name != "nt")
+        processes.append(process)
+        return process
 
-# Give frontend time to wait for backend readiness
-time.sleep(20)
+    def wait_ready(url, timeout=120):
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if any(p.poll() is not None for p in processes):
+                raise RuntimeError("A service exited during startup; inspect its output above")
+            try:
+                with urllib.request.urlopen(url, timeout=2) as response:
+                    if response.status == 200:
+                        return
+            except (OSError, urllib.error.URLError):
+                pass
+            time.sleep(0.25)
+        raise RuntimeError(f"Service did not become ready: {url}")
 
-# Frontend
-start("npm run dev", cwd=frontend)
+    def stop(*_):
+        raise KeyboardInterrupt
 
-print("All services started. Press Ctrl+C to stop.")
-for p in procs:
-    p.wait()
+    signal.signal(signal.SIGTERM, stop)
+    try:
+        start([sys.executable, "-m", "uvicorn", "main:app", "--host", "127.0.0.1", "--port", "8008"], ROOT / "backend")
+        wait_ready("http://127.0.0.1:8008/api/v1/ready")
+        start([sys.executable, "-m", "workers.combined_agent_worker"], ROOT / "backend", {"WORKER_HEALTH_PORT": "8009"})
+        wait_ready("http://127.0.0.1:8009/health")
+        start(["npm", "run", "dev"], ROOT / "frontend")
+        wait_ready("http://127.0.0.1:5167")
+        print("AGIS ready: http://localhost:5167 (Ctrl+C stops all services)", flush=True)
+        while all(p.poll() is None for p in processes):
+            time.sleep(0.5)
+        raise RuntimeError("A service stopped unexpectedly")
+    except KeyboardInterrupt:
+        return 0
+    except Exception as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    finally:
+        for process in reversed(processes):
+            if process.poll() is None:
+                if os.name == "nt":
+                    process.terminate()
+                else:
+                    os.killpg(process.pid, signal.SIGTERM)
+        for process in processes:
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                if os.name == "nt":
+                    process.kill()
+                else:
+                    os.killpg(process.pid, signal.SIGKILL)
+                process.wait()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

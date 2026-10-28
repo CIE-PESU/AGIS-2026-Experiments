@@ -9,9 +9,11 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from enum import Enum
+from typing import Annotated
 
 from beanie import Document, Indexed
 from pydantic import Field
+from pymongo import IndexModel
 
 
 def utc_now() -> datetime:
@@ -50,9 +52,9 @@ class Workspace(Document):
     name: str
     type: WorkspaceType = WorkspaceType.MENTOR
     status: WorkspaceStatus = WorkspaceStatus.ACTIVE
-    token_hash: Indexed(str, unique=True) | None = None
-    student_user_id: Indexed(str) | None = None
-    mentor_id: Indexed(str) | None = None
+    token_hash: Annotated[str, Indexed(unique=True)] | None = None
+    student_user_id: Annotated[str, Indexed()] | None = None
+    mentor_id: Annotated[str, Indexed()] | None = None
     created_by_admin_id: str | None = None
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
@@ -60,6 +62,23 @@ class Workspace(Document):
 
     class Settings:
         name = "workspaces"
+        indexes = [
+            IndexModel(
+                [("token_hash", 1)],
+                unique=True,
+                name="uq_workspace_token",
+                partialFilterExpression={"token_hash": {"$type": "string"}},
+            ),
+            IndexModel(
+                [("student_user_id", 1)],
+                unique=True,
+                name="uq_active_student_workspace",
+                partialFilterExpression={
+                    "student_user_id": {"$type": "string"},
+                    "status": "active",
+                },
+            ),
+        ]
 
     @property
     def workspace_id(self) -> str:

@@ -11,7 +11,7 @@ from datetime import datetime
 
 from dotenv import load_dotenv
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
+ROOT_DIR = Path(__file__).resolve().parents[2]
 load_dotenv(ROOT_DIR / ".env")
 
 os.environ.setdefault("CREWAI_DISABLE_TELEMETRY", "true")
@@ -92,7 +92,7 @@ llm = LLM(
         if os.environ["OPENAI_MODEL_NAME"].endswith("nemotron-3.5-lightning-30b-a3b")
         else {}
     ),
-    timeout=108000,
+    timeout=float(os.getenv("CREWAI_TIMEOUT_SECONDS", "600")),
 )
 
 
@@ -133,7 +133,7 @@ def create_crew():
     )
 
     task = Task(
-        description=task_cfg["description"],
+        description=f"{task_cfg['description']}\n\nQUICKSTART EVALUATION SKILL:\n{skill_text}",
         expected_output=task_cfg["expected_output"],
         agent=agent,
         async_execution=task_cfg.get("async_execution", False),
@@ -366,7 +366,7 @@ def read_stdin_input() -> QuickstartInput | None:
 
 def main():
     print_banner()
-    
+
     # Check for stdin input (API mode)
     stdin_input = read_stdin_input()
     if stdin_input:

@@ -3,7 +3,7 @@ AuditLog repository — append-only writes to `audit_logs` collection.
 No update or delete methods. Immutable by design.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from models.audit import AuditEvent, AuditLog
@@ -29,7 +29,9 @@ class AuditRepository(BaseRepository[AuditLog]):
         """
         meta = metadata or {}
         resolved_workspace_id = workspace_id or meta.get("workspace_id")
-        resolved_actor = actor or (f"ws_{resolved_workspace_id}" if resolved_workspace_id else "system")
+        resolved_actor = actor or (
+            f"ws_{resolved_workspace_id}" if resolved_workspace_id else "system"
+        )
         resolved_role = actor_role or ("mentor_workspace" if resolved_workspace_id else "system")
 
         log = AuditLog(
@@ -39,7 +41,7 @@ class AuditRepository(BaseRepository[AuditLog]):
             actor_role=resolved_role,
             workspace_id=resolved_workspace_id,
             metadata=meta,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
         )
         await log.insert()
         return log
@@ -74,7 +76,7 @@ class AuditRepository(BaseRepository[AuditLog]):
     ) -> list[AuditLog]:
         """Admin query — returns system-wide audit logs with time and event filters."""
         query = AuditLog.find_all()
-        
+
         if filters:
             if filters.get("event"):
                 query = AuditLog.find(AuditLog.event == filters["event"])
@@ -86,15 +88,15 @@ class AuditRepository(BaseRepository[AuditLog]):
                 query = AuditLog.find(AuditLog.timestamp >= filters["from_date"])
             if filters.get("to_date"):
                 query = AuditLog.find(AuditLog.timestamp <= filters["to_date"])
-                
+
         skip = (page - 1) * limit
-        return await query.sort(-AuditLog.timestamp).skip(skip).limit(limit).to_list() # type: ignore[arg-type]
+        return await query.sort(-AuditLog.timestamp).skip(skip).limit(limit).to_list()  # type: ignore[arg-type]
 
     async def count_system_events(self, event_type: str, since: datetime) -> int:
         """Helper for metrics to count specific events (like logins or errors) in a timeframe."""
         return await AuditLog.find(
-            AuditLog.event == event_type,
-            AuditLog.timestamp >= since
+            AuditLog.event == event_type, AuditLog.timestamp >= since
         ).count()
+
 
 audit_repo = AuditRepository()

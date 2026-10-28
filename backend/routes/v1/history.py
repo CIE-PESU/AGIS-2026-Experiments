@@ -42,10 +42,7 @@ async def get_session_history(
     total = len(history)
 
     return paginated_response(
-        data=[
-            AuditLogResponse.model_validate(item).model_dump()
-            for item in history
-        ],
+        data=[AuditLogResponse.model_validate(item).model_dump() for item in history],
         request=request,
         page=page,
         limit=limit,

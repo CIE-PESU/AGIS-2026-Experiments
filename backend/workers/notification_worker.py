@@ -23,16 +23,17 @@ import json
 import logging
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 # third-party
 from aiokafka import AIOKafkaConsumer
+from bson import ObjectId
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import ValidationError
 
 # env + path bootstrap (must run before any local imports)
-_env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
+_env_path = os.path.join(os.path.dirname(__file__), "..", "..", ".env")
 load_dotenv(dotenv_path=_env_path)
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -40,8 +41,8 @@ if os.path.join(PROJECT_ROOT, "backend") not in sys.path:
     sys.path.insert(0, os.path.join(PROJECT_ROOT, "backend"))
 
 # local
-from kafka.topics import KafkaTopic
-from models.schema import NotificationMessage
+from kafka.topics import KafkaTopic  # noqa: E402 — worker path/environment bootstrap precedes backend imports
+from models.schema import NotificationMessage  # noqa: E402 — worker path/environment bootstrap precedes backend imports
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("notification_worker")
@@ -75,8 +76,9 @@ class NotificationWorker:
         self.db = self.mongo_client[DB_NAME]
 
         await self.consumer.start()
-        logger.info("Notification worker listening on %s (group=%s)",
-                    NOTIFICATIONS_TOPIC, CONSUMER_GROUP)
+        logger.info(
+            "Notification worker listening on %s (group=%s)", NOTIFICATIONS_TOPIC, CONSUMER_GROUP
+        )
 
     async def stop(self):
         if self.consumer:
@@ -89,7 +91,7 @@ class NotificationWorker:
         already written — avoids duplicate log entries on redelivery."""
         existing = await self.db[USER_SESSIONS_COLLECTION].find_one(
             {
-                "_id": note.userSession_id,
+                "_id": ObjectId(note.userSession_id),
                 "notificationLog": {
                     "$elemMatch": {
                         "correlation_id": note.correlation_id,
@@ -108,10 +110,10 @@ class NotificationWorker:
           2. notificationLog       — append-only audit trail of every event,
              useful for debugging and for the idempotency dedup check above.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         await self.db[USER_SESSIONS_COLLECTION].update_one(
-            {"_id": note.userSession_id},
+            {"_id": ObjectId(note.userSession_id), "correlation_id": note.correlation_id},
             {
                 "$set": {
                     f"notifications.{note.flow}": {
@@ -133,7 +135,7 @@ class NotificationWorker:
                     }
                 },
             },
-            upsert=True,
+            upsert=False,
         )
 
     async def _handle_message(self, raw_value: dict):

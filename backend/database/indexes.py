@@ -4,6 +4,7 @@ All indexes mirror backend-arch.md Section 8.3.
 """
 
 import logging
+from typing import Any
 
 from motor.motor_asyncio import AsyncIOMotorClient
 
@@ -51,17 +52,23 @@ async def create_indexes() -> None:
     # ── refresh_tokens ────────────────────────────────────────────────────────
     refresh_tokens = db["refresh_tokens"]
 
-    await refresh_tokens.create_index(
-        "token_hash",
-        unique=True,
-        name="ix_refresh_tokens_hash",
-    )
-    # TTL index — MongoDB auto-deletes expired tokens
-    await refresh_tokens.create_index(
-        "expires_at",
-        expireAfterSeconds=0,
-        name="ix_refresh_tokens_ttl",
-    )
+    existing = await refresh_tokens.index_information()
+    desired: list[tuple[str, dict[str, Any], str]] = [
+        ("token_hash", {"unique": True}, "ix_refresh_tokens_hash"),
+        ("expires_at", {"expireAfterSeconds": 0}, "ix_refresh_tokens_ttl"),
+    ]
+    for field, options, default_name in desired:
+        matching = [
+            (name, data) for name, data in existing.items() if data.get("key") == [(field, 1)]
+        ]
+        name = default_name
+        for old_name, data in matching:
+            if all(data.get(key) == value for key, value in options.items()):
+                name = old_name
+                break
+            # Replace only the obsolete single-field index, never application records.
+            await refresh_tokens.drop_index(old_name)
+        await refresh_tokens.create_index(field, name=name, **options)
 
     # ── idempotency_keys ──────────────────────────────────────────────────────
     idempotency_keys = db["idempotency_keys"]

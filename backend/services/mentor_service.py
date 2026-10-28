@@ -47,16 +47,16 @@ async def sync_mentor_teams(mentor_id: str) -> list[str]:
         mentor = await User.find_one(User.srn == mentor_id.upper())
     if not mentor:
         return []
-        
+
     mentor_id_str = str(mentor.id)
     mentor_srn = mentor.srn
-    
+
     teams_by_id = await Team.find(Team.mentor_id == mentor_id_str).to_list()
     teams_by_srn = await Team.find(Team.mentor_id == mentor_srn).to_list() if mentor_srn else []
-    
+
     all_teams = {str(t.id): t for t in (teams_by_id + teams_by_srn)}
     mentor_team_ids = list(all_teams.keys())
-    
+
     mentor.mentor_team_ids = mentor_team_ids
     await mentor.save()
     return mentor_team_ids
@@ -149,7 +149,9 @@ class MentorService:
                     team_id=session.team_id,
                     team_name=team.team_name if team else None,
                     student_name=student.name if student else None,
-                    status=session.status.value if hasattr(session.status, "value") else session.status,
+                    status=session.status.value
+                    if hasattr(session.status, "value")
+                    else session.status,
                     tipsc_score=tipsc_score,
                     ready_for_dfv=ready_for_dfv,
                     created_at=session.created_at,

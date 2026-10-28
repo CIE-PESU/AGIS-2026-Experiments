@@ -3,7 +3,7 @@ AuditLog Beanie ODM model — `audit_logs` collection.
 Append-only — never updated or deleted.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -30,13 +30,17 @@ class AuditEvent(str, Enum):
 
 
 class AuditLog(Document):
-    session_id: str | None = None   # null for auth events (login, logout)
-    event: AuditEvent                  # Event enum
-    actor: str | None = None        # user_id or "system" or "ws_{workspace_id}"
-    actor_role: str | None = "system" # "student" | "mentor" | "mentor_workspace" | "admin" | "worker" | "system"
-    workspace_id: str | None = None # Workspace ID for External Reviewers / guest workspace sessions
+    session_id: str | None = None  # null for auth events (login, logout)
+    event: AuditEvent  # Event enum
+    actor: str | None = None  # user_id or "system" or "ws_{workspace_id}"
+    actor_role: str | None = (
+        "system"  # "student" | "mentor" | "mentor_workspace" | "admin" | "worker" | "system"
+    )
+    workspace_id: str | None = (
+        None  # Workspace ID for External Reviewers / guest workspace sessions
+    )
     metadata: dict[str, Any] = Field(default_factory=dict)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     class Settings:
         name = "audit_logs"

@@ -5,6 +5,7 @@ from fastapi import BackgroundTasks
 from pydantic import ValidationError
 
 from exceptions.base import (
+    ConcurrentFlowUpdateError,
     CorrelationIDMismatchError,
     InvalidOutputSchemaError,
 )
@@ -21,6 +22,7 @@ from state_machine.validator import validate_transition
 
 logger = logging.getLogger(__name__)
 
+
 class WorkerService:
     async def accept_flow_output(
         self,
@@ -31,7 +33,7 @@ class WorkerService:
         duration_seconds: float,
         worker_id: str,
         background_tasks: BackgroundTasks,
-        status: str = "success", # From prompt, but not heavily used.
+        status: str = "success",  # From prompt, but not heavily used.
     ) -> dict:
         session = await session_repo.find_by_id(session_id)
         if not session:
@@ -49,24 +51,26 @@ class WorkerService:
                     logger.info(
                         "Idempotency hit — skipping duplicate worker output | "
                         "session_id=%s flow=%s correlation_id=%s",
-                        session_id, flow, correlation_id,
+                        session_id,
+                        flow,
+                        correlation_id,
                     )
                     return {"status": "duplicate", "message": f"{flow} output already applied."}
         # --- END IDEMPOTENCY CHECK ---
-        
+
         if session.correlation_id != correlation_id:
             raise CorrelationIDMismatchError()
-            
+
         if session.status in TERMINAL_STATES:
             raise InvalidStateTransitionError(
                 current_status=session.status,
-                target_status=session.status, # any
-                message="Cannot update a terminal session."
+                target_status=session.status,  # any
+                message="Cannot update a terminal session.",
             )
-            
+
         if not output:
             raise InvalidOutputSchemaError("Output cannot be empty.")
-            
+
         if flow == "tipsc":
             try:
                 parsed_output = TIPSCOutput(**output)
@@ -92,7 +96,7 @@ class WorkerService:
             raise InvalidOutputSchemaError(f"Unknown flow: {flow}")
 
         validate_transition(session.status, target_status)
-        
+
         updated = await session_repo.update_flow_output(
             session_id=session_id,
             flow=flow,
@@ -100,21 +104,20 @@ class WorkerService:
             new_status=target_status,
             expected_version=session.version,
         )
-        
+
         if not updated:
-            raise InvalidStateTransitionError(message="Concurrent update detected. Output rejected.")
-            
+            raise ConcurrentFlowUpdateError(message="Concurrent update detected. Output rejected.")
+
         background_tasks.add_task(
             audit_service.log_event,
             event=audit_event,
             actor=worker_id,
             actor_role="worker",
             session_id=session_id,
-            metadata={"duration_seconds": duration_seconds, "flow": flow}
+            metadata={"duration_seconds": duration_seconds, "flow": flow},
         )
-        
-        return {"status": "success", "message": f"{flow} output accepted."}
 
+        return {"status": "success", "message": f"{flow} output accepted."}
 
     async def accept_flow_failure(
         self,
@@ -129,10 +132,10 @@ class WorkerService:
         session = await session_repo.find_by_id(session_id)
         if not session:
             raise SessionNotFoundError()
-            
+
         if session.correlation_id != correlation_id:
             raise CorrelationIDMismatchError()
-            
+
         if flow == "tipsc":
             target_status = SessionStatus.TIPSC_FAILED
             audit_event = AuditEvent.TIPSC_FAILED
@@ -144,34 +147,39 @@ class WorkerService:
             audit_event = AuditEvent.DISCOVERY_FAILED
         else:
             raise ValueError(f"Unknown flow: {flow}")
-            
+
+        if session.status == target_status:
+            return {"status": "duplicate", "message": "Failure already applied."}
         validate_transition(session.status, target_status)
-        
+
         failure_metadata = {
             "flow": flow,
             "error_code": error_code,
             "error_message": error_message,
             "retry_count": retry_count,
         }
-        
+
         updated = await session_repo.update_flow_failure(
             session_id=session_id,
             new_status=target_status,
             failure_metadata=failure_metadata,
+            expected_version=session.version,
+            correlation_id=correlation_id,
         )
-        
+
         if not updated:
-            raise InvalidStateTransitionError(message="Concurrent update detected. Failure rejected.")
-            
+            raise ConcurrentFlowUpdateError(message="Concurrent update detected. Failure rejected.")
+
         background_tasks.add_task(
             audit_service.log_event,
             event=audit_event,
-            actor="worker", # typically worker_id, but it's not in the request schema
+            actor="worker",  # typically worker_id, but it's not in the request schema
             actor_role="worker",
             session_id=session_id,
-            metadata={"error_code": error_code, "error_message": error_message}
+            metadata={"error_code": error_code, "error_message": error_message},
         )
-        
+
         return {"status": "success", "message": f"{flow} failure accepted."}
+
 
 worker_service = WorkerService()

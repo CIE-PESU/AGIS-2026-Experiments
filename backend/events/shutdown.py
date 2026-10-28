@@ -24,9 +24,17 @@ async def on_shutdown() -> None:
     """
     logger.info("=== AGIS Backend Shutting Down ===")
 
+    from services.session_task_registry import stop_session_tasks
+
+    await stop_session_tasks()
+    from events import startup
+
+    startup.tipsc_executor_instance = None
+
     # ── 1. Kafka Producer ──────────────────────────────────────────────────────
     try:
         from kafka.producer import kafka_producer
+
         await kafka_producer.stop()
         logger.info("[shutdown] Kafka Producer closed ✓")
     except Exception as exc:
@@ -35,6 +43,7 @@ async def on_shutdown() -> None:
     # ── 2. MongoDB ─────────────────────────────────────────────────────────────
     try:
         from services.timeout_supervisor import timeout_supervisor
+
         await timeout_supervisor.stop()
         logger.info("[shutdown] Timeout supervisor stopped ✓")
     except Exception as exc:
@@ -42,6 +51,7 @@ async def on_shutdown() -> None:
 
     try:
         from database.mongodb import disconnect_db
+
         await disconnect_db()
         logger.info("[shutdown] MongoDB closed ✓")
     except Exception as exc:

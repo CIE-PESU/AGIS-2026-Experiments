@@ -217,7 +217,6 @@ export function TIPSCFlow() {
       setSessionId(created.session_id);
       addEvent("Session Created");
 
-      await triggerTipsc(created.session_id);
       addEvent("TIPSC Triggered");
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Failed to create session. Check backend connection.";
@@ -613,26 +612,27 @@ function Loading({ icon, text }: { icon: React.ReactNode; text: string }) {
 }
 
 function ScoreGrid({ tips }: { tips: TIPSCResult }) {
+  const ragScores = tips.tips_rag_scores;
   const scores = [
     {
       key: "Timely",
-      status: tips.tips_rag_scores.T,
-      reason: tips.tips_rag_scores.T_reason,
+      status: ragScores?.T,
+      reason: ragScores?.T_reason,
     },
     {
       key: "Important",
-      status: tips.tips_rag_scores.I,
-      reason: tips.tips_rag_scores.I_reason,
+      status: ragScores?.I ?? ragScores?.IMPORTANT,
+      reason: ragScores?.I_reason ?? ragScores?.IMPORTANT_reason,
     },
     {
       key: "Profitable",
-      status: tips.tips_rag_scores.P,
-      reason: tips.tips_rag_scores.P_reason,
+      status: ragScores?.P,
+      reason: ragScores?.P_reason,
     },
     {
       key: "Solvable",
-      status: tips.tips_rag_scores.S,
-      reason: tips.tips_rag_scores.S_reason,
+      status: ragScores?.S,
+      reason: ragScores?.S_reason,
     },
   ];
 
@@ -645,7 +645,7 @@ function ScoreGrid({ tips }: { tips: TIPSCResult }) {
             className="rounded-lg border p-4"
           >
             <div className="mb-3 flex items-center gap-2">
-              <TrafficDot status={score.status} />
+              {score.status && <TrafficDot status={score.status} />}
               <h3 className="font-bold">
                 {score.key}
               </h3>
@@ -679,7 +679,7 @@ function ScoreGrid({ tips }: { tips: TIPSCResult }) {
               strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
             }}
           >
-            {tips.reasoning}
+            {tips.reasoning ?? ""}
           </ReactMarkdown>
         </div>
       </div>

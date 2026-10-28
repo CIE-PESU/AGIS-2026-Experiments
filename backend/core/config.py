@@ -7,6 +7,7 @@ Never hardcode secrets. Every field here must come from the environment.
 
 from pathlib import Path
 
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -27,6 +28,7 @@ class Settings(BaseSettings):
     APP_VERSION: str = "1.0.0"
     ENVIRONMENT: str = "development"  # development | staging | production
     DEBUG: bool = False
+    AGIS_EXPORT_PATH: Path | None = None
 
     # ── MongoDB ────────────────────────────────────────────────────────────────
     MONGODB_URI: str
@@ -35,18 +37,18 @@ class Settings(BaseSettings):
     MONGODB_MIN_POOL_SIZE: int = 2
 
     # ── JWT ────────────────────────────────────────────────────────────────────
-    JWT_SECRET: str
+    JWT_SECRET: str = Field(min_length=32)
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRY_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRY_DAYS: int = 7
-    FERNET_KEY: str
+    FERNET_KEY: str = ""
 
     # ── PES Auth ───────────────────────────────────────────────────────────────
-    PES_AUTH_URL: str                    # e.g. https://auth.pes.edu/api/v1/validate
+    PES_AUTH_URL: str  # e.g. https://auth.pes.edu/api/v1/validate
     PES_AUTH_TIMEOUT_SECONDS: float = 5.0
 
     # ── Kafka ──────────────────────────────────────────────────────────────────
-    KAFKA_BOOTSTRAP_SERVERS: str         # e.g. localhost:9092
+    KAFKA_BOOTSTRAP_SERVERS: str  # e.g. localhost:9092
     KAFKA_SECURITY_PROTOCOL: str = "PLAINTEXT"
 
     # ── CORS ───────────────────────────────────────────────────────────────────
@@ -54,31 +56,41 @@ class Settings(BaseSettings):
     CORS_ALLOWED_ORIGINS: str = "http://localhost:3000"
 
     # ── Internal Worker ────────────────────────────────────────────────────────
-    WORKER_INTERNAL_SECRET: str
-
+    WORKER_INTERNAL_SECRET: str = Field(min_length=32)
 
     # ── Rate Limiting ──────────────────────────────────────────────────────────
-    RATE_LIMIT_LOGIN_PER_MINUTE: int = 5    # per IP
-    RATE_LIMIT_API_PER_MINUTE: int = 60     # per user_id
+    RATE_LIMIT_LOGIN_PER_MINUTE: int = 5  # per IP
+    RATE_LIMIT_API_PER_MINUTE: int = 60  # per user_id
 
     # ── Payload ────────────────────────────────────────────────────────────────
     MAX_REQUEST_BODY_BYTES: int = 10_485_760  # 10 MB (C4: returns 413 above this)
     # ── Agent Worker ──────────────────────────────────────────────────────────────
     WORKER_BACKEND_URL: str = "http://127.0.0.1:8008"
     WORKER_ID: str = "combined-agent-worker-1"
-    AGENT_TIMEOUT_SECONDS: int = 1800
-    AGENT_MAX_RETRIES: int = 3
+    AGENT_TIMEOUT_SECONDS: int = Field(default=1800, gt=0)
+    CREWAI_TIMEOUT_SECONDS: int = Field(default=600, gt=0)
     TAVILY_API_KEY: str
     # ── LLM / CrewAI ───────────────────────────────────────────────────────────
     OPENAI_MODEL_NAME: str
     OPENAI_API_KEY: str
     LM_STUDIO_URL: str
-    LOG_LEVEL: str = "INFO" # or DEBUG
+    LOG_LEVEL: str = "INFO"  # or DEBUG
+
+    @field_validator("JWT_SECRET", "WORKER_INTERNAL_SECRET")
+    @classmethod
+    def reject_placeholder_secrets(cls, value: str) -> str:
+        if value.startswith("CHANGE_ME"):
+            raise ValueError(
+                "Replace placeholder secrets; use scripts/init_env.py for a new installation"
+            )
+        return value
 
     @property
     def cors_origins_list(self) -> list[str]:
         """Parse the comma-separated CORS_ALLOWED_ORIGINS into a list."""
-        origins = [origin.strip() for origin in self.CORS_ALLOWED_ORIGINS.split(",") if origin.strip()]
+        origins = [
+            origin.strip() for origin in self.CORS_ALLOWED_ORIGINS.split(",") if origin.strip()
+        ]
         if not self.is_production and "*" not in origins:
             origins.append("*")
         return origins

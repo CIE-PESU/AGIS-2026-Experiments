@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
-from models import (
+from tipsc_models import (
     EthicsOutput,
     PreEvalOutput,
     RegulatoryOutput,

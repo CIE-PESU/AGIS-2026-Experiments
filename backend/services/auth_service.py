@@ -17,10 +17,10 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 
-from auth.jwt import create_access_token, create_refresh_token, verify_refresh_token
+from auth.jwt import create_access_token, create_refresh_token
 from auth.pes_client import pes_auth_client
 from core.config import settings
-from core.security import cipher
+from core.security import decrypt_legacy_password, hash_password, verify_password
 from exceptions.base import (
     InvalidCredentialsError,
     RefreshTokenExpiredError,
@@ -39,7 +39,12 @@ class AuthService:
 
     # ── Login ──────────────────────────────────────────────────────────────────
 
-    async def login(self, srn: str, password: str, team_id: str | None = None,) -> LoginResponse:
+    async def login(
+        self,
+        srn: str,
+        password: str,
+        team_id: str | None = None,
+    ) -> LoginResponse:
         """
         Authenticate a user via PES Auth and return JWT tokens.
 
@@ -56,16 +61,27 @@ class AuthService:
         """
         # Step 0: Check if user exists in DB with an encrypted password (e.g. mentor added by admin)
         user = await User.find_one(User.srn == srn.upper())
-        if user and user.encrypted_password:
+        if user and (user.password_hash or user.encrypted_password):
+            import asyncio
+
             try:
-                decrypted_pwd = cipher.decrypt(user.encrypted_password.encode()).decode()
-                if password == decrypted_pwd:
-                    # Password matches, proceed directly to token generation
-                    pes_data = None
+                if user.password_hash:
+                    valid = await asyncio.to_thread(verify_password, password, user.password_hash)
                 else:
+                    import hmac
+
+                    valid = hmac.compare_digest(
+                        password, decrypt_legacy_password(user.encrypted_password)
+                    )
+                if not valid:
                     raise InvalidCredentialsError()
-            except Exception as e:
-                raise InvalidCredentialsError() from e
+                if not user.password_hash:
+                    user.password_hash = await asyncio.to_thread(hash_password, password)
+                    user.encrypted_password = None
+                    await user.save()
+                pes_data = None
+            except Exception as exc:
+                raise InvalidCredentialsError() from exc
         else:
             # Step 1: Validate via PES
             pes_data = await pes_auth_client.validate_credentials(srn=srn, password=password)
@@ -133,18 +149,23 @@ class AuthService:
             RefreshTokenInvalidError : Token not found or tampered.
             RefreshTokenExpiredError : Token TTL has elapsed.
         """
-        # Find all non-revoked tokens for matching (we must verify hash)
-        # We load recent un-revoked tokens and check via bcrypt.
-        # NOTE: This is O(n) over recent tokens; acceptable for this scale.
-        # Production optimisation: store a secondary lookup index (partial hash).
+        # Indexed digest lookup, followed by atomic one-time consumption.
         token_doc = await self._find_refresh_token(raw_refresh_token)
 
         if token_doc.is_expired:
             await token_doc.set({RefreshToken.revoked: True})
             raise RefreshTokenExpiredError()
 
-        # Revoke the old token immediately (token rotation)
-        await token_doc.set({RefreshToken.revoked: True})
+        # Exactly one request can consume a refresh token.
+        consumed = await RefreshToken.find_one(
+            {
+                "_id": token_doc.id,
+                "revoked": False,
+                "expires_at": {"$gt": datetime.now(UTC)},
+            }
+        ).update({"$set": {"revoked": True}})
+        if consumed is None or consumed.modified_count != 1:
+            raise RefreshTokenInvalidError("Refresh token already consumed.")
 
         # Load the user to re-issue token with current claims
         user = await User.get(token_doc.user_id)
@@ -157,18 +178,24 @@ class AuthService:
         else:
             mentor_team_ids = user.mentor_team_ids
 
+        workspace_id = None
+        if user.role == "student":
+            workspace_id = await self._get_or_create_student_workspace(user)
+
         access_token = create_access_token(
             user_id=str(user.id),
             role=user.role,
             name=user.name,
             team_id=user.team_id,
             mentor_team_ids=mentor_team_ids,
+            workspace_id=workspace_id,
         )
         raw_refresh, hashed_refresh = create_refresh_token()
         new_token_doc = RefreshToken.create_for_user(
             user_id=str(user.id),
             token_hash=hashed_refresh,
             expiry_days=settings.REFRESH_TOKEN_EXPIRY_DAYS,
+            workspace_id=workspace_id,
         )
         await new_token_doc.insert()
 
@@ -247,9 +274,6 @@ class AuthService:
                 ),
             }
 
-            if team_id is not None:
-                updates[User.team_id] = team_id
-
             await existing.set(updates)
             return existing
 
@@ -258,7 +282,7 @@ class AuthService:
             name=pes_data.get("name", srn),
             email=pes_data.get("email"),
             role=pes_data.get("role", "student"),
-            team_id=team_id,
+            team_id=None,
             mentor_team_ids=pes_data.get("mentor_team_ids", []),
         )
 
@@ -275,25 +299,25 @@ class AuthService:
         """
         Find a refresh token document by verifying the raw token against stored hashes.
 
-        Searches only non-revoked tokens. Uses bcrypt verification.
+        Searches by SHA-256 digest, restricting to non-revoked and unexpired records.
 
         Raises:
             RefreshTokenInvalidError : No matching valid token found.
         """
-        # Load all non-revoked, non-expired candidate tokens.
-        # In production with many users, we'd add a secondary lookup field.
-        # For this scale, bcrypt verification over recent tokens is acceptable.
-        now = datetime.now(UTC)
-        candidates = await RefreshToken.find(
-            RefreshToken.revoked == False,  # noqa: E712
-            RefreshToken.expires_at > now,
-        ).to_list()
+        from auth.jwt import refresh_token_digest
 
-        for candidate in candidates:
-            if verify_refresh_token(raw_token, candidate.token_hash):
-                return candidate
-
-        raise RefreshTokenInvalidError("Invalid or revoked refresh token.")
+        digest = refresh_token_digest(raw_token)
+        token = await RefreshToken.find_one(
+            {
+                "token_hash": digest,
+                "revoked": False,
+                "expires_at": {"$gt": datetime.now(UTC)},
+            }
+        )
+        if token:
+            return token
+        # Old bcrypt tokens must sign in again; never scan every user's tokens.
+        raise RefreshTokenInvalidError("Invalid, expired, or revoked refresh token.")
 
     async def _get_or_create_student_workspace(self, user: User) -> str:
         """Find or lazily create a Workspace for a student user."""
@@ -305,13 +329,26 @@ class AuthService:
         if existing:
             return existing.workspace_id
 
-        new_workspace = await workspace_repo.create(
-            name=f"{user.name}'s Workspace",
-            type=WorkspaceType.STUDENT,
-            student_user_id=user_id_str,
+        from pymongo.errors import DuplicateKeyError
+
+        try:
+            new_workspace = await workspace_repo.create(
+                name=f"{user.name}'s Workspace",
+                type=WorkspaceType.STUDENT,
+                student_user_id=user_id_str,
+            )
+        except DuplicateKeyError:
+            existing = await workspace_repo.find_by_student_user_id(user_id_str)
+            if existing is None:
+                raise
+            return existing.workspace_id
+        logger.info(
+            "Created lazy student workspace: workspace_id=%s student_id=%s",
+            new_workspace.workspace_id,
+            user_id_str,
         )
-        logger.info("Created lazy student workspace: workspace_id=%s student_id=%s", new_workspace.workspace_id, user_id_str)
         return new_workspace.workspace_id
+
 
 # Module-level singleton
 auth_service = AuthService()

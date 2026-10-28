@@ -64,20 +64,14 @@ class HistoryService:
         elif current_user.is_mentor_workspace:
             session = await session_repo.find_by_id(session_id)
 
-            if (
-                session is None
-                or session.workspace_id != current_user.workspace_id
-            ):
+            if session is None or session.workspace_id != current_user.workspace_id:
                 raise SessionNotFoundError()
 
         # Mentor
         elif current_user.is_mentor:
             session = await session_repo.find_by_id(session_id)
 
-            if (
-                session is None
-                or session.team_id not in (current_user.mentor_team_ids or [])
-            ):
+            if session is None or session.team_id not in (current_user.mentor_team_ids or []):
                 raise SessionNotFoundError()
 
         # Admin

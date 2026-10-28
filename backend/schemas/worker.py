@@ -10,6 +10,7 @@ class WorkerOutputRequest(BaseModel):
     duration_seconds: float
     worker_id: str
 
+
 class WorkerFailureRequest(BaseModel):
     correlation_id: str
     flow: str

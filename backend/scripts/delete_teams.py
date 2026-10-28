@@ -13,4 +13,5 @@ async def run():
     await Team.find_all().delete()
     print("Deleted all teams")
 
+
 asyncio.run(run())

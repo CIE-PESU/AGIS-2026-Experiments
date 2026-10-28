@@ -25,16 +25,16 @@ export function MentorDashboard() {
       if (!user || user.role !== "mentor") return;
       const allMentors = await getMentors();
       const currentMentor = allMentors.find(m => m.srn?.toLowerCase() === user.srn.toLowerCase());
-      
+
       if (!currentMentor) {
         setLoadedTeams([]);
         return;
       }
-      
+
       const allTeams = await getTeamsWithMembers();
       setLoadedTeams(allTeams.filter(t => t.mentorId === currentMentor.id));
     }
-    loadData();
+    loadData().catch(error => toast.error(error.message || "Failed to load teams"));
   }, [user]);
 
   const [team, setTeam] = useState("");
@@ -62,7 +62,7 @@ export function MentorDashboard() {
   }, [loadedTeams]);
 
   useEffect(() => {
-    refreshComments();
+    refreshComments().catch(error => toast.error(error.message || "Failed to load comments"));
   }, [refreshComments]);
 
   const stats = useMemo(() => {
@@ -84,7 +84,7 @@ export function MentorDashboard() {
     }
     const text = drafts[srn]?.trim();
     if (!text) return;
-    
+
     try {
       await addComment(sessionId, text);
       setDrafts((current) => ({ ...current, [srn]: "" }));

@@ -6,10 +6,8 @@ from schemas.worker import WorkerFailureRequest, WorkerOutputRequest
 from services.worker_service import worker_service
 
 # Apply the worker authentication dependency globally to this router
-router = APIRouter(
-    tags=["Internal Worker Tracking"],
-    dependencies=[Depends(verify_worker_secret)]
-)
+router = APIRouter(tags=["Internal Worker Tracking"], dependencies=[Depends(verify_worker_secret)])
+
 
 @router.post("/sessions/{session_id}/output", status_code=status.HTTP_200_OK)
 async def receive_worker_output(

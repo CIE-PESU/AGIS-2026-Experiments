@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 # The mock admins and mock fernet key have been moved.
 
+
 class PESAuthClient:
     def __init__(self) -> None:
         self._timeout = httpx.Timeout(
@@ -27,24 +28,6 @@ class PESAuthClient:
         Validate PES credentials and normalize the PES profile response
         into the shape expected by AuthService._upsert_user().
         """
-        if settings.ENVIRONMENT == "development" or password == "dev":
-            logger.info("DEV MODE: Bypassing PES Auth HTTP call for SRN=%s", srn)
-            
-            role = "student"
-            if srn.upper().startswith("ADMIN_") or "ADMIN" in srn.upper():
-                role = "admin"
-
-            mentor_team_ids = []
-
-            return {
-                "srn": srn.upper(),
-                "name": f"Dev User ({srn})",
-                "email": f"{srn.lower()}@pesu.pes.edu",
-                "role": role,
-                "team_id": None,
-                "mentor_team_ids": mentor_team_ids,
-            }
-
         payload = {
             "username": srn,
             "password": password,
@@ -93,8 +76,7 @@ class PESAuthClient:
                 response.text[:200],
             )
             raise PESAuthUnavailableError(
-                f"PES Auth API returned unexpected status: "
-                f"{response.status_code}"
+                f"PES Auth API returned unexpected status: {response.status_code}"
             )
 
         try:
@@ -104,9 +86,7 @@ class PESAuthClient:
                 "PES Auth returned non-JSON response for SRN=%s",
                 srn,
             )
-            raise PESAuthUnavailableError(
-                "PES Auth API returned an invalid response."
-            ) from exc
+            raise PESAuthUnavailableError("PES Auth API returned an invalid response.") from exc
 
         if not data.get("status"):
             logger.info(
@@ -122,13 +102,11 @@ class PESAuthClient:
                 "PES Auth response missing profile for SRN=%s",
                 srn,
             )
-            raise PESAuthUnavailableError(
-                "PES Auth response did not contain profile information."
-            )
+            raise PESAuthUnavailableError("PES Auth response did not contain profile information.")
 
         profile_srn = profile.get("srn") or srn
 
-        normalized_user = {
+        normalized_user: dict = {
             "srn": profile_srn.upper(),
             "name": profile.get("name", profile_srn),
             "email": profile.get("email"),

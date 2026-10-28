@@ -47,14 +47,13 @@ from typing import Any
 # Base
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class AppException(Exception):
-    
     # Root exception for the AGIS backend.
 
     # Every subclass MUST declare:
     #   - http_status  : int  — The HTTP response status code.
     #   - error_code   : str  — Catalog code from api-spec.md Section 11.
-    
 
     http_status: int = 500
     error_code: str = "INTERNAL_ERROR"
@@ -62,13 +61,14 @@ class AppException(Exception):
     def __init__(self, message: str = "", field: str | None = None, detail: Any = None) -> None:
         super().__init__(message)
         self.message = message or self.__class__.__name__
-        self.field = field          # Optional: which field caused the error (for 422)
-        self.detail = detail        # Optional: extra structured info (not exposed in production)
+        self.field = field  # Optional: which field caused the error (for 422)
+        self.detail = detail  # Optional: extra structured info (not exposed in production)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Auth Exceptions
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class AuthException(AppException):
     """Base for all authentication / authorization errors."""
@@ -126,6 +126,7 @@ class InsufficientPermissionsError(AuthException):
 # Session Exceptions
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class SessionException(AppException):
     """Base for all session-related errors."""
 
@@ -142,7 +143,9 @@ class SessionAlreadyExistsError(SessionException):
     http_status = 409
     error_code = "SESSION_ALREADY_EXISTS"
 
-    def __init__(self, message: str = "A session with this idempotency key already exists.") -> None:
+    def __init__(
+        self, message: str = "A session with this idempotency key already exists."
+    ) -> None:
         super().__init__(message)
 
 
@@ -150,7 +153,10 @@ class ActiveSessionExistsError(SessionException):
     http_status = 409
     error_code = "ACTIVE_SESSION_EXISTS"
 
-    def __init__(self, message: str = "You already have an active session. Archive it before creating a new one.") -> None:
+    def __init__(
+        self,
+        message: str = "You already have an active session. Archive it before creating a new one.",
+    ) -> None:
         super().__init__(message)
 
 
@@ -170,6 +176,10 @@ class InvalidStateTransitionError(SessionException):
         self.target_status = target_status
 
 
+class ConcurrentFlowUpdateError(InvalidStateTransitionError):
+    error_code = "SESSION_VERSION_CONFLICT"
+
+
 class FlowAlreadyRunningError(SessionException):
     http_status = 409
     error_code = "FLOW_ALREADY_RUNNING"
@@ -182,7 +192,10 @@ class DFVNotUnlockedError(SessionException):
     http_status = 409
     error_code = "DFV_NOT_UNLOCKED"
 
-    def __init__(self, message: str = "TIPSC evaluation did not pass ready_for_dfv. Review TIPSC output before proceeding.") -> None:
+    def __init__(
+        self,
+        message: str = "TIPSC evaluation did not pass ready_for_dfv. Review TIPSC output before proceeding.",
+    ) -> None:
         super().__init__(message)
 
 
@@ -190,13 +203,16 @@ class CannotArchiveActiveSessionError(SessionException):
     http_status = 409
     error_code = "CANNOT_ARCHIVE_ACTIVE_SESSION"
 
-    def __init__(self, message: str = "Cannot archive a session while a flow is currently running.") -> None:
+    def __init__(
+        self, message: str = "Cannot archive a session while a flow is currently running."
+    ) -> None:
         super().__init__(message)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Comment Exceptions
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class CommentException(AppException):
     """Base for comment-related errors."""
@@ -213,6 +229,7 @@ class CommentNotFoundError(CommentException):
 # ─────────────────────────────────────────────────────────────────────────────
 # Worker Exceptions
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class WorkerException(AppException):
     """Base for internal worker callback errors."""
@@ -246,6 +263,7 @@ class CorrelationIDMismatchError(WorkerException):
 # Kafka Exceptions
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class KafkaException(AppException):
     """Base for Kafka-related errors."""
 
@@ -269,6 +287,7 @@ class KafkaUnavailableError(KafkaException):
 # ─────────────────────────────────────────────────────────────────────────────
 # Database Exceptions
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class DatabaseException(AppException):
     """Base for database-related errors."""
@@ -294,6 +313,7 @@ class DocumentNotFoundError(DatabaseException):
 # PES Auth Exceptions
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class PESAuthException(AppException):
     """Base for PES Auth integration errors."""
 
@@ -310,10 +330,20 @@ class PESAuthUnavailableError(PESAuthException):
 # Validation Exception
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class ValidationException(AppException):
     http_status = 422
     error_code = "VALIDATION_ERROR"
 
-    def __init__(self, message: str = "Request validation failed.", field: str | None = None) -> None:
+    def __init__(
+        self, message: str = "Request validation failed.", field: str | None = None
+    ) -> None:
         super().__init__(message, field=field)
 
+
+class PipelineUnavailableError(AppException):
+    http_status = 503
+    error_code = "TIPSC_UNAVAILABLE"
+
+    def __init__(self):
+        super().__init__("TIPSC executor is not initialized. Retry after readiness recovers.")

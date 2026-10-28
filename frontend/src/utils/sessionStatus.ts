@@ -1,3 +1,4 @@
+import type { SessionStatus } from "@/types/api";
 import type { StageStatus } from "@/data/mockData";
 
 export type SessionStageState = StageStatus | "failed" | "GO" | "NO-GO";
@@ -15,7 +16,7 @@ export interface SessionStageAccess {
  * Ensures 100% type-safe coverage — compiler error if any status is missing.
  */
 const CANONICAL_STAGE_MAP: Record<
-  string,
+  SessionStatus,
   { tipsc: SessionStageState; dfv: SessionStageState; discovery: SessionStageState; quickstart: SessionStageState }
 > = {
   // Session creation & TIPSC Pipeline
@@ -24,6 +25,7 @@ const CANONICAL_STAGE_MAP: Record<
   pre_eval: { tipsc: "in_progress", dfv: "locked", discovery: "locked", quickstart: "available" },
   validation_running: { tipsc: "in_progress", dfv: "locked", discovery: "locked", quickstart: "available" },
   regulatory_running: { tipsc: "in_progress", dfv: "locked", discovery: "locked", quickstart: "available" },
+  ethics_running: { tipsc: "in_progress", dfv: "locked", discovery: "locked", quickstart: "available" },
   tipsc_running: { tipsc: "in_progress", dfv: "locked", discovery: "locked", quickstart: "available" },
   waiting_for_founder: { tipsc: "in_progress", dfv: "locked", discovery: "locked", quickstart: "available" },
   tipsc_reevaluation: { tipsc: "in_progress", dfv: "locked", discovery: "locked", quickstart: "available" },
@@ -70,7 +72,7 @@ export function deriveCanonicalStageAccess(doc: any | null): SessionStageAccess 
   // Single source of truth for DFV unlock gate: backend's ready_for_dfv boolean
   const readyForDFV = Boolean(doc?.tipsc?.ready_for_dfv);
 
-  const mapped = CANONICAL_STAGE_MAP[status] || {
+  const mapped = CANONICAL_STAGE_MAP[status as SessionStatus] || {
     tipsc: "available",
     dfv: "locked",
     discovery: "locked",

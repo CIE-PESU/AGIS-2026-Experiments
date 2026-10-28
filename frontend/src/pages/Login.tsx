@@ -12,7 +12,7 @@ export function Login() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectTo = searchParams.get("redirect") || null;
-  
+
   const [srn, setSrn] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -53,26 +53,28 @@ export function Login() {
         </div>
         <h2 className="text-2xl font-bold text-center text-primary">Sign in</h2>
         <p className="mt-2 text-sm text-center text-muted-foreground">Sign in with your PES credentials. Your role is assigned at login.</p>
-        
-        <label className="mt-6 block text-sm font-semibold text-foreground">SRN</label>
-        <Input 
-          className="mt-2" 
-          value={srn} 
-          onChange={(e) => setSrn(e.target.value)} 
-          placeholder="PES2UG22CS001" 
+
+        <label htmlFor="login-srn" className="mt-6 block text-sm font-semibold text-foreground">SRN</label>
+        <Input
+          className="mt-2"
+          value={srn}
+          onChange={(e) => setSrn(e.target.value)}
+          id="login-srn" autoComplete="username"
+          placeholder="PES2UG22CS001"
         />
-        
-        <label className="mt-4 block text-sm font-semibold text-foreground">Password</label>
-        <Input 
-          className="mt-2" 
-          type="password" 
-          value={password} 
-          onChange={(e) => setPassword(e.target.value)} 
-          placeholder="Enter password" 
+
+        <label htmlFor="login-password" className="mt-4 block text-sm font-semibold text-foreground">Password</label>
+        <Input
+          className="mt-2"
+          id="login-password" autoComplete="current-password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Enter password"
         />
-        
+
         {error && <div className="mt-4 rounded-lg bg-destructive/10 p-3 text-sm font-semibold text-destructive">{error}</div>}
-        
+
         <Button disabled={loading} variant="secondary" className="mt-6 w-full">
           {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
           Sign In

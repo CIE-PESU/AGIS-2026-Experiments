@@ -24,6 +24,7 @@ DataT = TypeVar("DataT")
 # Meta Block (shared by success + error envelopes)
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class MetaBlock(BaseModel):
     """
     Standard meta block included in every response.
@@ -31,14 +32,13 @@ class MetaBlock(BaseModel):
     """
 
     request_id: str
-    timestamp: str = Field(
-        default_factory=lambda: datetime.now(UTC).isoformat()
-    )
+    timestamp: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Pagination
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class PaginationMeta(BaseModel):
     """
@@ -67,6 +67,7 @@ class PaginationMeta(BaseModel):
 # ─────────────────────────────────────────────────────────────────────────────
 # Success Envelopes
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class BaseResponse(BaseModel, Generic[DataT]):
     """
@@ -103,6 +104,7 @@ class PaginatedResponse(BaseModel, Generic[DataT]):
 # Error Envelope
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class ErrorDetail(BaseModel):
     """
     Inner error object inside the error envelope.
@@ -116,9 +118,7 @@ class ErrorDetail(BaseModel):
         description="For validation errors: the field that failed. Null otherwise.",
     )
     request_id: str
-    timestamp: str = Field(
-        default_factory=lambda: datetime.now(UTC).isoformat()
-    )
+    timestamp: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 class ErrorResponse(BaseModel):

@@ -36,6 +36,7 @@ router = APIRouter(prefix="/mentor", tags=["Mentor"])
 # api-spec.md Section 7.1
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @router.get(
     "/sessions",
     summary="List sessions for mentor's supervised teams",
@@ -91,6 +92,7 @@ async def list_mentor_sessions(
 # api-spec.md Section 7.2
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @router.get(
     "/sessions/{session_id}",
     summary="Get full session detail (mentor view)",
@@ -123,6 +125,7 @@ async def get_mentor_session_detail(
 # GET /mentor/teams — list all supervised teams with full member detail
 # api-spec.md Section 7.3
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @router.get(
     "/teams",

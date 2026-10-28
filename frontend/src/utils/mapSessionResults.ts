@@ -12,7 +12,7 @@ export function mapTipscOutput(backend: any): TIPSCResult | null {
   return {
     scores: {
       timely:     { status: toStatus(rag.T), explanation: rag.T_reason || "" },
-      importance: { status: toStatus(rag.I), explanation: rag.I_reason || "" },
+      importance: { status: toStatus(rag.IMPORTANT || rag.I), explanation: rag.IMPORTANT_reason || rag.I_reason || "" },
       profitable: { status: toStatus(rag.P), explanation: rag.P_reason || "" },
       solvable:   { status: toStatus(rag.S), explanation: rag.S_reason || "" },
     },

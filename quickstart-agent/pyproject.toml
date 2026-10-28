@@ -2,11 +2,11 @@
 name = "quickstart-agent"
 version = "0.1.0"
 description = "Quickstart evaluation agent - lite ethics + TIPSC + DFV assessment"
-requires-python = ">=3.10"
+requires-python = ">=3.12,<3.14"
 dependencies = [
-    "crewai[litellm]>=1.15.28",
-    "crewai-tools>=1.15.28",
-    "litellm>=1.105.1",
+    "crewai>=1.15.32,<2",
+    "crewai-tools>=1.15.32,<2",
+    "litellm>=1.106.5,<2",
     "pydantic>=2.11,<2.13",
     "pyyaml>=6.0,<7",
     "python-dotenv>=1.2.4",

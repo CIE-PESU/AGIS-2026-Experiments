@@ -24,7 +24,6 @@ No business logic, no repository calls, no Kafka calls here.
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 from datetime import UTC
 from typing import Annotated
@@ -41,11 +40,9 @@ from fastapi import (
 )
 from fastapi.responses import StreamingResponse
 
-from auth.jwt import decode_token
-from core.config import settings
 from core.constants import UserRole
 from dependencies.auth import get_current_user, require_role
-from exceptions.base import TokenExpiredError, TokenInvalidError, ValidationException
+from exceptions.base import ValidationException
 from models.session import Session
 from models.user import User
 from repositories.session_repo import session_repo
@@ -65,13 +62,14 @@ router = APIRouter(prefix="/sessions", tags=["Sessions"])
 # POST /sessions — Create a new session
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @router.post(
     "",
     status_code=status.HTTP_201_CREATED,
     summary="Create a new coaching session",
     description=(
         "Creates a new session for the authenticated student or workspace mentor. "
-        "Publishes a TIPSC evaluation event to Kafka. "
+        "Starts the TIPSC pipeline asynchronously. "
         "Requires an `Idempotency-Key` header (UUID4) to prevent duplicate submissions. "
         "Re-submitting the same Idempotency-Key returns the original session (no new session created)."
     ),
@@ -80,7 +78,9 @@ async def create_session(
     request: Request,
     body: SessionCreateRequest,
     background_tasks: BackgroundTasks,
-    current_user: Annotated[CurrentUser, Depends(require_role(UserRole.STUDENT, UserRole.MENTOR_WORKSPACE))],
+    current_user: Annotated[
+        CurrentUser, Depends(require_role(UserRole.STUDENT, UserRole.MENTOR_WORKSPACE))
+    ],
     idempotency_key: Annotated[
         str | None,
         Header(
@@ -92,8 +92,7 @@ async def create_session(
     """
     POST /sessions (student or mentor workspace)
 
-    Creates a session and triggers the TIPSC Kafka event.
-    Returns the session with status: queued once Kafka publish succeeds.
+    Creates an owner-scoped session and starts TIPSC asynchronously.
     """
     if not idempotency_key:
         raise ValidationException(
@@ -109,12 +108,12 @@ async def create_session(
             field="Idempotency-Key",
         )
 
-    resolved_team_id = (
-        body.team_id
-        or current_user.team_id
-        or (f"team_{current_user.user_id[-6:]}" if current_user.user_id else None)
-    )
-    
+    if body.team_id and body.team_id != current_user.team_id:
+        from exceptions.base import InsufficientPermissionsError
+
+        raise InsufficientPermissionsError("Team membership must be assigned by an administrator.")
+    resolved_team_id = current_user.team_id
+
     session = await session_service.create_session(
         student_id=current_user.user_id if current_user.is_student else None,
         team_id=resolved_team_id,
@@ -129,7 +128,7 @@ async def create_session(
         background_tasks=background_tasks,
         workspace_id=current_user.workspace_id,
     )
-    
+
     return success_response(
         data=session.model_dump(),
         request=request,
@@ -139,6 +138,7 @@ async def create_session(
 # ─────────────────────────────────────────────────────────────────────────────
 # GET /sessions/{session_id} — Retrieve a single session
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @router.get(
     "/{session_id}",
@@ -180,13 +180,12 @@ async def get_session(
 # GET /user/{student_id}/session — Retrieve current active session
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @router.get(
     "/user/{student_id}/session",
     status_code=status.HTTP_200_OK,
     summary="Get active session by student ID",
-    description=(
-        "Returns the active (non-archived) session for the student. "
-    ),
+    description=("Returns the active (non-archived) session for the student. "),
 )
 async def get_active_session_by_user(
     request: Request,
@@ -198,12 +197,17 @@ async def get_active_session_by_user(
         session = await session_repo.find_active_by_owner(current_user.owner_context)
     else:
         if current_user.user_id != student_id and current_user.role == UserRole.STUDENT:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot access session of another user.")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cannot access session of another user.",
+            )
 
         session = await session_repo.find_active_by_student(student_id)
 
     if not session:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No active session found for user.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="No active session found for user."
+        )
 
     response_obj = SessionResponse.from_document(session)
     return success_response(data=response_obj.model_dump(), request=request)
@@ -212,6 +216,7 @@ async def get_active_session_by_user(
 # ─────────────────────────────────────────────────────────────────────────────
 # GET /sessions/team/progress — Get progress of all team members
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @router.get(
     "/team/progress",
@@ -237,16 +242,21 @@ async def get_team_progress(
     datetime.now(UTC)
     for teammate in teammates:
         # Get teammate's active or latest session (non-archived preferred)
-        session = await Session.find(
-            Session.student_id == str(teammate.id),
-            Session.status != SessionStatus.ARCHIVED
-        ).sort(-Session.updated_at).first_or_none()
+        session = (
+            await Session.find(
+                Session.student_id == str(teammate.id), Session.status != SessionStatus.ARCHIVED
+            )
+            .sort(-Session.updated_at)
+            .first_or_none()
+        )
 
         if not session:
             # Fallback to check if they have any session at all
-            session = await Session.find(
-                Session.student_id == str(teammate.id)
-            ).sort(-Session.updated_at).first_or_none()
+            session = (
+                await Session.find(Session.student_id == str(teammate.id))
+                .sort(-Session.updated_at)
+                .first_or_none()
+            )
 
         # Parse TIPSC scores
         tips_scores = {}
@@ -255,20 +265,20 @@ async def get_team_progress(
             tips_scores = {
                 "timely": {
                     "status": tips_rag.T.lower() if tips_rag.T else "green",
-                    "explanation": tips_rag.T_reason or "No explanation provided"
+                    "explanation": tips_rag.T_reason or "No explanation provided",
                 },
                 "importance": {
                     "status": tips_rag.I.lower() if tips_rag.I else "green",
-                    "explanation": tips_rag.I_reason or "No explanation provided"
+                    "explanation": tips_rag.I_reason or "No explanation provided",
                 },
                 "profitable": {
                     "status": tips_rag.P.lower() if tips_rag.P else "green",
-                    "explanation": tips_rag.P_reason or "No explanation provided"
+                    "explanation": tips_rag.P_reason or "No explanation provided",
                 },
                 "solvable": {
                     "status": tips_rag.S.lower() if tips_rag.S else "green",
-                    "explanation": tips_rag.S_reason or "No explanation provided"
-                }
+                    "explanation": tips_rag.S_reason or "No explanation provided",
+                },
             }
 
         # Parse DFV status: GO, NO-GO, Running, Pending, Failed, Not Started, Completed
@@ -299,7 +309,9 @@ async def get_team_progress(
             if isinstance(session.dfv, dict):
                 dfv_out = session.dfv.get("output") or session.dfv
             else:
-                dfv_out = getattr(session.dfv, "output", None) or (session.dfv.model_dump() if hasattr(session.dfv, "model_dump") else {})
+                dfv_out = getattr(session.dfv, "output", None) or (
+                    session.dfv.model_dump() if hasattr(session.dfv, "model_dump") else {}
+                )
 
             if isinstance(dfv_out, dict):
                 decision = dfv_out.get("decision")
@@ -310,7 +322,9 @@ async def get_team_progress(
                     elif hasattr(final_dec, "status"):
                         decision = getattr(final_dec, "status", None)
                 if not decision:
-                    decision = dfv_out.get("overall_recommendation") or dfv_out.get("recommendation")
+                    decision = dfv_out.get("overall_recommendation") or dfv_out.get(
+                        "recommendation"
+                    )
 
                 if decision:
                     dfv_status = str(decision)
@@ -339,7 +353,7 @@ async def get_team_progress(
             session_time = session.updated_at
             if session_time.tzinfo is not None:
                 session_time = session_time.astimezone(UTC).replace(tzinfo=None)
-            
+
             now_naive = datetime.now(UTC).replace(tzinfo=None)
             delta = now_naive - session_time
 
@@ -352,18 +366,24 @@ async def get_team_progress(
             else:
                 last_active = "Just now"
 
-        results.append({
-            "srn": teammate.srn,
-            "name": teammate.name,
-            "tips": tips_scores,
-            "dfv": dfv_status,
-            "jtbd": jtbd_completed,
-            "lastActive": last_active,
-            "teamId": team_id,
-            "sessionId": str(session.id) if session else None,
-            "status": session.status.value if (session and hasattr(session.status, "value")) else (session.status if session else None),
-            "dfv_raw": session.dfv.model_dump() if (session and session.dfv and hasattr(session.dfv, "model_dump")) else (session.dfv if session else None)
-        })
+        results.append(
+            {
+                "srn": teammate.srn,
+                "name": teammate.name,
+                "tips": tips_scores,
+                "dfv": dfv_status,
+                "jtbd": jtbd_completed,
+                "lastActive": last_active,
+                "teamId": team_id,
+                "sessionId": str(session.id) if session else None,
+                "status": session.status.value
+                if (session and hasattr(session.status, "value"))
+                else (session.status if session else None),
+                "dfv_raw": session.dfv.model_dump()
+                if (session and session.dfv and hasattr(session.dfv, "model_dump"))
+                else (session.dfv if session else None),
+            }
+        )
 
     return success_response(data=results, request=request)
 
@@ -371,6 +391,7 @@ async def get_team_progress(
 # ─────────────────────────────────────────────────────────────────────────────
 # GET /sessions — List sessions (paginated)
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @router.get(
     "",
@@ -429,6 +450,7 @@ async def list_sessions(
 # DELETE /sessions/{session_id} — Archive a session
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @router.delete(
     "/{session_id}/permanent",
     summary="Permanently delete a session",
@@ -442,6 +464,7 @@ async def delete_session_permanently(
     validate_object_id(session_id)
     await session_service.delete_session(session_id=session_id, current_user=current_user)
     return success_response(data={"session_id": session_id, "deleted": True}, request=request)
+
 
 @router.delete(
     "/{session_id}",
@@ -483,6 +506,7 @@ async def archive_session(
 # GET /sessions/{session_id}/stream — Server-Sent Events for real-time updates
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @router.get(
     "/{session_id}/stream",
     summary="SSE stream for session updates",
@@ -494,73 +518,34 @@ async def archive_session(
 async def stream_session(
     request: Request,
     session_id: str,
-    token: str | None = Query(default=None, description="Bearer token (query param for EventSource compatibility)"),
+    current_user: Annotated[CurrentUser, Depends(get_current_user)],
 ):
-
     validate_object_id(session_id)
+    await session_service.get_session(session_id, current_user)
+    from fastapi.security import HTTPAuthorizationCredentials
 
-    if token:
-        try:
-            payload = decode_token(token)
-            role = payload.get("role", "")
-            workspace_id = payload.get("workspace_id")
-            # Workspace users: verify session belongs to this workspace
-            if role == "mentor_workspace" and workspace_id:
-                raw = await session_repo.find_by_id(session_id)
-                if raw is None or raw.workspace_id != workspace_id:
-                    raise HTTPException(403, "Session not found or access denied")
-            else:
-                # Student/other: verify session belongs to this user
-                session_check = await session_repo.find_by_id_and_student(session_id, payload["sub"])
-                if session_check is None:
-                    # Fallback: check team membership
-                    raw = await session_repo.find_by_id(session_id)
-                    team_id = payload.get("team_id")
-                    if not raw or not team_id or raw.team_id != team_id:
-                        raise HTTPException(403, "Session not found or access denied")
-        except (TokenInvalidError, TokenExpiredError) as e:
-            raise HTTPException(401, "Invalid or expired token") from e
-    else:
-        if settings.ENVIRONMENT != "development":
-            raise HTTPException(
-                status_code=401,
-                detail="Authorization token required. Pass ?token=<access_token> as a query parameter.",
-            )
-        logger.warning(
-            "SSE stream accessed without token (dev mode only) for session_id=%s", session_id
-        )
+    credentials = HTTPAuthorizationCredentials(
+        scheme="Bearer", credentials=request.headers["authorization"].split(" ", 1)[1]
+    )
 
     async def event_generator():
-        last_status = None
-
-        while True:
-            if await request.is_disconnected():
-                break
-
-            # Use find_by_id (the correct method name — get_by_id does not exist)
-            session_obj = await session_repo.find_by_id(session_id)
-            if session_obj:
-                current_status = session_obj.status
-
-                # Only emit when status changes to avoid noise
-                if current_status != last_status:
-                    last_status = current_status
-
-                    # Serialize the session document to a JSON-safe dict
-                    session_dict = session_obj.model_dump(mode="json")
-                    session_dict["session_id"] = str(session_obj.id)
-                    session_dict["_id"] = str(session_obj.id)
-
-                    # Serialize nested Pydantic objects
-                    if session_obj.tipsc is not None:
-                        session_dict["tipsc"] = session_obj.tipsc.model_dump(mode="json")
-                    if session_obj.dfv is not None:
-                        session_dict["dfv"] = session_obj.dfv.model_dump(mode="json")
-                    if session_obj.discovery is not None:
-                        session_dict["discovery"] = session_obj.discovery.model_dump(mode="json")
-
-                    yield f"data: {json.dumps(session_dict)}\n\n"
-
+        last_payload = None
+        while not await request.is_disconnected():
+            try:
+                user = await get_current_user(credentials)
+                session = await session_service.get_session(session_id, user)
+            except Exception:
+                break  # revoked, expired, removed, or no longer authorized
+            payload = session.model_dump_json()
+            if payload != last_payload:
+                last_payload = payload
+                yield f"data: {payload}\n\n"
+            else:
+                yield ": heartbeat\n\n"
             await asyncio.sleep(2)
 
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

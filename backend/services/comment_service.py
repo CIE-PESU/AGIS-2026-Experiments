@@ -82,9 +82,7 @@ class CommentRepoProtocol(Protocol):
 
     async def find_by_id(self, comment_id: str) -> Comment | None: ...
 
-    async def find_by_id_and_mentor(
-        self, comment_id: str, mentor_id: str
-    ) -> Comment | None: ...
+    async def find_by_id_and_mentor(self, comment_id: str, mentor_id: str) -> Comment | None: ...
 
     async def soft_delete(self, comment_id: str) -> bool: ...
 
@@ -129,9 +127,7 @@ class CommentService:
             workspace_id=getattr(session, "workspace_id", None),
         )
 
-    def _check_can_view(
-        self, session: SessionAccessInfo, current_user: CurrentUserLike
-    ) -> None:
+    def _check_can_view(self, session: SessionAccessInfo, current_user: CurrentUserLike) -> None:
         if current_user.role == "admin":
             return
         if current_user.role == "student":
@@ -149,18 +145,14 @@ class CommentService:
             raise SessionNotFoundError(f"No session found with id '{session.session_id}'")
         raise InsufficientPermissionsError()
 
-    def _check_can_comment(
-        self, session: SessionAccessInfo, current_user: CurrentUserLike
-    ) -> None:
+    def _check_can_comment(self, session: SessionAccessInfo, current_user: CurrentUserLike) -> None:
         if current_user.role == "admin":
             return
         if current_user.role != "mentor":
             raise InsufficientPermissionsError("Only mentors and admins can comment")
         if session.team_id not in current_user.mentor_team_ids:
             # See module docstring re: 403 vs 404 (rbac.md R11) conflict.
-            raise InsufficientPermissionsError(
-                "You are not assigned to this session's team"
-            )
+            raise InsufficientPermissionsError("You are not assigned to this session's team")
 
     # -- public API ----------------------------------------------------------
 
@@ -187,24 +179,18 @@ class CommentService:
 
         return comment
 
-    async def get_comments(
-        self, session_id: str, current_user: CurrentUserLike
-    ) -> list[Comment]:
+    async def get_comments(self, session_id: str, current_user: CurrentUserLike) -> list[Comment]:
         session = await self._load_session_or_404(session_id)
         self._check_can_view(session, current_user)
         return await self._comments.find_by_session(session_id)
 
-    async def delete_comment(
-        self, comment_id: str, current_user: CurrentUserLike
-    ) -> None:
+    async def delete_comment(self, comment_id: str, current_user: CurrentUserLike) -> None:
         if current_user.role == "admin":
             comment = await self._comments.find_by_id(comment_id)
             if comment is None:
                 raise CommentNotFoundError(comment_id)
         elif current_user.role == "mentor":
-            comment = await self._comments.find_by_id_and_mentor(
-                comment_id, current_user.user_id
-            )
+            comment = await self._comments.find_by_id_and_mentor(comment_id, current_user.user_id)
             if comment is None:
                 # Distinguish "doesn't exist" from "exists but isn't yours"
                 # so we return the right error code (404 vs 403), unlike
@@ -213,9 +199,7 @@ class CommentService:
                 exists = await self._comments.find_by_id(comment_id)
                 if exists is None:
                     raise CommentNotFoundError(comment_id)
-                raise InsufficientPermissionsError(
-                    "You can only delete your own comments"
-                )
+                raise InsufficientPermissionsError("You can only delete your own comments")
         else:
             raise InsufficientPermissionsError(
                 "Only the comment author or an admin can delete comments"

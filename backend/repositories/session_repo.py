@@ -25,10 +25,8 @@ def utc_now() -> datetime:
 
 
 class SessionRepository(BaseRepository[Session]):
-
     def __init__(self) -> None:
         super().__init__(Session)
-
 
     # ──────────────────────────────────────────────────────────────────────
     # CREATE
@@ -45,7 +43,6 @@ class SessionRepository(BaseRepository[Session]):
 
         return session
 
-
     # ──────────────────────────────────────────────────────────────────────
     # BASIC LOOKUPS
     # ──────────────────────────────────────────────────────────────────────
@@ -55,6 +52,8 @@ class SessionRepository(BaseRepository[Session]):
         session_id: str,
     ) -> Session | None:
 
+        if not PydanticObjectId.is_valid(session_id):
+            return None
         return await Session.get(session_id)
 
     async def delete_by_id(self, session_id: str) -> bool:
@@ -65,7 +64,6 @@ class SessionRepository(BaseRepository[Session]):
         await session.delete()
         return True
 
-
     async def find_by_id_and_student(
         self,
         session_id: str,
@@ -74,14 +72,10 @@ class SessionRepository(BaseRepository[Session]):
 
         session = await Session.get(session_id)
 
-        if (
-            session
-            and session.student_id == student_id
-        ):
+        if session and session.student_id == student_id:
             return session
 
         return None
-
 
     async def find_by_student(
         self,
@@ -100,10 +94,7 @@ class SessionRepository(BaseRepository[Session]):
         ]
 
         if filters and filters.get("status"):
-
-            expressions.append(
-                Session.status == filters["status"]
-            )
+            expressions.append(Session.status == filters["status"])
 
         skip = (page - 1) * limit
 
@@ -114,7 +105,6 @@ class SessionRepository(BaseRepository[Session]):
             .sort(-Session.created_at)
             .to_list()
         )
-
 
     async def find_active_by_student(
         self,
@@ -136,13 +126,24 @@ class SessionRepository(BaseRepository[Session]):
     ) -> Session | None:
         """Find the single active (non-archived) session for the given OwnerContext."""
         if owner.workspace_id:
-            return await Session.find(
-                {"workspace_id": owner.workspace_id, "status": {"$ne": SessionStatus.ARCHIVED.value}}
-            ).sort("-created_at").first_or_none()
+            return (
+                await Session.find(
+                    {
+                        "workspace_id": owner.workspace_id,
+                        "status": {"$ne": SessionStatus.ARCHIVED.value},
+                    }
+                )
+                .sort("-created_at")
+                .first_or_none()
+            )
         elif owner.user_id:
-            return await Session.find(
-                {"student_id": owner.user_id, "status": {"$ne": SessionStatus.ARCHIVED.value}}
-            ).sort("-created_at").first_or_none()
+            return (
+                await Session.find(
+                    {"student_id": owner.user_id, "status": {"$ne": SessionStatus.ARCHIVED.value}}
+                )
+                .sort("-created_at")
+                .first_or_none()
+            )
         return None
 
     async def find_all_by_owner(
@@ -162,7 +163,16 @@ class SessionRepository(BaseRepository[Session]):
         else:
             return []
 
-        return await Session.find(*expressions).skip(skip).limit(limit).sort(-Session.created_at).to_list()
+        return (
+            await Session.find(*expressions)
+            .skip(skip)
+            .limit(limit)
+            .sort(-Session.created_at)
+            .to_list()
+        )
+
+    async def find_by_workspace_id(self, workspace_id: str) -> list[Session]:
+        return await Session.find({"workspace_id": workspace_id}).to_list()
 
     async def delete_by_workspace_id(self, workspace_id: str) -> int:
         """Delete all Session documents matching workspace_id."""
@@ -172,16 +182,12 @@ class SessionRepository(BaseRepository[Session]):
             await s.delete()
         return count
 
-
     async def find_by_idempotency_key(
         self,
         key: str,
     ) -> Session | None:
 
-        return await Session.find_one(
-            Session.idempotency_key == key
-        )
-
+        return await Session.find_one(Session.idempotency_key == key)
 
     # ──────────────────────────────────────────────────────────────────────
     # TIPSC FOLLOW-UP LOOKUPS
@@ -197,10 +203,14 @@ class SessionRepository(BaseRepository[Session]):
         Used by TIPSC follow-up APIs.
         """
 
-        session = await Session.find(
-            Session.student_id == student_id,
-            Session.status == SessionStatus.WAITING_FOR_FOUNDER,
-        ).sort(-Session.updated_at).first_or_none()
+        session = (
+            await Session.find(
+                Session.student_id == student_id,
+                Session.status == SessionStatus.WAITING_FOR_FOUNDER,
+            )
+            .sort(-Session.updated_at)
+            .first_or_none()
+        )
 
         if session is None:
             return None
@@ -210,7 +220,6 @@ class SessionRepository(BaseRepository[Session]):
         data["_id"] = str(session.id)
 
         return data
-
 
     async def find_waiting_followup(
         self,
@@ -224,10 +233,8 @@ class SessionRepository(BaseRepository[Session]):
         return await Session.find_one(
             Session.id == PydanticObjectId(session_id),
             Session.student_id == student_id,
-            Session.status
-            == SessionStatus.WAITING_FOR_FOUNDER,
+            Session.status == SessionStatus.WAITING_FOR_FOUNDER,
         )
-
 
     # ──────────────────────────────────────────────────────────────────────
     # STATUS
@@ -265,18 +272,12 @@ class SessionRepository(BaseRepository[Session]):
                     "version": 1,
                 },
                 "$push": {
-                    "state_history": (
-                        transition.model_dump()
-                    ),
+                    "state_history": (transition.model_dump()),
                 },
             }
         )
 
-        return (
-            result is not None
-            and result.modified_count == 1
-        )
-
+        return result is not None and result.modified_count == 1
 
     # ──────────────────────────────────────────────────────────────────────
     # GENERIC PIPELINE PATCH
@@ -309,9 +310,7 @@ class SessionRepository(BaseRepository[Session]):
 
         patch["updated_at"] = utc_now()
 
-        result = await Session.find_one(
-            Session.id == PydanticObjectId(session_id)
-        ).update(
+        result = await Session.find_one(Session.id == PydanticObjectId(session_id)).update(
             {
                 "$set": patch,
                 "$inc": {
@@ -320,11 +319,7 @@ class SessionRepository(BaseRepository[Session]):
             }
         )
 
-        return (
-            result is not None
-            and result.modified_count == 1
-        )
-
+        return result is not None and result.modified_count == 1
 
     # ──────────────────────────────────────────────────────────────────────
     # FLOW OUTPUTS
@@ -340,19 +335,13 @@ class SessionRepository(BaseRepository[Session]):
     ) -> bool:
 
         if expected_version is not None:
-
             query = Session.find_one(
-                Session.id
-                == PydanticObjectId(session_id),
+                Session.id == PydanticObjectId(session_id),
                 Session.version == expected_version,
             )
 
         else:
-
-            query = Session.find_one(
-                Session.id
-                == PydanticObjectId(session_id)
-            )
+            query = Session.find_one(Session.id == PydanticObjectId(session_id))
 
         result = await query.update(
             {
@@ -367,23 +356,35 @@ class SessionRepository(BaseRepository[Session]):
             }
         )
 
-        return (
-            result is not None
-            and result.modified_count == 1
-        )
-
+        return result is not None and result.modified_count == 1
 
     async def update_flow_failure(
         self,
         session_id: str,
         new_status: SessionStatus,
         failure_metadata: dict[str, Any],
+        expected_version: int | None = None,
+        correlation_id: str | None = None,
     ) -> bool:
-
-        result = await Session.find_one(
-            Session.id
-            == PydanticObjectId(session_id)
-        ).update(
+        flow = failure_metadata["flow"]
+        statuses = {
+            "dfv": ["dfv_waiting", "dfv_running"],
+            "discovery": ["discovery_waiting", "discovery_running"],
+            "tipsc": [
+                "queued",
+                "pre_eval",
+                "validation_running",
+                "ethics_running",
+                "tipsc_running",
+                "tipsc_reevaluation",
+            ],
+        }[flow]
+        predicate = {"_id": PydanticObjectId(session_id), "status": {"$in": statuses}}
+        if expected_version is not None:
+            predicate["version"] = expected_version
+        if correlation_id is not None:
+            predicate["correlation_id"] = correlation_id
+        result = await Session.find_one(predicate).update(
             {
                 "$set": {
                     "failure_metadata": failure_metadata,
@@ -396,11 +397,7 @@ class SessionRepository(BaseRepository[Session]):
             }
         )
 
-        return (
-            result is not None
-            and result.modified_count == 1
-        )
-
+        return result is not None and result.modified_count == 1
 
     # ──────────────────────────────────────────────────────────────────────
     # FOLLOW-UP ANSWERS
@@ -423,20 +420,14 @@ class SessionRepository(BaseRepository[Session]):
         """
 
         result = await Session.find_one(
-            Session.id
-            == PydanticObjectId(session_id),
+            Session.id == PydanticObjectId(session_id),
             Session.version == expected_version,
-            Session.status
-            == SessionStatus.WAITING_FOR_FOUNDER,
+            Session.status == SessionStatus.WAITING_FOR_FOUNDER,
         ).update(
             {
                 "$set": {
                     "pending_answer": answer,
-                    "status": (
-                        SessionStatus
-                        .TIPSC_REEVALUATION
-                        .value
-                    ),
+                    "status": (SessionStatus.TIPSC_REEVALUATION.value),
                     "updated_at": utc_now(),
                 },
                 "$inc": {
@@ -445,11 +436,7 @@ class SessionRepository(BaseRepository[Session]):
             }
         )
 
-        return (
-            result is not None
-            and result.modified_count == 1
-        )
-
+        return result is not None and result.modified_count == 1
 
     async def append_followup_exchange(
         self,
@@ -471,10 +458,7 @@ class SessionRepository(BaseRepository[Session]):
             "answered_at": utc_now(),
         }
 
-        result = await Session.find_one(
-            Session.id
-            == PydanticObjectId(session_id)
-        ).update(
+        result = await Session.find_one(Session.id == PydanticObjectId(session_id)).update(
             {
                 "$push": {
                     "followup_history": exchange,
@@ -490,11 +474,7 @@ class SessionRepository(BaseRepository[Session]):
             }
         )
 
-        return (
-            result is not None
-            and result.modified_count == 1
-        )
-
+        return result is not None and result.modified_count == 1
 
     # ──────────────────────────────────────────────────────────────────────
     # DFV
@@ -506,28 +486,21 @@ class SessionRepository(BaseRepository[Session]):
         dfv_inputs: dict[str, Any],
     ) -> bool:
 
-        result = await Session.find_one(
-            Session.id
-            == PydanticObjectId(session_id)
-        ).update(
+        result = await Session.find_one(Session.id == PydanticObjectId(session_id)).update(
             {
                 "$set": {
                     "dfv_inputs": dfv_inputs,
                     "updated_at": utc_now(),
                 },
-                "$unset": {
-                    "dfv": ""
-                }
+                "$unset": {"dfv": ""},
             }
         )
 
-        return (
-            result is not None
-            and result.modified_count == 1
-        )
+        return result is not None and result.modified_count == 1
+
     # ──────────────────────────────────────────────────────────────────────
-# DISCOVERY
-# ──────────────────────────────────────────────────────────────────────
+    # DISCOVERY
+    # ──────────────────────────────────────────────────────────────────────
 
     async def update_discovery_inputs(
         self,
@@ -535,25 +508,17 @@ class SessionRepository(BaseRepository[Session]):
         discovery_inputs: dict[str, Any],
     ) -> bool:
 
-        result = await Session.find_one(
-            Session.id == PydanticObjectId(session_id)
-        ).update(
+        result = await Session.find_one(Session.id == PydanticObjectId(session_id)).update(
             {
                 "$set": {
                     "discovery_inputs": discovery_inputs,
                     "updated_at": utc_now(),
                 },
-                "$unset": {
-                    "discovery": ""
-                }
+                "$unset": {"discovery": ""},
             }
         )
 
-        return (
-            result is not None
-            and result.modified_count == 1
-        )
-
+        return result is not None and result.modified_count == 1
 
     # ──────────────────────────────────────────────────────────────────────
     # ATOMIC CAS FLOW STARTS
@@ -564,6 +529,8 @@ class SessionRepository(BaseRepository[Session]):
         session_id: str,
         correlation_id: str,
         dfv_inputs: dict[str, Any],
+        request_record: dict | None = None,
+        expected_version: int | None = None,
     ) -> bool:
         """
         Atomically transition session from allowed pre-DFV status (TIPSC_COMPLETED, DFV_FAILED,
@@ -581,9 +548,16 @@ class SessionRepository(BaseRepository[Session]):
         result = await Session.find_one(
             Session.id == PydanticObjectId(session_id),
             In("status", allowed_statuses),
+            {"tipsc.ready_for_dfv": True},
+            *([{"version": expected_version}] if expected_version is not None else []),
         ).update(
             {
                 "$set": {
+                    **(
+                        {f"flow_requests.{request_record['slot']}": request_record}
+                        if request_record
+                        else {}
+                    ),
                     "correlation_id": correlation_id,
                     "dfv_inputs": dfv_inputs,
                     "dfv": None,
@@ -605,6 +579,8 @@ class SessionRepository(BaseRepository[Session]):
         session_id: str,
         correlation_id: str,
         discovery_inputs: dict[str, Any],
+        request_record: dict | None = None,
+        expected_version: int | None = None,
     ) -> bool:
         """
         Atomically transition session from allowed pre-Discovery status (DFV_COMPLETED, DISCOVERY_FAILED)
@@ -620,9 +596,16 @@ class SessionRepository(BaseRepository[Session]):
         result = await Session.find_one(
             Session.id == PydanticObjectId(session_id),
             In("status", allowed_statuses),
+            *([{"version": expected_version}] if expected_version is not None else []),
+            {"$or": [{"dfv.output.decision": "GO"}, {"dfv.output.final_decision.status": "GO"}]},
         ).update(
             {
                 "$set": {
+                    **(
+                        {f"flow_requests.{request_record['slot']}": request_record}
+                        if request_record
+                        else {}
+                    ),
                     "correlation_id": correlation_id,
                     "discovery_inputs": discovery_inputs,
                     "discovery": None,
@@ -645,10 +628,7 @@ class SessionRepository(BaseRepository[Session]):
         correlation_id: str,
     ) -> None:
 
-        await Session.find_one(
-            Session.id
-            == PydanticObjectId(session_id)
-        ).update(
+        await Session.find_one(Session.id == PydanticObjectId(session_id)).update(
             {
                 "$set": {
                     "correlation_id": correlation_id,
@@ -656,7 +636,6 @@ class SessionRepository(BaseRepository[Session]):
                 }
             }
         )
-
 
     # ──────────────────────────────────────────────────────────────────────
     # ARCHIVE
@@ -684,7 +663,6 @@ class SessionRepository(BaseRepository[Session]):
 
         return True
 
-
     # ──────────────────────────────────────────────────────────────────────
     # MENTOR
     # ──────────────────────────────────────────────────────────────────────
@@ -705,20 +683,11 @@ class SessionRepository(BaseRepository[Session]):
         ]
 
         if filters:
-
             if filters.get("status"):
-
-                expressions.append(
-                    Session.status
-                    == filters["status"]
-                )
+                expressions.append(Session.status == filters["status"])
 
             if filters.get("team_id"):
-
-                expressions.append(
-                    Session.team_id
-                    == filters["team_id"]
-                )
+                expressions.append(Session.team_id == filters["team_id"])
 
         skip = (page - 1) * limit
 
@@ -729,7 +698,6 @@ class SessionRepository(BaseRepository[Session]):
             .sort(-Session.created_at)
             .to_list()
         )
-
 
     async def count_by_teams(
         self,
@@ -749,25 +717,13 @@ class SessionRepository(BaseRepository[Session]):
         ]
 
         if filters:
-
             if filters.get("status"):
-
-                expressions.append(
-                    Session.status
-                    == filters["status"]
-                )
+                expressions.append(Session.status == filters["status"])
 
             if filters.get("team_id"):
+                expressions.append(Session.team_id == filters["team_id"])
 
-                expressions.append(
-                    Session.team_id
-                    == filters["team_id"]
-                )
-
-        return await Session.find(
-            *expressions
-        ).count()
-
+        return await Session.find(*expressions).count()
 
     # ──────────────────────────────────────────────────────────────────────
     # ADMIN
@@ -783,44 +739,20 @@ class SessionRepository(BaseRepository[Session]):
         expressions = []
 
         if filters:
-
             if filters.get("status"):
-
-                expressions.append(
-                    Session.status
-                    == filters["status"]
-                )
+                expressions.append(Session.status == filters["status"])
 
             if filters.get("team_id"):
-
-                expressions.append(
-                    Session.team_id
-                    == filters["team_id"]
-                )
+                expressions.append(Session.team_id == filters["team_id"])
 
             if filters.get("student_id"):
+                expressions.append(Session.student_id == filters["student_id"])
 
-                expressions.append(
-                    Session.student_id
-                    == filters["student_id"]
-                )
-
-        query = (
-            Session.find(*expressions)
-            if expressions
-            else Session.find_all()
-        )
+        query = Session.find(*expressions) if expressions else Session.find_all()
 
         skip = (page - 1) * limit
 
-        return (
-            await query
-            .skip(skip)
-            .limit(limit)
-            .sort(-Session.created_at)
-            .to_list()
-        )
-
+        return await query.skip(skip).limit(limit).sort(-Session.created_at).to_list()
 
     async def get_system_metrics(
         self,
@@ -844,15 +776,9 @@ class SessionRepository(BaseRepository[Session]):
             }
         ]
 
-        status_results = await Session.aggregate(
-            status_pipeline
-        ).to_list()
+        status_results = await Session.aggregate(status_pipeline).to_list()
 
-        sessions_by_status = {
-            item["_id"]: item["count"]
-            for item in status_results
-            if item["_id"]
-        }
+        sessions_by_status = {item["_id"]: item["count"] for item in status_results if item["_id"]}
 
         duration_pipeline = [
             {
@@ -866,30 +792,20 @@ class SessionRepository(BaseRepository[Session]):
                 "$group": {
                     "_id": None,
                     "avg_duration": {
-                        "$avg": (
-                            "$tipsc.duration_seconds"
-                        ),
+                        "$avg": ("$tipsc.duration_seconds"),
                     },
                 }
             },
         ]
 
-        duration_results = await Session.aggregate(
-            duration_pipeline
-        ).to_list()
+        duration_results = await Session.aggregate(duration_pipeline).to_list()
 
-        average_tipsc = (
-            int(duration_results[0]["avg_duration"])
-            if duration_results
-            else 0
-        )
+        average_tipsc = int(duration_results[0]["avg_duration"]) if duration_results else 0
 
         return {
             "active_sessions": active_sessions,
             "sessions_by_status": sessions_by_status,
-            "average_tipsc_duration_seconds": (
-                average_tipsc
-            ),
+            "average_tipsc_duration_seconds": (average_tipsc),
         }
 
 

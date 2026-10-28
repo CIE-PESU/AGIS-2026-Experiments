@@ -13,6 +13,9 @@ async def main():
     client = AsyncIOMotorClient(settings.MONGODB_URI)
     await init_beanie(database=client[settings.MONGODB_DB_NAME], document_models=[User, Team])
     await dump_seed_data()
-    print("Dumped seed data.")
+    client.close()
+    print("Sanitized export complete if AGIS_EXPORT_PATH was configured.")
 
-asyncio.run(main())
+
+if __name__ == "__main__":
+    asyncio.run(main())

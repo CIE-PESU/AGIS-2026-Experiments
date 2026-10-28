@@ -11,11 +11,12 @@ from models.user import User
 async def main():
     client = AsyncIOMotorClient(settings.MONGODB_URI)
     await init_beanie(database=client[settings.MONGODB_DB_NAME], document_models=[Team, User])
-    p = await User.find_one(User.srn == 'PALASH.AGAR@GMAIL.COM')
+    p = await User.find_one(User.srn == "PALASH.AGAR@GMAIL.COM")
     t = await Team.find_one()
     p.mentor_team_ids = [str(t.id)]
     await p.save()
-    print('Fixed Palash team ids')
+    print("Fixed Palash team ids")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     asyncio.run(main())

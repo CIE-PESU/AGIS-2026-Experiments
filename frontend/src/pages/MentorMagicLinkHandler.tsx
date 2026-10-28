@@ -15,7 +15,7 @@ type WorkspaceAccessResponse = {
 export function MentorMagicLinkHandler() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
-  const auth = useAuth();
+  const { loginWithWorkspace } = useAuth();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -40,7 +40,7 @@ export function MentorMagicLinkHandler() {
         setAccessTokenOnly(data.access_token);
 
         // Update user state in context
-        auth.loginWithWorkspace(data.workspace_id, data.name, data.role);
+        loginWithWorkspace(data.workspace_id, data.name, data.role);
 
         // Redirect router to clean /workspace
         navigate("/workspace", { replace: true });
@@ -55,7 +55,7 @@ export function MentorMagicLinkHandler() {
     return () => {
       mounted = false;
     };
-  }, [token, navigate, auth]);
+  }, [token, navigate, loginWithWorkspace]);
 
   if (error) {
     return (

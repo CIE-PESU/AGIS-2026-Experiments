@@ -19,6 +19,7 @@ DFV and Discovery remain flow-service controlled.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 import uuid
 from datetime import UTC, datetime
@@ -29,6 +30,7 @@ from exceptions.base import (
     ActiveSessionExistsError,
     CannotArchiveActiveSessionError,
     InsufficientPermissionsError,
+    PipelineUnavailableError,
     SessionNotFoundError,
 )
 from models.audit import AuditEvent
@@ -73,15 +75,31 @@ class SessionService:
         workspace_id: str | None = None,
     ) -> SessionResponse:
 
-        # ── 1. Idempotency ────────────────────────────────────────────────
-
-        existing = (
-            await session_repo.find_by_idempotency_key(
-                idempotency_key
-            )
+        supplied = dict(
+            problem_statement=problem_statement,
+            customer_segment=customer_segment,
+            consequence=consequence,
+            assumptions=assumptions,
+            proposed_solution=proposed_solution,
+            target_geography=target_geography,
+            industry_sector=industry_sector,
         )
 
+        idempotency_key = hashlib.sha256(
+            f"{student_id}:{workspace_id}:{idempotency_key}".encode()
+        ).hexdigest()
+
+        # ── 1. Idempotency ────────────────────────────────────────────────
+
+        existing = await session_repo.find_by_idempotency_key(idempotency_key)
+
         if existing:
+            if existing.student_id != student_id or existing.workspace_id != workspace_id:
+                raise ActiveSessionExistsError()
+            if existing.preeval_input != supplied:
+                from services.flow_exceptions import SessionUpdateConflictError
+
+                raise SessionUpdateConflictError(str(existing.id))
 
             logger.info(
                 "Idempotency hit | key=%s | session_id=%s",
@@ -89,9 +107,13 @@ class SessionService:
                 existing.id,
             )
 
-            return SessionResponse.from_document(
-                existing
-            )
+            return SessionResponse.from_document(existing)
+
+        from events import startup
+
+        executor = startup.tipsc_executor_instance
+        if executor is None:
+            raise PipelineUnavailableError()
 
         # ── 2. Active session guard ───────────────────────────────────────
 
@@ -100,14 +122,13 @@ class SessionService:
                 OwnerContext(workspace_id=workspace_id)
             )
         elif student_id:
-            active = await session_repo.find_active_by_student(
-                student_id
-            )
+            active = await session_repo.find_active_by_student(student_id)
         else:
             active = None
 
         if active:
-
+            if active.idempotency_key == idempotency_key and active.preeval_input == supplied:
+                return SessionResponse.from_document(active)
             logger.info(
                 "Active session exists | "
                 "student_id=%s | workspace_id=%s | session_id=%s | status=%s",
@@ -135,35 +156,36 @@ class SessionService:
 
         now = datetime.now(UTC)
 
-        session = await session_repo.create(
-            {
-                "student_id": student_id,
-                "team_id": team_id,
-                "workspace_id": workspace_id,
+        from pymongo.errors import DuplicateKeyError
 
-                # Compatibility fields used by DFV / Discovery
-                "problem_statement": problem_statement,
-                "idea": proposed_solution,
-
-                # Complete founder intake
-                "preeval_input": preeval_input,
-
-                "status": SessionStatus.CREATED,
-
-                "version": 0,
-
-                "idempotency_key": idempotency_key,
-
-                "created_at": now,
-                "updated_at": now,
-            }
-        )
+        try:
+            session = await session_repo.create(
+                {
+                    "student_id": student_id,
+                    "team_id": team_id,
+                    "workspace_id": workspace_id,
+                    # Compatibility fields used by DFV / Discovery
+                    "problem_statement": problem_statement,
+                    "idea": proposed_solution,
+                    # Complete founder intake
+                    "preeval_input": preeval_input,
+                    "status": SessionStatus.CREATED,
+                    "version": 0,
+                    "idempotency_key": idempotency_key,
+                    "created_at": now,
+                    "updated_at": now,
+                }
+            )
+        except DuplicateKeyError:
+            existing = await session_repo.find_by_idempotency_key(idempotency_key)
+            if existing and existing.preeval_input == preeval_input:
+                return SessionResponse.from_document(existing)
+            raise ActiveSessionExistsError() from None
 
         session_id = str(session.id)
 
         logger.info(
-            "Session created | "
-            "session_id=%s | student_id=%s",
+            "Session created | session_id=%s | student_id=%s",
             session_id,
             student_id,
         )
@@ -196,16 +218,12 @@ class SessionService:
         )
 
         if not updated:
-
             logger.error(
-                "Failed to queue TIPSC session | "
-                "session_id=%s",
+                "Failed to queue TIPSC session | session_id=%s",
                 session_id,
             )
 
-            raise RuntimeError(
-                "Could not move session to queued state."
-            )
+            raise RuntimeError("Could not move session to queued state.")
 
         # ── 7. Correlation ID ─────────────────────────────────────────────
 
@@ -223,10 +241,8 @@ class SessionService:
         executor = startup.tipsc_executor_instance
 
         if executor is None:
-
             logger.error(
-                "TIPSC executor unavailable | "
-                "session_id=%s",
+                "TIPSC executor unavailable | session_id=%s",
                 session_id,
             )
 
@@ -238,9 +254,7 @@ class SessionService:
                 },
             )
 
-            raise RuntimeError(
-                "TIPSC executor is not initialized."
-            )
+            raise RuntimeError("TIPSC executor is not initialized.")
 
         # ── 9. Start TIPSC asynchronously ─────────────────────────────────
 
@@ -256,23 +270,17 @@ class SessionService:
         task.add_done_callback(
             lambda completed_task: (
                 logger.error(
-                    "TIPSC background task crashed | "
-                    "session_id=%s | error=%s",
+                    "TIPSC background task crashed | session_id=%s | error=%s",
                     session_id,
                     completed_task.exception(),
                 )
-                if (
-                    not completed_task.cancelled()
-                    and completed_task.exception()
-                    is not None
-                )
+                if (not completed_task.cancelled() and completed_task.exception() is not None)
                 else None
             )
         )
 
         logger.info(
-            "TIPSC task started | "
-            "session_id=%s | correlation_id=%s",
+            "TIPSC task started | session_id=%s | correlation_id=%s",
             session_id,
             correlation_id,
         )
@@ -295,17 +303,12 @@ class SessionService:
 
         # ── 11. Return current MongoDB state ──────────────────────────────
 
-        session = await session_repo.find_by_id(
-            session_id
-        )
+        session = await session_repo.find_by_id(session_id)
 
         if session is None:
-
             raise SessionNotFoundError()
 
-        return SessionResponse.from_document(
-            session
-        )
+        return SessionResponse.from_document(session)
 
     # ──────────────────────────────────────────────────────────────────────
     # GET SESSION
@@ -320,12 +323,9 @@ class SessionService:
         session = None
 
         if current_user.is_student:
-
-            session = (
-                await session_repo.find_by_id_and_student(
-                    session_id=session_id,
-                    student_id=current_user.user_id,
-                )
+            session = await session_repo.find_by_id_and_student(
+                session_id=session_id,
+                student_id=current_user.user_id,
             )
 
             if session is None and current_user.team_id:
@@ -334,44 +334,24 @@ class SessionService:
                     session = raw
 
         elif current_user.is_mentor:
+            raw = await session_repo.find_by_id(session_id)
 
-            raw = await session_repo.find_by_id(
-                session_id
-            )
-
-            if (
-                raw is not None
-                and raw.team_id
-                in (
-                    current_user.mentor_team_ids
-                    or []
-                )
-            ):
-
+            if raw is not None and raw.team_id in (current_user.mentor_team_ids or []):
                 session = raw
 
         elif current_user.is_mentor_workspace:
-
-            raw = await session_repo.find_by_id(
-                session_id
-            )
+            raw = await session_repo.find_by_id(session_id)
 
             if raw is not None and raw.workspace_id == current_user.workspace_id:
                 session = raw
 
         elif current_user.is_admin:
-
-            session = await session_repo.find_by_id(
-                session_id
-            )
+            session = await session_repo.find_by_id(session_id)
 
         if session is None:
-
             raise SessionNotFoundError()
 
-        return SessionResponse.from_document(
-            session
-        )
+        return SessionResponse.from_document(session)
 
     # ──────────────────────────────────────────────────────────────────────
     # LIST SESSIONS
@@ -391,7 +371,6 @@ class SessionService:
         filters = filters or {}
 
         if current_user.is_student:
-
             sessions = await session_repo.find_by_student(
                 student_id=current_user.user_id,
                 filters=filters,
@@ -405,7 +384,6 @@ class SessionService:
                 total = page * limit + 1
 
         elif current_user.is_mentor_workspace:
-
             sessions = await session_repo.find_all_by_owner(
                 owner=current_user.owner_context,
                 page=page,
@@ -418,11 +396,7 @@ class SessionService:
                 total = page * limit + 1
 
         elif current_user.is_mentor:
-
-            team_ids = (
-                current_user.mentor_team_ids
-                or []
-            )
+            team_ids = current_user.mentor_team_ids or []
 
             sessions = await session_repo.find_by_teams(
                 team_ids=team_ids,
@@ -437,13 +411,10 @@ class SessionService:
                 total = page * limit + 1
 
         elif current_user.is_admin:
-
-            sessions = (
-                await session_repo.find_all_admin(
-                    filters=filters,
-                    page=page,
-                    limit=limit,
-                )
+            sessions = await session_repo.find_all_admin(
+                filters=filters,
+                page=page,
+                limit=limit,
             )
 
             total = len(sessions)
@@ -455,12 +426,7 @@ class SessionService:
             sessions = []
             total = 0
 
-        items = [
-            SessionListResponse.from_document(
-                session
-            )
-            for session in sessions
-        ]
+        items = [SessionListResponse.from_document(session) for session in sessions]
 
         return items, total
 
@@ -481,7 +447,10 @@ class SessionService:
 
         if not current_user.is_admin and not (
             (current_user.is_student and session.student_id == current_user.user_id)
-            or (current_user.is_mentor_workspace and session.workspace_id == current_user.workspace_id)
+            or (
+                current_user.is_mentor_workspace
+                and session.workspace_id == current_user.workspace_id
+            )
         ):
             raise InsufficientPermissionsError()
 
@@ -503,34 +472,25 @@ class SessionService:
             current_user=current_user,
         )
 
-        session = await session_repo.find_by_id(
-            session_id
-        )
+        session = await session_repo.find_by_id(session_id)
 
         if session is None:
-
             raise SessionNotFoundError()
 
         if session.status in RUNNING_STATES:
-
             raise CannotArchiveActiveSessionError(
-                "Cannot archive session while it is "
-                f"in state '{session.status.value}'."
+                f"Cannot archive session while it is in state '{session.status.value}'."
             )
 
         previous_status = session.status.value
 
-        archived = await session_repo.archive(
-            session_id
-        )
+        archived = await session_repo.archive(session_id)
 
         if not archived:
-
             raise SessionNotFoundError()
 
         logger.info(
-            "Session archived | "
-            "session_id=%s | actor=%s",
+            "Session archived | session_id=%s | actor=%s",
             session_id,
             current_user.user_id,
         )
@@ -547,17 +507,12 @@ class SessionService:
             },
         )
 
-        updated = await session_repo.find_by_id(
-            session_id
-        )
+        updated = await session_repo.find_by_id(session_id)
 
         if updated is None:
-
             raise SessionNotFoundError()
 
-        return SessionResponse.from_document(
-            updated
-        )
+        return SessionResponse.from_document(updated)
 
 
 session_service = SessionService()

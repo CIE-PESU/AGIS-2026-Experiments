@@ -1,3 +1,5 @@
+import { apiFetch } from "@/services/apiClient";
+
 export interface Student {
   srn: string;
   name: string;
@@ -52,23 +54,16 @@ export interface AdminWorkspace {
   revoked_at?: string | null;
 }
 
-const getAuthHeaders = () => ({
-  "Content-Type": "application/json",
-  "Authorization": `Bearer ${localStorage.getItem("agis_access_token")}`
-});
-
 export async function getWorkspaces(): Promise<AdminWorkspace[]> {
-  const res = await fetch("/api/v1/admin/workspaces", { headers: getAuthHeaders() });
-  if (!res.ok) return [];
+  const res = await apiFetch("/admin/workspaces", {});
   const data = await res.json();
   return data.data || [];
 }
 
 export async function createWorkspace(name: string, mentorId?: string): Promise<{ workspace: AdminWorkspace; raw_token: string }> {
-  const res = await fetch("/api/v1/admin/workspaces", {
+  const res = await apiFetch("/admin/workspaces", {
     method: "POST",
-    headers: getAuthHeaders(),
-    body: JSON.stringify({ name, mentor_id: mentorId })
+    body: { name, mentor_id: mentorId }
   });
   if (!res.ok) {
     const err = await res.json();
@@ -82,9 +77,8 @@ export async function createWorkspace(name: string, mentorId?: string): Promise<
 }
 
 export async function revokeWorkspace(workspaceId: string): Promise<AdminWorkspace> {
-  const res = await fetch(`/api/v1/admin/workspaces/${workspaceId}`, {
+  const res = await apiFetch(`/admin/workspaces/${workspaceId}`, {
     method: "DELETE",
-    headers: getAuthHeaders()
   });
   if (!res.ok) {
     const err = await res.json();
@@ -95,8 +89,7 @@ export async function revokeWorkspace(workspaceId: string): Promise<AdminWorkspa
 }
 
 export async function getMentors(): Promise<Mentor[]> {
-  const res = await fetch("/api/v1/admin/mentors", { headers: getAuthHeaders() });
-  if (!res.ok) return [];
+  const res = await apiFetch("/admin/mentors", {});
   const data = await res.json();
   return data.data.map((m: any) => {
     const isExternal = m.type === "external_reviewer" || m.email?.endsWith("@agis.local");
@@ -112,8 +105,7 @@ export async function getMentors(): Promise<Mentor[]> {
 }
 
 export async function getTeams(): Promise<Team[]> {
-  const res = await fetch("/api/v1/admin/teams", { headers: getAuthHeaders() });
-  if (!res.ok) return [];
+  const res = await apiFetch("/admin/teams", {});
   const data = await res.json();
   return data.data.map((t: any) => ({
     id: t._id || t.id,
@@ -123,14 +115,13 @@ export async function getTeams(): Promise<Team[]> {
 }
 
 export async function getStudents(): Promise<Student[]> {
-  const res = await fetch("/api/v1/admin/students", { headers: getAuthHeaders() });
-  if (!res.ok) return [];
+  const res = await apiFetch("/admin/students", {});
   const data = await res.json();
   const mapTips = (tips: any) => {
     if (!tips || Object.keys(tips).length === 0) return {};
     return {
       timely: { status: tips.T || "yellow", explanation: tips.T_reason || "" },
-      importance: { status: tips.I || "yellow", explanation: tips.I_reason || "" },
+      importance: { status: tips.IMPORTANT || tips.I || "yellow", explanation: tips.IMPORTANT_reason || tips.I_reason || "" },
       profitable: { status: tips.P || "yellow", explanation: tips.P_reason || "" },
       solvable: { status: tips.S || "yellow", explanation: tips.S_reason || "" }
     };
@@ -154,7 +145,7 @@ export async function getTeamsWithMembers() {
   const teams = await getTeams();
   const students = await getStudents();
   const mentors = await getMentors();
-  
+
   return teams.map((team) => ({
     ...team,
     mentorName: mentors.find((m) => m.id === team.mentorId)?.name || "Unassigned",
@@ -169,8 +160,7 @@ export interface Comment {
 }
 
 export async function getComments(sessionId: string): Promise<Comment[]> {
-  const res = await fetch(`/api/v1/sessions/${sessionId}/comments`, { headers: getAuthHeaders() });
-  if (!res.ok) return [];
+  const res = await apiFetch(`/sessions/${sessionId}/comments`, {});
   const data = await res.json();
   return data.map((c: any) => ({
     sender: c.mentor_name,
@@ -180,10 +170,9 @@ export async function getComments(sessionId: string): Promise<Comment[]> {
 }
 
 export async function addComment(sessionId: string, text: string) {
-  const res = await fetch(`/api/v1/sessions/${sessionId}/comments`, {
+  const res = await apiFetch(`/sessions/${sessionId}/comments`, {
     method: "POST",
-    headers: getAuthHeaders(),
-    body: JSON.stringify({ comment: text })
+    body: { comment: text }
   });
   if (!res.ok) {
     const err = await res.json();

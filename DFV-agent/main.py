@@ -11,6 +11,7 @@ from crewai.skills import discover_skills, activate_skill
 from datetime import datetime
 from dotenv import load_dotenv
 import re
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 import litellm
 litellm.drop_params = True
 
@@ -38,17 +39,17 @@ def _sanitize_tool_choice(kwargs):
 
 def _patched_litellm_completion(*args, **kwargs):
     kwargs = _sanitize_tool_choice(kwargs)
-    
+
     # ── INSTRUMENTATION: Log prompt details before sending ──
     messages = kwargs.get("messages", [])
     total_chars = sum(len(m.get("content") or "") for m in messages)
     system_chars = sum(len(m.get("content") or "") for m in messages if m.get("role") == "system")
     user_chars = sum(len(m.get("content") or "") for m in messages if m.get("role") == "user")
     assistant_chars = sum(len(m.get("content") or "") for m in messages if m.get("role") == "assistant")
-    
+
     # Simple token estimation (~4 characters per token)
     est_prompt_tokens = int(total_chars / 4)
-    
+
     # Attempt to read target model context window from LM Studio API
     context_window = 32768  # Default Qwen/Llama context window fallback
     try:
@@ -70,9 +71,9 @@ def _patched_litellm_completion(*args, **kwargs):
                         context_window = 131072
     except Exception:
         pass
-        
+
     context_usage_pct = (est_prompt_tokens / context_window) * 100
-    
+
     # Attempt to extract agent role or model configuration name to represent the active "user" in logs
     agent_name = "Unknown Agent"
     for m in messages:
@@ -122,7 +123,7 @@ def _patched_litellm_completion(*args, **kwargs):
 
 async def _patched_litellm_acompletion(*args, **kwargs):
     kwargs = _sanitize_tool_choice(kwargs)
-    
+
     messages = kwargs.get("messages", [])
     total_chars = sum(len(m.get("content") or "") for m in messages)
     system_chars = sum(len(m.get("content") or "") for m in messages if m.get("role") == "system")
@@ -131,7 +132,7 @@ async def _patched_litellm_acompletion(*args, **kwargs):
     est_prompt_tokens = int(total_chars / 4)
     context_window = 32768
     context_usage_pct = (est_prompt_tokens / context_window) * 100
-    
+
     # Attempt to extract agent role or model configuration name to represent the active "user" in logs
     agent_name = "Unknown Agent"
     for m in messages:
@@ -237,7 +238,7 @@ llm = LLM(
         if os.environ["OPENAI_MODEL_NAME"].endswith("nemotron-3.5-lightning-30b-a3b")
         else {}
     ),
-    timeout=108000,
+    timeout=float(os.getenv("CREWAI_TIMEOUT_SECONDS", "600")),
 )
 
 # Discover and activate local business framework guidelines from markdown packages
@@ -268,7 +269,7 @@ class DecisionGate(BaseModel):
 
 class DFAOutput(BaseModel):
     refined_idea: RefinedIdea
-    hypotheses: Hypotheses 
+    hypotheses: Hypotheses
     tips_validated_metrics: TipsValidatedMetrics
     final_decision: DecisionGate
 
@@ -400,7 +401,7 @@ def create_dfv_crew():
            - desirability_statement: A "We believe [target customer] will [action]..." hypothesis testing genuine demand for the solution.
            - feasibility_statement: A "We believe [team] can [build action] within [timeframe] using [tools/APIs]..." hypothesis testing build feasibility.
            - viability_statement: A "We believe we can sustain this via [revenue model]..." hypothesis testing the business model.
-            
+
         3. tips_validated_metrics:
            - timely_factor: Why this is a timely problem to solve now (e.g. changes in evaluation weightage or policies).
            - importance_metric: Why this problem is highly important/consequential (e.g. impact on placements or graduation).
@@ -496,7 +497,7 @@ sncc = {
 }
 
 blnkt={
-    
+
     "desirability":""" Analyze the following student project proposal:
         - Customer Problem: Urban consumers need immediate access to groceries and essentials without spending time traveling to stores
         - Target Audience: Millennials, Gen Z, busy professionals, and students in metro cities aged 18-40
@@ -504,11 +505,11 @@ blnkt={
         - User Pain Points Solved: Time savings, convenience for impulse purchases, avoids crowded stores
         - Market Demand Indicators: High adoption rate in urban India, 4.2+ app rating, repeat usage frequency
         - Emotional Drivers: Convenience, instant gratification, time flexibility
-                                          """, 
-                                          
-                                          
-                                          
-                                          
+                                          """,
+
+
+
+
         "feasibility":""" The following is a startup/project idea submitted by a user:
             - Technology Stack: React Native mobile apps, cloud infrastructure, inventory management systems, route optimization algorithms
             - Infrastructure Model: Dark stores (micro-warehouses) located 2-3km from target customers, 500+ sq ft each
@@ -516,25 +517,25 @@ blnkt={
             - Supply Chain: Partnerships with 10,000+ local retailers and wholesale distributors
             - Operational Capabilities: Real-time demand forecasting, automated inventory replenishment, dynamic routing
             - Technical Challenges: Inventory accuracy, delivery time optimization, peak-hour scalability, cold chain for perishables
-            - Resource Requirements: Capital investment for dark store network, technology development team, delivery workforce""", 
-                                          
-                                          
-                                          
-                                          
-      "viability":""" 
+            - Resource Requirements: Capital investment for dark store network, technology development team, delivery workforce""",
+
+
+
+
+      "viability":"""
         Analyze the business viability of the following project proposal:
-        - Revenue Model: 
+        - Revenue Model:
           * Delivery fees (₹29-₹59 per order)
           * Platform commissions from sellers (15-25%)
           * Advertising fees from brands
           * Blinkit Prime membership (₹99/month)
-        
+
         - Cost Structure:
           * Dark store operational costs (rent, staffing, inventory)
           * Delivery partner payments (₹40-₹60 per delivery)
           * Technology and infrastructure costs
           * Marketing and customer acquisition costs
-        
+
         - Market Size: India quick commerce market = $3B in 2024, projected $5-7B by 2025
         - Unit Economics: Average order value ₹300-₹500, order frequency 2-3 times/week per customer
         - Competitive Position: Market leader in 10-minute delivery, competes with Swiggy Instamart, Zepto, BigBasket

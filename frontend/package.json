@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc && vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.2.1",
@@ -32,5 +33,8 @@
     "tailwindcss": "^3.4.19",
     "typescript": "^7.0.2",
     "vite": "^8.3.4"
+  },
+  "engines": {
+    "node": ">=22.13.0"
   }
 }

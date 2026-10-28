@@ -1,4 +1,4 @@
-import { apiRequest, clearTokens, setTokens, getAccessToken } from "@/services/apiClient";
+import { apiRequest, clearTokens, setTokens } from "@/services/apiClient";
 import type {
   AuthUser,
   CreateSessionRequest,
@@ -82,23 +82,11 @@ export async function submitFollowup(sessionId: string, answer: string): Promise
 }
 
 export async function getSessionComments(sessionId: string): Promise<MentorComment[]> {
-  const token = getAccessToken();
-  const res = await fetch(`/api/v1/sessions/${sessionId}/comments`, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  if (!res.ok) throw new Error("Failed to get comments");
-  return res.json();
+  return apiRequest(`/sessions/${sessionId}/comments`, { raw: true });
 }
 
 export async function addComment(sessionId: string, comment: string): Promise<MentorComment> {
-  const token = getAccessToken();
-  const res = await fetch(`/api/v1/sessions/${sessionId}/comments`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ comment })
-  });
-  if (!res.ok) throw new Error("Failed to add comment");
-  return res.json();
+  return apiRequest(`/sessions/${sessionId}/comments`, { method: "POST", body: { comment }, raw: true });
 }
 
 export async function deleteComment(commentId: string): Promise<void> {

@@ -9,7 +9,7 @@ Serialisation: call `.model_dump_json()` to get the JSON string for the Kafka va
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from pydantic import BaseModel, Field
 
@@ -30,7 +30,7 @@ class TIPSCEventPayload(BaseModel):
     idea: str = Field(description="Business idea submitted by the student.")
     correlation_id: str = Field(description="UUID4 uniquely identifying this publish event.")
     triggered_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(UTC),
         description="UTC timestamp when the backend published this event.",
     )
 
@@ -47,7 +47,7 @@ class DFVEventPayload(BaseModel):
     feasibility_context: str | None = None
     viability_context: str | None = None
     correlation_id: str
-    triggered_at: datetime = Field(default_factory=datetime.utcnow)
+    triggered_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class DiscoveryEventPayload(BaseModel):
@@ -58,8 +58,7 @@ class DiscoveryEventPayload(BaseModel):
     team_id: str
     problem_statement: str
     idea: str
-    tipsc_summary: str = ""   # reasoning excerpt from TIPSC output
-    dfv_summary: str = ""     # summary excerpt from DFV output
+    tipsc_summary: str = ""  # reasoning excerpt from TIPSC output
+    dfv_summary: str = ""  # summary excerpt from DFV output
     correlation_id: str
-    triggered_at: datetime = Field(default_factory=datetime.utcnow)
-
+    triggered_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

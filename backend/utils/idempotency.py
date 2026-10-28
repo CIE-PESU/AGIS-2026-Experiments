@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 # Key Generation
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def generate_key(student_id: str, action: str) -> str:
     """
     Build a deterministic idempotency key from a student ID and an action name.
@@ -61,6 +62,7 @@ def generate_key(student_id: str, action: str) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 # Atomic Check-and-Set
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 async def check_and_set(key: str, ttl_seconds: int = 86_400) -> bool:
     """

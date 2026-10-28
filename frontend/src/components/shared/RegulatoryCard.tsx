@@ -22,7 +22,7 @@ export function RegulatoryCard({ data }: Props) {
         />
 
         <Field
-          label="Industry Sector"
+          label="Industry Sector/Domain of Problem Statement"
           value={data.industry_sector}
         />
 
@@ -32,7 +32,7 @@ export function RegulatoryCard({ data }: Props) {
           </h4>
 
           <div className="space-y-4">
-            {data.applicable_regulations.map((regulation, index) => (
+            {(data.applicable_regulations ?? []).map((regulation, index) => (
               <div
                 key={index}
                 className="rounded-lg border p-4"
@@ -107,7 +107,7 @@ export function RegulatoryCard({ data }: Props) {
           </h4>
 
           <ul className="list-disc pl-5 space-y-2 text-muted-foreground">
-            {data.key_compliance_risks.map((risk, index) => (
+            {(data.key_compliance_risks ?? []).map((risk, index) => (
               <li key={index}>
                 {risk}
               </li>

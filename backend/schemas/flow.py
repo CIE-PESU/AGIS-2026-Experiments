@@ -3,7 +3,6 @@ Request/response schemas for the flow trigger endpoints.
 Shapes match api-spec.md Section 4 exactly.
 """
 
-
 from pydantic import BaseModel, Field
 
 from models.schema import DiscoveryJobPayload
@@ -27,7 +26,6 @@ class FlowTriggerResponse(BaseModel):
     correlation_id: str | None
     triggered_at: str
 
+
 class FollowupAnswerRequest(BaseModel):
     answer: str = Field(..., min_length=1, max_length=5000)
-
-

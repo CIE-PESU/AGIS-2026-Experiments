@@ -11,9 +11,7 @@ from state_machine.states import SessionStatus
 from state_machine.transitions import ALLOWED_TRANSITIONS
 
 
-def validate_transition(
-    current_status: SessionStatus, target_status: SessionStatus
-) -> None:
+def validate_transition(current_status: SessionStatus, target_status: SessionStatus) -> None:
     """
     Raise InvalidStateTransitionError if moving from current_status to
     target_status isn't allowed. Returns None (no exception) if it's fine.

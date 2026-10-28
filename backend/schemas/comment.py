@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field, field_validator
 # Request Schemas
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class CommentCreateRequest(BaseModel):
     """
     POST /sessions/{session_id}/comments request body.
@@ -47,6 +48,7 @@ class CommentCreateRequest(BaseModel):
 # ─────────────────────────────────────────────────────────────────────────────
 # Response Schemas
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class CommentResponse(BaseModel):
     """

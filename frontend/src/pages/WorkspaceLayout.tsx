@@ -1,13 +1,11 @@
 import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
-import { LogOut, MessageSquare, Send, X, Home } from "lucide-react";
+import { LogOut, MessageSquare, X, Home } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Logos } from "@/components/shared/Logos";
 import { getRoleHome } from "@/components/shared/RequireRole";
 import { useAuth } from "@/context/AuthContext";
-import { getSessionComments, addComment as addCommentApi } from "@/services/authSessions";
+import { getSessionComments } from "@/services/authSessions";
 import type { MentorComment } from "@/types/api";
 import { useSessionPolling } from "@/hooks/useSessionPolling";
 import { cn } from "@/lib/utils";
@@ -65,7 +63,6 @@ export function WorkspaceLayout() {
 
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatComments, setChatComments] = useState<MentorComment[]>([]);
-  const [newComment, setNewComment] = useState("");
 
   const loadComments = useCallback(async () => {
     if (!sessionId) return;
@@ -85,18 +82,6 @@ export function WorkspaceLayout() {
     }
   }, [isChatOpen, loadComments]);
 
-  const handleSendComment = async () => {
-    if (!newComment.trim() || !sessionId) return;
-    try {
-      await addCommentApi(sessionId, newComment.trim());
-      setNewComment("");
-      await loadComments();
-      toast.success("Message sent");
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to send message.");
-    }
-  };
-
   if (!user) return <Navigate to="/login" replace />;
   if (user.role !== "student" && user.role !== "mentor_workspace") return <Navigate to={getRoleHome(user.role)} replace />;
 
@@ -109,9 +94,7 @@ return (
       <header className="sticky top-0 z-30 border-b bg-background">
         <div className="mx-auto flex min-h-16 max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div className="flex items-center gap-4">
-            <Link to="/" className="flex-shrink-0" aria-label="Go to homepage">
-              <Logos />
-            </Link>
+            <Logos className="flex-shrink-0" />
             <nav className="hidden md:flex items-center gap-2" aria-label="Breadcrumb">
               <Link to="/" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors">
                 <Home className="h-4 w-4" />
@@ -201,18 +184,7 @@ return (
             )}
           </div>
 
-          <div className="p-3 border-t bg-background flex gap-2">
-            <Input
-              value={newComment}
-              onChange={e => setNewComment(e.target.value)}
-              placeholder="Type your reply..."
-              onKeyDown={e => { if (e.key === "Enter") handleSendComment(); }}
-              className="text-xs h-9"
-            />
-            <Button variant="secondary" onClick={handleSendComment} className="h-9 text-xs px-3">
-              <Send className="h-3 w-3 mr-1" /> Send
-            </Button>
-          </div>
+          <p className="p-3 border-t text-xs text-muted-foreground">Mentor feedback is read-only in this workspace.</p>
         </div>
       )}
     </div>

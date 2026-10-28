@@ -1,10 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { clearTokens, getAccessToken, getRefreshToken } from "@/services/apiClient";
-import { login as apiLogin, logout as apiLogout, getActiveSession } from "@/services/authSessions";
+import { login as apiLogin, logout as apiLogout, getActiveSession, getCurrentUser } from "@/services/authSessions";
 import { deriveStageAccess } from "@/hooks/useSessionPolling";
 import type { DFVResult, JTBDResult, StageStatus, TIPSCResult } from "@/data/mockData";
 import type { Role, SessionDocument, SessionStatus } from "@/types/api";
-import { getStudents } from "@/utils/adminData";
 import { mapTipscOutput, mapDfvOutput, mapDiscoveryOutput } from "@/utils/mapSessionResults";
 
 export type AppUser = { userId: string; srn: string; name: string; role: Role; teamId: string | null };
@@ -18,7 +17,7 @@ type AuthContextValue = {
   sessionId: string | null;
   serverStatus: SessionStatus | null;
   pendingQuestion: string | null;
-  
+
   session: SessionState;
   results: SessionResults;
   formData: FormDataMap;
@@ -72,22 +71,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     else localStorage.removeItem("appSessionId");
   }, [sessionId]);
 
-  // Load active session on mount and when user changes for workspace users (magic link re-login / page refresh)
+  const [hydrating, setHydrating] = useState(Boolean(user));
   useEffect(() => {
-    if (user?.role === "mentor_workspace" && user.userId) {
-      const loadSession = async () => {
-        try {
-          const activeSession = await getActiveSession(user.userId);
-          if (activeSession) {
-            setSessionFromServer(activeSession);
+    let cancelled = false;
+    async function restore() {
+      try {
+        if (!user) return;
+        const profile = await getCurrentUser();
+        if (cancelled) return;
+        setUser({userId: profile.user_id, srn: profile.srn, name: profile.name,
+          role: profile.role, teamId: profile.team_id ?? null});
+        if (profile.role === "student" || profile.role === "mentor_workspace") {
+          try {
+            const active = await getActiveSession(profile.user_id);
+            if (!cancelled && active) setSessionFromServer(active);
+          } catch (error: any) {
+            if (error.status !== 404) throw error;
           }
-        } catch {
-          // Ignore - no active session or network error
         }
-      };
-      loadSession();
+      } finally {
+        if (!cancelled) setHydrating(false);
+      }
     }
-  }, [user]); // Run on mount and when user changes
+    restore().catch(error => console.error("Could not restore session", error));
+    return () => { cancelled = true; };
+  }, []);
 
   const [serverStatus, setServerStatus] = useState<SessionStatus | null>(null);
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
@@ -131,16 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (srn: string, password: string): Promise<Role> => {
     try {
       const data = await apiLogin(srn, password, undefined);
-      let resolvedTeamId = data.user.team_id ?? null;
-      if (data.role === "student") {
-        if (!resolvedTeamId) {
-          const allStudents = await getStudents();
-          const existingStudent = allStudents.find((s: any) => s.srn === data.user.srn);
-          if (existingStudent) {
-            resolvedTeamId = existingStudent.teamId;
-          }
-        }
-      }
+      const resolvedTeamId = data.user.team_id ?? null;
       setUser({
         userId: data.user.user_id,
         srn: data.user.srn,
@@ -259,7 +258,7 @@ const archiveSession = useCallback(() => {
     [user, sessionId, serverStatus, pendingQuestion, session, results, formDataState, timeline, sessionDoc, login, loginWithWorkspace, logout, setSessionFromServer, unlockNext, saveResults, addEvent, setFormData, setSessionId, archiveSession]
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={value}>{hydrating ? <div role="status" className="p-8">Restoring your session…</div> : children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

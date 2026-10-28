@@ -35,9 +35,7 @@ class UserRepository(BaseRepository[User]):
             existing.email = pes_payload.get("email", existing.email)
             existing.role = pes_payload.get("role", existing.role)
             existing.team_id = pes_payload.get("team_id", existing.team_id)
-            existing.mentor_team_ids = pes_payload.get(
-                "mentor_team_ids", existing.mentor_team_ids
-            )
+            existing.mentor_team_ids = pes_payload.get("mentor_team_ids", existing.mentor_team_ids)
             await existing.save()
             return existing
 

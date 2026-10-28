@@ -40,7 +40,7 @@ class FakeSessionRepo:
             self.session.version += 1
         return True
 
-    async def update_flow_failure(self, session_id, new_status, failure_metadata):
+    async def update_flow_failure(self, session_id, new_status, failure_metadata, expected_version=None, correlation_id=None):
         self.update_flow_failure_called_with = (session_id, new_status, failure_metadata)
         if self.session:
             self.session.status = new_status
@@ -59,7 +59,7 @@ def worker_service(monkeypatch):
 async def test_accept_flow_output_empty_returns_invalid_schema(worker_service):
     service, repo = worker_service
     bg_tasks = BackgroundTasks()
-    
+
     with pytest.raises(InvalidOutputSchemaError) as exc_info:
         await service.accept_flow_output(
             session_id="ses_1",
@@ -76,7 +76,7 @@ async def test_accept_flow_output_empty_returns_invalid_schema(worker_service):
 async def test_accept_flow_output_wrong_correlation_id(worker_service):
     service, repo = worker_service
     bg_tasks = BackgroundTasks()
-    
+
     with pytest.raises(CorrelationIDMismatchError):
         await service.accept_flow_output(
             session_id="ses_1",
@@ -93,7 +93,7 @@ async def test_accept_flow_output_terminal_session(worker_service):
     service, repo = worker_service
     repo.session.status = SessionStatus.COMPLETED
     bg_tasks = BackgroundTasks()
-    
+
     with pytest.raises(InvalidStateTransitionError):
         await service.accept_flow_output(
             session_id="ses_1",
@@ -109,7 +109,7 @@ async def test_accept_flow_output_terminal_session(worker_service):
 async def test_valid_tipsc_output_writes_and_sets_status(worker_service):
     service, repo = worker_service
     bg_tasks = BackgroundTasks()
-    
+
     valid_tipsc = {
         "score": {"timing": 1, "idea": 1, "problem": 1, "solution": 1, "competition": 1},
         "total_score": 5,
@@ -117,7 +117,7 @@ async def test_valid_tipsc_output_writes_and_sets_status(worker_service):
         "compliance_flag": False,
         "reasoning": "Looks good"
     }
-    
+
     res = await service.accept_flow_output(
         session_id="ses_1",
         flow="tipsc",
@@ -127,7 +127,7 @@ async def test_valid_tipsc_output_writes_and_sets_status(worker_service):
         worker_id="worker_1",
         background_tasks=bg_tasks,
     )
-    
+
     assert res["status"] == "success"
     assert repo.update_flow_output_called_with[1] == "tipsc"
     assert repo.update_flow_output_called_with[3] == SessionStatus.TIPSC_COMPLETED
@@ -137,7 +137,7 @@ async def test_valid_dfv_output_writes_and_sets_status(worker_service):
     service, repo = worker_service
     repo.session.status = SessionStatus.DFV_RUNNING
     bg_tasks = BackgroundTasks()
-    
+
     valid_dfv = {
         "desirability": {"score": 5, "report": "ok"},
         "feasibility": {"score": 5, "report": "ok"},
@@ -145,7 +145,7 @@ async def test_valid_dfv_output_writes_and_sets_status(worker_service):
         "overall_decision": "GO",
         "summary": "good"
     }
-    
+
     res = await service.accept_flow_output(
         session_id="ses_1",
         flow="dfv",
@@ -155,7 +155,7 @@ async def test_valid_dfv_output_writes_and_sets_status(worker_service):
         worker_id="worker_1",
         background_tasks=bg_tasks,
     )
-    
+
     assert res["status"] == "success"
     assert repo.update_flow_output_called_with[1] == "dfv"
     assert repo.update_flow_output_called_with[3] == SessionStatus.DFV_COMPLETED
@@ -165,14 +165,14 @@ async def test_valid_discovery_output_writes_and_sets_status(worker_service):
     service, repo = worker_service
     repo.session.status = SessionStatus.DISCOVERY_RUNNING
     bg_tasks = BackgroundTasks()
-    
+
     valid_discovery = {
         "interview_plan": {
             "target_segment": "Students",
             "hypothesis_to_validate": "They need this."
         }
     }
-    
+
     res = await service.accept_flow_output(
         session_id="ses_1",
         flow="discovery",
@@ -182,7 +182,7 @@ async def test_valid_discovery_output_writes_and_sets_status(worker_service):
         worker_id="worker_1",
         background_tasks=bg_tasks,
     )
-    
+
     assert res["status"] == "success"
     assert repo.update_flow_output_called_with[1] == "discovery"
     assert repo.update_flow_output_called_with[3] == SessionStatus.COMPLETED
@@ -191,7 +191,7 @@ async def test_valid_discovery_output_writes_and_sets_status(worker_service):
 async def test_accept_flow_failure(worker_service):
     service, repo = worker_service
     bg_tasks = BackgroundTasks()
-    
+
     res = await service.accept_flow_failure(
         session_id="ses_1",
         flow="tipsc",
@@ -201,7 +201,7 @@ async def test_accept_flow_failure(worker_service):
         retry_count=1,
         background_tasks=bg_tasks,
     )
-    
+
     assert res["status"] == "success"
     assert repo.update_flow_failure_called_with[1] == SessionStatus.TIPSC_FAILED
     assert repo.update_flow_failure_called_with[2]["error_code"] == "TIMEOUT"

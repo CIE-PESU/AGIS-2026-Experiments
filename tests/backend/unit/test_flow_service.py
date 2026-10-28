@@ -64,21 +64,21 @@ class FakeSessionRepo:
         session = self.sessions[session_id]
         session.correlation_id = correlation_id
 
-    async def atomic_start_dfv_flow(self, session_id, correlation_id, dfv_inputs):
+    async def atomic_start_dfv_flow(self, session_id, correlation_id, dfv_inputs, expected_version=None, request_record=None):
         result = self.atomic_dfv_results.get(session_id, True)
         if result:
             session = self.sessions[session_id]
             session.correlation_id = correlation_id
         return result
 
-    async def atomic_start_discovery_flow(self, session_id, correlation_id, discovery_inputs):
+    async def atomic_start_discovery_flow(self, session_id, correlation_id, discovery_inputs, expected_version=None, request_record=None):
         result = self.atomic_discovery_results.get(session_id, True)
         if result:
             session = self.sessions[session_id]
             session.correlation_id = correlation_id
         return result
 
-    async def update_flow_failure(self, session_id, new_status, failure_metadata):
+    async def update_flow_failure(self, session_id, new_status, failure_metadata, expected_version=None, correlation_id=None):
         self.sessions[session_id].status = new_status
         return True
 
@@ -172,7 +172,7 @@ async def test_dfv_publish_failure_returns_to_retryable_state():
 
 @pytest.mark.asyncio
 async def test_discovery_publish_failure_returns_to_retryable_state():
-    session = make_session(status=SessionStatus.DFV_COMPLETED)
+    session = make_session(status=SessionStatus.DFV_COMPLETED, dfv={"output": {"decision": "GO"}})
     service = build_service(session)
 
     async def fail_publish(*args, **kwargs):
@@ -347,7 +347,7 @@ async def test_trigger_dfv_happy_path_publishes_and_moves_to_dfv_waiting():
     async def mock_publish(_self, topic, payload):
         published.append((topic, payload))
         return "test-correlation-id"
-    
+
     kafka = type('MockKafka', (), {'published': published, 'publish': mock_publish})()
     audit = type('MockAudit', (), {'log_event': lambda *a, **kw: asyncio.sleep(0, result=None)})()
 
@@ -394,10 +394,8 @@ async def test_trigger_discovery_before_dfv_completed_returns_current_status():
     # Make CAS fail to simulate already waiting/running
     service._session_repo.atomic_discovery_results[session.session_id] = False
 
-    result = await service.trigger_discovery(session.session_id, session.student_id, VALID_DISCOVERY_INPUTS)
-
-    # Returns current status, doesn't raise
-    assert result["status"] == "dfv_waiting"
+    with pytest.raises(InvalidStateTransitionError):
+        await service.trigger_discovery(session.session_id, session.student_id, VALID_DISCOVERY_INPUTS)
 
 
 @pytest.mark.asyncio
@@ -405,14 +403,14 @@ async def test_trigger_discovery_happy_path():
     session = make_session(
         status=SessionStatus.DFV_COMPLETED,
         tipsc={"ready_for_dfv": True, "reasoning": "solid idea"},
-        dfv={"summary": "strong market pull"},
+        dfv={"output": {"decision": "GO", "summary": "strong market pull"}},
     )
 
     repo = FakeSessionRepo({session.session_id: session})
     repo.find_by_id = lambda *a, **kw: asyncio.sleep(0, result=make_session(
         status=SessionStatus.DFV_COMPLETED,
         tipsc={"ready_for_dfv": True, "reasoning": "solid idea"},
-        dfv={"summary": "strong market pull"},
+        dfv={"output": {"decision": "GO", "summary": "strong market pull"}},
     ))
     repo.update_status = lambda *a, **kw: asyncio.sleep(0, result=True)
     repo.atomic_start_discovery_flow = lambda *a, **kw: asyncio.sleep(0, result=True)
@@ -446,5 +444,6 @@ async def test_version_mismatch_raises_conflict():
     service = FlowService(repo, type('MockKafka', (), {'published': [], 'publish': lambda *a, **kw: None})(), type('MockAudit', (), {'log_event': lambda *a, **kw: None})())
 
 
-    with pytest.raises(SessionUpdateConflictError):
-        await service.trigger_tipsc(session.session_id, session.student_id)
+    with patch("events.startup.tipsc_executor_instance", MagicMock()):
+        with pytest.raises(SessionUpdateConflictError):
+            await service.trigger_tipsc(session.session_id, session.student_id)

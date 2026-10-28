@@ -17,9 +17,9 @@ def test_as_utc_handles_mongodb_naive_and_aware_timestamps():
 @pytest.mark.asyncio
 async def test_recovers_dfv_and_discovery_with_naive_mongodb_timestamps():
     old = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=1)
-    dfv = SimpleNamespace(id="dfv-id", flow_started_at=old, updated_at=old, correlation_id="dfv-correlation")
-    discovery = SimpleNamespace(id="discovery-id", flow_started_at=None, updated_at=old, correlation_id="discovery-correlation")
-    queries = [MagicMock(to_list=AsyncMock(return_value=[dfv])), MagicMock(to_list=AsyncMock(return_value=[discovery]))]
+    dfv = SimpleNamespace(version=0, id="dfv-id", flow_started_at=old, updated_at=old, correlation_id="dfv-correlation")
+    discovery = SimpleNamespace(version=0, id="discovery-id", flow_started_at=None, updated_at=old, correlation_id="discovery-correlation")
+    queries = [MagicMock(to_list=AsyncMock(return_value=[dfv])), MagicMock(to_list=AsyncMock(return_value=[discovery])), MagicMock(to_list=AsyncMock(return_value=[]))]
 
     with (
         patch("services.timeout_supervisor.Session.find", side_effect=queries),

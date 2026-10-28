@@ -2,28 +2,31 @@ import json
 import os
 from pathlib import Path
 
+from core.config import settings
 from models.team import Team
 from models.user import User
 
 
 def get_seed_file_path() -> Path:
-    return Path(__file__).resolve().parent.parent / "scripts" / "seed_data.json"
+    if settings.AGIS_EXPORT_PATH is None:
+        raise ValueError("AGIS_EXPORT_PATH is not configured")
+    return settings.AGIS_EXPORT_PATH.expanduser()
+
 
 async def dump_seed_data():
     """
-    Dumps all users and teams from the database into scripts/seed_data.json.
-    This allows the file to be committed to git and stay in sync with admin actions.
+    Optionally export account/team metadata without password material.
+    Disabled unless AGIS_EXPORT_PATH points to a private location outside the repo.
     """
+    if settings.AGIS_EXPORT_PATH is None:
+        return
     users = await User.find_all().to_list()
     teams = await Team.find_all().to_list()
 
-    data = {
-        "users": [],
-        "teams": []
-    }
+    data = {"users": [], "teams": []}
 
     for u in users:
-        u_dict = u.model_dump()
+        u_dict = u.model_dump(exclude={"password_hash", "encrypted_password"})
         u_dict["id"] = str(u.id)
         if u_dict.get("team_id"):
             u_dict["team_id"] = str(u_dict["team_id"])
@@ -34,11 +37,18 @@ async def dump_seed_data():
         t_dict["id"] = str(t.id)
         data["teams"].append(t_dict)
 
-    seed_file = get_seed_file_path()
-    
+    seed_file = get_seed_file_path().resolve()
+    repository = Path(__file__).resolve().parents[2]
+    if seed_file.is_relative_to(repository):
+        raise ValueError("AGIS_EXPORT_PATH must be outside the repository")
+
     # Write to a temporary file first to prevent corruption if interrupted
-    tmp_file = seed_file.with_suffix(".json.tmp")
-    with open(tmp_file, "w") as f:
+    import uuid
+
+    seed_file.parent.mkdir(parents=True, exist_ok=True)
+    tmp_file = seed_file.with_suffix(f".{uuid.uuid4().hex}.tmp")
+    with tmp_file.open("x") as f:
+        tmp_file.chmod(0o600)
         json.dump(data, f, indent=2, default=str)
-    
+
     os.replace(tmp_file, seed_file)

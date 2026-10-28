@@ -18,8 +18,8 @@ import json
 import sys
 
 EXPECTED_PATH_PREFIXES = [
-    "/sessions",
-    "/comments",
+    "/api/v1/sessions",
+    "/api/v1/comments",
 ]
 
 REQUIRED_TOP_LEVEL_KEYS = ["openapi", "info", "paths"]
@@ -53,15 +53,13 @@ def validate(schema_path: str) -> list[str]:
                 errors.append(f"{method.upper()} {path} has no 'responses' block")
 
     found_prefixes = {
-        prefix
-        for prefix in EXPECTED_PATH_PREFIXES
-        if any(p.startswith(prefix) for p in paths)
+        prefix for prefix in EXPECTED_PATH_PREFIXES if any(p.startswith(prefix) for p in paths)
     }
     missing_prefixes = set(EXPECTED_PATH_PREFIXES) - found_prefixes
     for prefix in missing_prefixes:
         errors.append(
             f"Expected at least one path starting with '{prefix}' but found none "
-            "(router not mounted in app.main, or not yet implemented)"
+            "(router not mounted in main, or not yet implemented)"
         )
 
     return errors
