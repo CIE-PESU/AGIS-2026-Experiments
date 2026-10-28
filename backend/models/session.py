@@ -307,6 +307,7 @@ class Session(Document):
 
     # ── DFV founder context ────────────────────────────────────────────────
 
+    flow_requests: dict[str, Any] = Field(default_factory=dict)
     dfv_inputs: Optional[DFVInputs] = None
     
     # ── Discovery founder context ─────────────────────────────────────────

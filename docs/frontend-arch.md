@@ -596,7 +596,7 @@ downloadMarkdown(content, filename) - Trigger file download
 ### Required Variables
 ```bash
 VITE_API_BASE_URL=/api/v1              # Backend API base path
-VITE_BACKEND_URL=http://localhost:8000 # Backend server URL
+VITE_BACKEND_URL=http://localhost:8004 # Backend server URL
 VITE_USE_MOCK_FLOWS=true               # Enable mock data (dev)
 ```
 
@@ -604,7 +604,7 @@ VITE_USE_MOCK_FLOWS=true               # Enable mock data (dev)
 Create `.env` file in frontend root:
 ```bash
 VITE_API_BASE_URL=/api/v1
-VITE_BACKEND_URL=http://localhost:8000
+VITE_BACKEND_URL=http://localhost:8004
 VITE_USE_MOCK_FLOWS=true
 ```
 
@@ -615,7 +615,7 @@ VITE_USE_MOCK_FLOWS=true
 ### Development
 ```bash
 npm install          # Install dependencies
-npm run dev          # Start dev server (http://localhost:5173)
+npm run dev          # Start dev server (http://localhost:5176)
 ```
 
 ### Production Build

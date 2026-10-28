@@ -127,7 +127,6 @@ ALLOWED_TRANSITIONS: dict[
 
     SessionStatus.DISCOVERY_WAITING: frozenset({
         SessionStatus.DISCOVERY_RUNNING,
-        SessionStatus.PMF_WAITING,
         SessionStatus.COMPLETED, 
         SessionStatus.DISCOVERY_FAILED,
         SessionStatus.FAILED,
@@ -135,7 +134,6 @@ ALLOWED_TRANSITIONS: dict[
     }),
 
     SessionStatus.DISCOVERY_RUNNING: frozenset({
-        SessionStatus.PMF_WAITING,
         SessionStatus.COMPLETED,
         SessionStatus.DISCOVERY_FAILED,
         SessionStatus.FAILED,
@@ -165,6 +163,7 @@ ALLOWED_TRANSITIONS: dict[
     }),
 
     SessionStatus.PMF_COMPLETED: frozenset({
+        SessionStatus.PMF_WAITING,
         SessionStatus.COMPLETED,
         SessionStatus.ARCHIVED,
     }),
@@ -178,6 +177,7 @@ ALLOWED_TRANSITIONS: dict[
     # ──────────────────────────────────────────────────────────────────────
 
     SessionStatus.COMPLETED: frozenset({
+        SessionStatus.ARCHIVED,
         SessionStatus.DFV_WAITING,
         SessionStatus.PMF_WAITING,
     }),

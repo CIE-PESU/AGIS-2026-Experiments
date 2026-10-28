@@ -170,14 +170,14 @@ export function DiscoveryFlow() {
   const [checklistState, setChecklistState] = useState<Record<number, boolean>>({});
   const [activeGuideTab, setActiveGuideTab] = useState<"before" | "during" | "after">("before");
 
-  if (session.discovery === "locked") return <Navigate to="/workspace" replace />;
+
 
   useEffect(() => {
     if (loading) {
       if (serverStatus === "completed" && results.discovery) {
         setLoading(false);
         addEvent("Discovery Completed");
-        unlockNext("discovery");
+
       } else if (serverStatus === "discovery_failed") {
         setLoading(false);
         toast.error("Discovery Analysis failed. Please try again.");
@@ -186,7 +186,7 @@ export function DiscoveryFlow() {
   }, [loading, serverStatus, results.discovery, addEvent, unlockNext]);
 
   async function startDiscovery() {
-    if (!discoveryInputs) return;
+    if (!discoveryInputs || !sessionId || loading) return;
     setLoading(true);
     addEvent("Discovery Triggered");
 
@@ -254,6 +254,8 @@ export function DiscoveryFlow() {
   const toggleChecklist = (index: number) => {
     setChecklistState((prev) => ({ ...prev, [index]: !prev[index] }));
   };
+
+  if (session.discovery === "locked") return <Navigate to="/workspace" replace />;
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">

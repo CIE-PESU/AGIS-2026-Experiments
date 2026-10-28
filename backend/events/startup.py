@@ -260,6 +260,12 @@ async def on_startup() -> None:
                 base_url=settings.LM_STUDIO_URL,
                 api_key=settings.OPENAI_API_KEY,
                 temperature=0.2,
+                timeout=float(os.getenv("CREWAI_TIMEOUT_SECONDS", "600")),
+                extra_body=(
+                    {"chat_template_kwargs": {"enable_thinking": False}}
+                    if settings.OPENAI_MODEL_NAME.endswith("nemotron-3.5-lightning-30b-a3b")
+                    else {}
+                ),
                 **extra_args,
             )  
 

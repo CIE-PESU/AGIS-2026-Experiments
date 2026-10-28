@@ -7,12 +7,12 @@
 
 ## 1. System Prerequisites
 
-| Tool | Version | Notes |
-|---|---|---|
-| Python | `3.12+` | Check: `python3 --version` |
-| Node.js & npm | `18+` | Check: `node --version` |
-| Docker & Docker Compose | Latest | Must be running |
-| LLM Server | — | LM Studio / Ollama / NVIDIA NIM (see §3) |
+| Tool                    | Version   | Notes                                     |
+| ----------------------- | --------- | ----------------------------------------- |
+| Python                  | `3.12+` | Check: `python3 --version`              |
+| Node.js & npm           | `18+`   | Check: `node --version`                 |
+| Docker & Docker Compose | Latest    | Must be running                           |
+| LLM Server              | —        | LM Studio / Ollama / NVIDIA NIM (see §3) |
 
 ---
 
@@ -108,12 +108,13 @@ docker compose -f backend/docker-compose.yml up -d
 
 ### Services started
 
-| Service | Port | URI |
-|---|---|---|
-| Kafka (KRaft) | `9092` | `localhost:9092` |
+| Service         | Port      | URI                           |
+| --------------- | --------- | ----------------------------- |
+| Kafka (KRaft)   | `9092`  | `localhost:9092`            |
 | MongoDB (local) | `27017` | `mongodb://localhost:27017` |
 
 To stop:
+
 ```bash
 docker compose -f backend/docker-compose.yml down
 ```
@@ -134,10 +135,12 @@ source .venv/bin/activate
 ### Terminal 1 — LLM Server
 
 **Option A — Local LM Studio**
+
 1. Open LM Studio → load a model (e.g. `qwen3.5-9b`)
 2. Start the local server → it listens on `http://127.0.0.1:1234/v1`
 
 **Option B — NVIDIA NIM / cloud**
+
 - Nothing to start locally; just ensure `OPENAI_API_KEY` is set in `.env`
 
 ---
@@ -147,11 +150,11 @@ source .venv/bin/activate
 ```bash
 source .venv/bin/activate
 cd backend
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uvicorn main:app --reload --host 0.0.0.0 --port 8004
 ```
 
-- API docs: **http://localhost:8000/docs**
-- Health check: **http://localhost:8000/health**
+- API docs: **http://localhost:8004/docs**
+- Health check: **http://localhost:8004/health**
 
 ---
 
@@ -164,6 +167,7 @@ python -m workers.combined_agent_worker
 ```
 
 Consumes from Kafka topics:
+
 - `userSession.dfv`
 - `userSession.discovery`
 
@@ -186,7 +190,7 @@ cd frontend
 npm run dev
 ```
 
-- Web app: **http://localhost:5173**
+- Web app: **http://localhost:5176**
 
 ---
 
@@ -230,10 +234,10 @@ python backend/scripts/check_db.py
 ## 7. System Architecture
 
 ```
-User Browser (React :5173)
+User Browser (React :5176)
         │
         ▼  HTTP REST / JWT
-FastAPI Backend (:8000) ──────────────► MongoDB (:27017)
+FastAPI Backend (:8004) ──────────────► MongoDB (:27017)
         │                                    ▲
         ▼  Kafka Events                      │
   Kafka (:9092) ──────────────────────────── ┤
@@ -271,7 +275,7 @@ cd frontend && npm install && cd ..
 
 # === EVERY SESSION ===
 docker compose -f backend/docker-compose.yml up -d   # T0: infra
-source .venv/bin/activate && cd backend && uvicorn main:app --reload --port 8000   # T2: API
+source .venv/bin/activate && cd backend && uvicorn main:app --reload --port 8004   # T2: API
 source .venv/bin/activate && cd backend && python -m workers.combined_agent_worker # T3: DFV worker
 source .venv/bin/activate && cd backend && python -m workers.notification_worker   # T4: notifs
 cd frontend && npm run dev                                                           # T5: UI
@@ -281,11 +285,11 @@ cd frontend && npm run dev                                                      
 
 ## 9. Troubleshooting
 
-| Symptom | Fix |
-|---|---|
-| `ModuleNotFoundError` | Make sure venv is activated: `source .venv/bin/activate` |
-| `Connection refused` on port 9092 | `docker compose -f backend/docker-compose.yml up -d` |
-| `Connection refused` on port 27017 | Start MongoDB locally or add it to docker-compose |
-| LLM agent times out | Verify your LLM server is running and `LM_STUDIO_URL` / `OPENAI_API_KEY` are set correctly in `.env` |
-| `JWT_SECRET` error on startup | Ensure `.env` has a 32+ character `JWT_SECRET` value |
-| Frontend can't reach backend | Check `CORS_ALLOWED_ORIGINS=http://localhost:5173` is in `.env` |
+| Symptom                              | Fix                                                                                                        |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `ModuleNotFoundError`              | Make sure venv is activated: `source .venv/bin/activate`                                                 |
+| `Connection refused` on port 9092  | `docker compose -f backend/docker-compose.yml up -d`                                                     |
+| `Connection refused` on port 27017 | Start MongoDB locally or add it to docker-compose                                                          |
+| LLM agent times out                  | Verify your LLM server is running and `LM_STUDIO_URL` / `OPENAI_API_KEY` are set correctly in `.env` |
+| `JWT_SECRET` error on startup      | Ensure `.env` has a 32+ character `JWT_SECRET` value                                                   |
+| Frontend can't reach backend         | Check `CORS_ALLOWED_ORIGINS=http://localhost:5176` is in `.env`                                        |
