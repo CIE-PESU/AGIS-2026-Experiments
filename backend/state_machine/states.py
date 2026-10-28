@@ -57,11 +57,8 @@ RUNNING_STATES = frozenset(
         SessionStatus.ETHICS_RUNNING,
         SessionStatus.TIPSC_RUNNING,
         SessionStatus.TIPSC_REEVALUATION,
-        SessionStatus.DFV_WAITING,
         SessionStatus.DFV_RUNNING,
-        SessionStatus.DISCOVERY_WAITING,
         SessionStatus.DISCOVERY_RUNNING,
-        SessionStatus.PMF_WAITING,
         SessionStatus.PMF_RUNNING,
     }
 )

@@ -19,7 +19,6 @@ DFV and Discovery remain flow-service controlled.
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import logging
 import uuid
 
@@ -75,16 +74,6 @@ class SessionService:
         background_tasks: BackgroundTasks,
         workspace_id: Optional[str] = None,
     ) -> SessionResponse:
-
-        from events import startup
-        from services.session_task_registry import register_session_task
-        executor = startup.tipsc_executor_instance
-        if executor is None:
-            from services.flow_exceptions import KafkaUnavailableError
-            raise KafkaUnavailableError("TIPSC engine is unavailable")
-        idempotency_key = hashlib.sha256(
-            f"{student_id}:{workspace_id}:{idempotency_key}".encode()
-        ).hexdigest()
 
         # ── 1. Idempotency ────────────────────────────────────────────────
 
@@ -263,8 +252,6 @@ class SessionService:
                 preeval_input=preeval_input.copy(),
             )
         )
-
-        register_session_task(session_id, task)
 
         # Keep task exception observable in logs.
         task.add_done_callback(

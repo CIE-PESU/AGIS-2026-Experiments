@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
-import { apiFetch } from "@/services/apiClient";
+import { API_BASE_URL } from "@/constants";
+import { getAccessToken } from "@/services/apiClient";
 import type { SessionDocument } from "@/types/api";
 
 export function useSessionStream(
@@ -14,46 +15,61 @@ export function useSessionStream(
     if (!sessionId || !enabled) return;
 
     let active = true;
-    const abortController = new AbortController();
-    let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
-    let delay = 1000;
+    let abortController = new AbortController();
+
     const connectStream = async () => {
       try {
-        const response = await apiFetch(`/sessions/${sessionId}/stream`, { signal: abortController.signal });
-        if (!response.body) throw new Error("Stream body missing");
+        const token = getAccessToken();
+        const streamUrl = token
+            ? `${API_BASE_URL}/sessions/${sessionId}/stream?token=${encodeURIComponent(token)}`
+            : `${API_BASE_URL}/sessions/${sessionId}/stream`;
+
+        const response = await fetch(streamUrl, {
+          // Keep the header too for non-EventSource usage:
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          signal: abortController.signal,
+        });
+
+        if (!response.body) return;
+
         const reader = response.body.getReader();
-        const decoder = new TextDecoder();
+        const decoder = new TextDecoder("utf-8");
         let buffer = "";
-        try {
-          while (active) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            delay = 1000;
-            buffer += decoder.decode(value, { stream: true });
-            const events = buffer.split(/\r?\n\r?\n/);
-            buffer = events.pop() || "";
-            for (const event of events) {
-              const data = event.split(/\r?\n/).filter(line => line.startsWith("data:")).map(line => line.slice(5).trimStart()).join("\n");
-              if (data) onUpdateRef.current(JSON.parse(data) as SessionDocument);
+
+        while (active) {
+          const { value, done } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n\n");
+          
+          buffer = lines.pop() || ""; // keep the last incomplete chunk
+
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              try {
+                const data = JSON.parse(line.substring(6)) as SessionDocument;
+                onUpdateRef.current(data);
+              } catch (err) {
+                console.error("Failed to parse SSE data", err);
+              }
             }
           }
-        } finally {
-          await reader.cancel();
-          reader.releaseLock();
         }
-      } catch (error: unknown) {
-        if (abortController.signal.aborted) return;
-        if (error && typeof error === "object" && "status" in error && (error.status === 401 || error.status === 403 || error.status === 404)) return;
-      }
-      if (active) {
-        reconnectTimer = setTimeout(connectStream, delay);
-        delay = Math.min(delay * 2, 30000);
+      } catch (err: any) {
+        if (err.name === "AbortError") return;
+        console.error("SSE connection error", err);
+        // Basic reconnect logic
+        if (active) {
+          setTimeout(connectStream, 5000);
+        }
       }
     };
-    void connectStream();
+
+    connectStream();
+
     return () => {
       active = false;
-      clearTimeout(reconnectTimer);
       abortController.abort();
     };
   }, [sessionId, enabled]);

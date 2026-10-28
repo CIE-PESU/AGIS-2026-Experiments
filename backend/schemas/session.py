@@ -260,10 +260,6 @@ class SessionResponse(BaseModel):
     dfv: Optional[DFVOutputSchema] = None
 
     discovery: Optional[DiscoveryOutputSchema] = None
-    pmf: Optional[DiscoveryOutputSchema] = None
-    dfv_inputs: Optional[dict[str, Any]] = None
-    discovery_inputs: Optional[dict[str, Any]] = None
-    failure_metadata: Optional[dict[str, Any]] = None
 
 
     # ── Follow-up state ───────────────────────────────────────────────────
@@ -353,10 +349,6 @@ class SessionResponse(BaseModel):
                 else None
             ),
 
-            pmf=(DiscoveryOutputSchema.model_validate(session.pmf.model_dump()) if session.pmf else None),
-            dfv_inputs=session.dfv_inputs.model_dump() if session.dfv_inputs else None,
-            discovery_inputs=session.discovery_inputs.model_dump() if session.discovery_inputs else None,
-            failure_metadata=session.failure_metadata.model_dump() if session.failure_metadata else None,
             pending_question=session.pending_question,
 
             followup_turn=session.followup_turn,

@@ -16,8 +16,6 @@ Follow-up:
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import json
 import uuid
 
 from dataclasses import dataclass
@@ -33,7 +31,6 @@ from models.schema import (
     PMFJobPayload,
 )
 from kafka.topics import KafkaTopic
-from services.session_task_registry import register_session_task
 
 from services.flow_exceptions import (
     DFVNotUnlockedError,
@@ -238,7 +235,7 @@ class FlowService:
             if session.workspace_id != workspace_id:
                 raise SessionNotFoundError(session_id)
         elif student_id:
-            if session.student_id != student_id:
+            if session.student_id != student_id and session.student_id is not None:
                 raise SessionNotFoundError(session_id)
 
         return session
@@ -400,12 +397,12 @@ class FlowService:
         # HTTP response returns immediately.
         # Pipeline continues independently.
         
-        register_session_task(session_id, asyncio.create_task(
+        asyncio.create_task(
             executor.run(
                 session_id=session_id,
                 preeval_input=preeval_input,
             )
-        ))
+        )
 
 
         return {
@@ -494,12 +491,12 @@ class FlowService:
         # 4. Re-run TIPSC
         # 5. Ask another question OR complete TIPSC
 
-        claimed = await self._session_repo.submit_followup_answer(session_id, answer, session.version)
-        if not claimed:
-            raise SessionUpdateConflictError(session_id)
-        register_session_task(session_id, asyncio.create_task(
-            executor.resume_after_followup(session_id=session_id, answer=answer, claimed=True)
-        ))
+        asyncio.create_task(
+            executor.resume_after_followup(
+                session_id=session_id,
+                answer=answer,
+            )
+        )
 
 
         return {
@@ -520,87 +517,247 @@ class FlowService:
     # ──────────────────────────────────────────────────────────────────────
 
 
-    async def trigger_dfv(self, session_id, student_id=None, dfv_inputs=None,
-                          workspace_id=None, idempotency_key=None):
-        from schemas.flow import DFVTriggerRequest
-        inputs = DFVTriggerRequest(**(dfv_inputs or {})).model_dump()
-        return await self._trigger_agent_flow("dfv", session_id, student_id, workspace_id, inputs, idempotency_key)
+    async def trigger_dfv(
+        self,
+        session_id: str,
+        student_id: Optional[str] = None,
+        dfv_inputs: dict = None,
+        workspace_id: Optional[str] = None,
+    ) -> dict:
 
-    async def trigger_discovery(self, session_id, student_id=None, discovery_inputs=None,
-                                workspace_id=None, idempotency_key=None):
-        inputs = DiscoveryJobPayload(**(discovery_inputs or {})).model_dump()
-        return await self._trigger_agent_flow("discovery", session_id, student_id, workspace_id, inputs, idempotency_key)
+        dfv_inputs = dfv_inputs or {}
+        session = await self._load_session(
+            session_id,
+            student_id=student_id,
+            workspace_id=workspace_id,
+        )
 
-    async def trigger_pmf(self, session_id, student_id=None, workspace_id=None, idempotency_key=None):
-        return await self._trigger_agent_flow("pmf", session_id, student_id, workspace_id, None, idempotency_key)
+        if not session.tipsc:
+            ready_for_dfv = False
 
-    async def _trigger_agent_flow(self, flow, session_id, student_id, workspace_id, inputs, idempotency_key):
-        session = await self._load_session(session_id, student_id, workspace_id)
-        fingerprint = hashlib.sha256(json.dumps(inputs, sort_keys=True).encode()).hexdigest()
-        previous = (getattr(session, "flow_requests", None) or {}).get(flow)
-        if idempotency_key and previous and previous.get("key") == idempotency_key:
-            if previous["fingerprint"] != fingerprint:
-                raise SessionUpdateConflictError(session_id)
-            return previous["response"]
+        elif isinstance(session.tipsc, dict):
+            ready_for_dfv = bool(
+                session.tipsc.get(
+                    "ready_for_dfv",
+                    False,
+                )
+            )
 
-        waiting = SessionStatus(f"{flow}_waiting")
-        running = SessionStatus(f"{flow}_running")
-        if session.status in {waiting, running}:
-            return {"session_id": session_id, "flow": flow, "status": session.status.value,
-                    "correlation_id": session.correlation_id, "triggered_at": _now_iso()}
-        self._guard_transition(session, waiting)
-        if flow == "dfv":
-            tipsc = session.tipsc
-            ready = tipsc.get("ready_for_dfv", False) if isinstance(tipsc, dict) else getattr(tipsc, "ready_for_dfv", False)
-            if not ready:
-                raise DFVNotUnlockedError(session_id)
-        if flow == "discovery":
-            dfv = session.dfv.model_dump() if hasattr(session.dfv, "model_dump") else session.dfv or {}
-            output = dfv.get("output") or dfv
-            if (output.get("decision") or (output.get("final_decision") or {}).get("status")) != "GO":
-                raise InvalidStateTransitionError(session.status, waiting)
-        if flow == "pmf" and not session.discovery:
-            raise InvalidStateTransitionError(session.status, waiting)
+        else:
+            ready_for_dfv = bool(
+                getattr(
+                    session.tipsc,
+                    "ready_for_dfv",
+                    False,
+                )
+            )
+
+        if not ready_for_dfv:
+            raise DFVNotUnlockedError(session_id)
 
         correlation_id = _new_correlation_id()
-        response = {"session_id": session_id, "flow": flow, "status": waiting.value,
-                    "correlation_id": correlation_id, "triggered_at": _now_iso()}
-        common = dict(userSession_id=session_id, correlation_id=correlation_id, retry_count=0)
-        if flow == "dfv":
-            payload = DFVJobMessage(**common, idea_name=session.idea, payload=DFVJobPayload(**inputs))
-        elif flow == "discovery":
-            payload = DiscoveryJobMessage(**common, payload=DiscoveryJobPayload(**inputs))
-        else:
-            def dump(value):
-                return value.model_dump(mode="json") if hasattr(value, "model_dump") else value
-            founder = session.preeval_input or {}
-            payload = PMFJobMessage(**common, payload=PMFJobPayload(
-                idea_name=session.idea or "", problem_statement=session.problem_statement or "",
-                proposed_solution=session.idea or "", customer_segment=founder.get("customer_segment", ""),
-                tipsc_summary=dump(session.tipsc), dfv_summary=dump(session.dfv),
-                discovery_summary=dump(session.discovery),
-            ))
-        record = {"key": idempotency_key, "fingerprint": fingerprint, "response": response} if idempotency_key else None
-        won = await self._session_repo.atomic_start_flow(
-            session_id, flow, correlation_id, inputs, session.version, record,
+
+        # Atomic CAS: Transition status to DFV_WAITING and set correlation_id in a single Mongo write.
+        cas_won = await self._session_repo.atomic_start_dfv_flow(
+            session_id=session_id,
+            correlation_id=correlation_id,
+            dfv_inputs=dfv_inputs,
         )
-        if not won:
-            raise SessionUpdateConflictError(session_id)
-        try:
-            await self._publish_or_raise(
-                {"dfv": DFV_TOPIC, "discovery": DISCOVERY_TOPIC, "pmf": PMF_TOPIC}[flow],
-                payload.model_dump(), flow,
-            )
-        except KafkaUnavailableError:
-            await self._session_repo.update_flow_failure(
-                session_id, SessionStatus(f"{flow}_failed"),
-                {"flow": flow, "error_code": "KAFKA_UNAVAILABLE", "error_message": "Could not enqueue analysis. Please retry."},
-                expected_version=session.version + 1, expected_status=waiting, correlation_id=correlation_id,
-            )
-            raise
+
+        if not cas_won:
+            # CAS lost — session is already in DFV_WAITING or DFV_RUNNING! Return active state safely.
+            current = await self._load_session(session_id, student_id=student_id, workspace_id=workspace_id)
+            return {
+                "session_id": str(current.id),
+                "flow": "dfv",
+                "status": current.status.value,
+                "correlation_id": current.correlation_id or correlation_id,
+                "triggered_at": _now_iso(),
+            }
+
+        from models.schema import (
+            DFVJobMessage,
+            DFVJobPayload,
+        )
+
+        payload = DFVJobMessage(
+            userSession_id=str(session.id),
+            idea_name=session.idea,
+            correlation_id=correlation_id,
+            retry_count=0,
+            payload=DFVJobPayload(
+                desirability_context=dfv_inputs["desirability_context"],
+                feasibility_context=dfv_inputs["feasibility_context"],
+                viability_context=dfv_inputs["viability_context"],
+            ),
+        )
+
+        # Publish job to Kafka
+        await self._publish_or_raise(
+            DFV_TOPIC,
+            payload.model_dump(),
+            "dfv",
+        )
+
+        # Audit
         await self._audit.log_event(
-            session_id=session_id, event=f"{flow.upper()}_TRIGGERED",
-            actor=student_id or f"ws_{workspace_id}", actor_role="student" if student_id else "mentor_workspace",
-            metadata={"correlation_id": correlation_id},
+            session_id=session_id,
+            event="DFV_TRIGGERED",
+            actor=student_id or (f"ws_{workspace_id}" if workspace_id else "system"),
+            actor_role="student" if student_id else "mentor_workspace",
+            metadata={
+                "correlation_id": correlation_id,
+            },
         )
-        return response
+
+        return {
+            "session_id": str(session.id),
+            "flow": "dfv",
+            "status": SessionStatus.DFV_WAITING.value,
+            "correlation_id": correlation_id,
+            "triggered_at": _now_iso(),
+        }
+
+
+    # ──────────────────────────────────────────────────────────────────────
+    # DISCOVERY
+    # ──────────────────────────────────────────────────────────────────────
+
+
+    async def trigger_discovery(
+        self,
+        session_id: str,
+        student_id: Optional[str] = None,
+        discovery_inputs: dict = None,
+        workspace_id: Optional[str] = None,
+    ) -> dict:
+
+        discovery_inputs = discovery_inputs or {}
+        session = await self._load_session(
+            session_id,
+            student_id=student_id,
+            workspace_id=workspace_id,
+        )
+
+        correlation_id = _new_correlation_id()
+
+        # Atomic CAS: Transition status to DISCOVERY_WAITING and set correlation_id in a single Mongo write.
+        cas_won = await self._session_repo.atomic_start_discovery_flow(
+            session_id=session_id,
+            correlation_id=correlation_id,
+            discovery_inputs=discovery_inputs,
+        )
+
+        if not cas_won:
+            # CAS lost — session is already in DISCOVERY_WAITING or DISCOVERY_RUNNING! Return active state safely.
+            current = await self._load_session(session_id, student_id=student_id, workspace_id=workspace_id)
+            return {
+                "session_id": str(current.id),
+                "flow": "discovery",
+                "status": current.status.value,
+                "correlation_id": current.correlation_id or correlation_id,
+                "triggered_at": _now_iso(),
+            }
+
+        payload = DiscoveryJobMessage(
+            userSession_id=str(session.id),
+            correlation_id=correlation_id,
+            retry_count=0,
+            payload=DiscoveryJobPayload(**discovery_inputs),
+        )
+
+        await self._publish_or_raise(
+            DISCOVERY_TOPIC,
+            payload.model_dump(),
+            "discovery",
+        )
+
+        await self._audit.log_event(
+            session_id=session_id,
+            event="DISCOVERY_TRIGGERED",
+            actor=student_id or (f"ws_{workspace_id}" if workspace_id else "system"),
+            actor_role="student" if student_id else "mentor_workspace",
+            metadata={
+                "correlation_id": correlation_id,
+            },
+        )
+
+        return {
+            "session_id": str(session.id),
+            "flow": "discovery",
+            "status": SessionStatus.DISCOVERY_WAITING.value,
+            "correlation_id": correlation_id,
+            "triggered_at": _now_iso(),
+        }
+
+
+    # ──────────────────────────────────────────────────────────────────────
+    # PMF
+    # ──────────────────────────────────────────────────────────────────────
+
+
+    async def trigger_pmf(
+        self,
+        session_id: str,
+        student_id: Optional[str] = None,
+        workspace_id: Optional[str] = None,
+    ) -> dict:
+
+        session = await self._load_session(
+            session_id,
+            student_id=student_id,
+            workspace_id=workspace_id,
+        )
+
+        correlation_id = _new_correlation_id()
+
+        cas_won = await self._session_repo.atomic_start_pmf_flow(
+            session_id=session_id,
+            correlation_id=correlation_id,
+        )
+
+        if not cas_won:
+            current = await self._load_session(session_id, student_id=student_id, workspace_id=workspace_id)
+            return {
+                "session_id": str(current.id),
+                "flow": "pmf",
+                "status": current.status.value,
+                "correlation_id": current.correlation_id or correlation_id,
+                "triggered_at": _now_iso(),
+            }
+
+        payload = PMFJobMessage(
+            userSession_id=str(session.id),
+            correlation_id=correlation_id,
+            retry_count=0,
+            payload=PMFJobPayload(
+                idea_name=session.idea or "",
+                problem_statement=session.problem_statement or "",
+                proposed_solution=session.idea or "",
+                customer_segment=session.customer_segment or "",
+            ),
+        )
+
+        await self._publish_or_raise(
+            PMF_TOPIC,
+            payload.model_dump(),
+            "pmf",
+        )
+
+        await self._audit.log_event(
+            session_id=session_id,
+            event="PMF_TRIGGERED",
+            actor=student_id or (f"ws_{workspace_id}" if workspace_id else "system"),
+            actor_role="student" if student_id else "mentor_workspace",
+            metadata={
+                "correlation_id": correlation_id,
+            },
+        )
+
+        return {
+            "session_id": str(session.id),
+            "flow": "pmf",
+            "status": SessionStatus.PMF_WAITING.value,
+            "correlation_id": correlation_id,
+            "triggered_at": _now_iso(),
+        }

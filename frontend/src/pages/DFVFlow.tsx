@@ -6,13 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { TrafficDot } from "@/components/shared/StatusBadge";
 import { DFV_CONTEXT_MIN } from "@/constants";
-import { getSession, triggerDfv } from "@/services/authSessions";
+import { triggerDfv } from "@/services/authSessions";
 import { useAuth } from "@/context/AuthContext";
 import type { DFVResult } from "@/data/mockData";
 import { toast } from "sonner";
 
 export function DFVFlow() {
-  const { session, sessionId, serverStatus, results, formData, setFormData, setSessionFromServer, sessionDoc, addEvent } = useAuth();
+  const { session, sessionId, serverStatus, results, formData, setFormData, unlockNext, addEvent } = useAuth();
   
   const [phase, setPhase] = useState<"form" | "processing" | "results">(
     (serverStatus === "dfv_running" || serverStatus === "dfv_waiting") ? "processing" : results.dfv ? "results" : "form"
@@ -21,7 +21,7 @@ export function DFVFlow() {
   const result = results.dfv;
   const [inputs, setInputs] = useState({ desirability_context: "", feasibility_context: "", viability_context: "" });
   
-
+  if (session.dfv === "locked") return <Navigate to="/workspace" replace />;
 
   const decision = result?.decision ?? (result as any)?.final_decision?.status ?? "NO-GO";
   const execSummary = result?.executiveSummary ?? (result as any)?.final_decision?.justification ?? "";
@@ -32,18 +32,18 @@ export function DFVFlow() {
       if (serverStatus === "dfv_completed" && results.dfv) {
         setPhase("results");
         addEvent("DFV Analysis Completed");
-
+        unlockNext("dfv");
       } else if (serverStatus === "dfv_failed") {
         setPhase("form");
         toast.error("DFV Analysis failed. Please try again.");
       }
     }
-  }, [phase, serverStatus, results.dfv, addEvent]);
+  }, [phase, serverStatus, results.dfv, addEvent, unlockNext]);
 
   const [submitting, setSubmitting] = useState(false);
 
   async function run() {
-    if (submitting || !sessionId) return;
+    if (submitting) return;
     const payload = {
       desirability_context: inputs.desirability_context.trim(),
       feasibility_context: inputs.feasibility_context.trim(),
@@ -63,8 +63,7 @@ export function DFVFlow() {
     setPhase("processing");
     addEvent("DFV Triggered");
     try {
-      await triggerDfv(sessionId, payload);
-      setSessionFromServer(await getSession(sessionId));
+      if (sessionId) await triggerDfv(sessionId, payload);
     } catch {
       toast.error("Failed to start DFV analysis. Check backend connection.");
       setPhase("form");
@@ -72,16 +71,6 @@ export function DFVFlow() {
       setSubmitting(false);
     }
   }
-
-  useEffect(() => {
-    if (sessionDoc?.dfv_inputs) setInputs(sessionDoc.dfv_inputs);
-  }, [sessionId, sessionDoc?.dfv_inputs]);
-  useEffect(() => {
-    if (serverStatus === "dfv_waiting" || serverStatus === "dfv_running") setPhase("processing");
-    else if (results.dfv) setPhase("results");
-    else setPhase("form");
-  }, [serverStatus, results.dfv]);
-  if (session.dfv === "locked") return <Navigate to="/workspace" replace />;
 
   const sections = [
     ["desirability_context", Heart, "text-accent", "Who wants this, and why now?"],
@@ -108,7 +97,6 @@ export function DFVFlow() {
                 <span className="mt-1 block text-sm text-muted-foreground">{prompt}</span>
                 <Textarea
                   className="mt-2"
-                  maxLength={3000}
                   value={inputs[key]}
                   onChange={(e) => setInputs({ ...inputs, [key]: e.target.value })}
                 />

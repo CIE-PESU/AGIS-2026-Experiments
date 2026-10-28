@@ -5,7 +5,7 @@ Shapes match api-spec.md Section 4 exactly.
 
 from typing import Optional
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field
 from models.schema import DiscoveryJobPayload
 # The Discovery API accepts exactly the same payload that is
 # published to Kafka. Keeping a single canonical schema prevents
@@ -14,7 +14,6 @@ DiscoveryTriggerRequest = DiscoveryJobPayload
 
 
 class DFVTriggerRequest(BaseModel):
-    model_config = ConfigDict(str_strip_whitespace=True)
     desirability_context: str = Field(..., min_length=100, max_length=3000)
     feasibility_context: str = Field(..., min_length=100, max_length=3000)
     viability_context: str = Field(..., min_length=100, max_length=3000)
@@ -28,7 +27,6 @@ class FlowTriggerResponse(BaseModel):
     triggered_at: str
 
 class FollowupAnswerRequest(BaseModel):
-    model_config = ConfigDict(str_strip_whitespace=True)
     answer: str = Field(..., min_length=1, max_length=5000)
 
 

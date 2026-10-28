@@ -35,7 +35,7 @@ from engine.state_machine import (
     PipelineState,
 )
 from tipsc_utils.followup_context import FollowUpContext
-from tipsc_models import PreEvalOutput
+from models import PreEvalOutput
 
 
 logger = logging.getLogger(__name__)
@@ -120,7 +120,7 @@ class AsyncPipelineExecutor:
                 {
                     "status": (
                         PipelineState
-                        .PRE_EVAL
+                        .TIPSC_RUNNING
                         .value
                     ),
                     "error": None,
@@ -433,7 +433,6 @@ class AsyncPipelineExecutor:
         self,
         session_id: str,
         answer: str,
-        claimed: bool = False,
     ):
         """
         Resume a parked TIPSC session.
@@ -446,7 +445,6 @@ class AsyncPipelineExecutor:
             await self._resume_internal(
                 session_id=session_id,
                 answer=answer,
-                claimed=claimed,
             )
 
         except Exception as exc:
@@ -472,11 +470,12 @@ class AsyncPipelineExecutor:
         self,
         session_id: str,
         answer: str,
-        claimed: bool = False,
     ):
         """
         Persist founder answer and re-evaluate TIPSC.
         """
+
+        from tipsc_utils.followup_context import FollowUpContext
 
         # ──────────────────────────────────────────────────────────────────
         # LOAD SESSION
@@ -496,7 +495,9 @@ class AsyncPipelineExecutor:
 
         if (
             current_status
-            != (PipelineState.TIPSC_REEVALUATION.value if claimed else PipelineState.WAITING_FOR_FOUNDER.value)
+            != PipelineState
+            .WAITING_FOR_FOUNDER
+            .value
         ):
 
             raise ValueError(
@@ -730,6 +731,8 @@ class AsyncPipelineExecutor:
         """
         Generate exactly one founder follow-up question.
         """
+
+        from tipsc_utils.followup_context import FollowUpContext
 
         if turn > MAX_FOLLOWUP_TURNS:
 

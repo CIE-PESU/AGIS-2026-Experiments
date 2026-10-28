@@ -133,13 +133,8 @@ def _load_module(
         sys.path.insert(0, module_directory)
         path_added = True
 
-    # Dataclasses look up the defining module when resolving annotations.
-    sys.modules[module_name] = module
     try:
         spec.loader.exec_module(module)
-    except BaseException:
-        sys.modules.pop(module_name, None)
-        raise
     finally:
         if path_added:
             sys.path.remove(module_directory)
@@ -228,8 +223,6 @@ def _load_pmf_agent():
         raise
 
 
-run_dfv_analysis = _load_dfv_agent()
-run_discovery_analysis = _load_discovery_agent()
 run_pmf_analysis = _load_pmf_agent()
 
 _clear_conflicting_modules()

@@ -2,7 +2,7 @@ import os,re
 import json
 from crewai import Agent, Crew, LLM, Process, Task
 from crewai_tools import TavilySearchTool
-from tipsc_models import PreEvalOutput, TIPSCOutput, FollowUpOutput, EthicsOutput, ValidationOutput, RegulatoryOutput
+from models import PreEvalOutput, TIPSCOutput, FollowUpOutput, EthicsOutput, ValidationOutput, RegulatoryOutput
 
 
 

@@ -11,7 +11,7 @@ export const PES_LOGO_WHITE =
 export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ??
   (typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1"
-    ? `http://${window.location.hostname}:8004/api/v1`
+    ? `http://${window.location.hostname}:8000/api/v1`
     : "/api/v1");
 
 /** Session polling interval per docs/backend-arch.md §2.3 */

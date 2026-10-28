@@ -242,12 +242,8 @@ llm = LLM(
     base_url=os.environ["LM_STUDIO_URL"],
     api_key=os.environ["OPENAI_API_KEY"],
     temperature=0.1,
-    timeout=float(os.getenv("CREWAI_TIMEOUT_SECONDS", "600")),
-    extra_body=(
-        {"chat_template_kwargs": {"enable_thinking": False}}
-        if os.getenv("OPENAI_MODEL_NAME", "").endswith("nemotron-3.5-lightning-30b-a3b")
-        else {}
-    ),
+    timeout=108000,
+    thinking={"type": "disabled"},
 )
 
 # Discover and activate local business framework guidelines from markdown packages
@@ -438,6 +434,7 @@ def create_dfv_crew():
     )
     print(llm.model)
     print(llm.base_url)
+    print(llm.api_key)
     return Crew(
         agents=[desirability_agent, feasibility_agent, viability_agent, dfv_risk_decision_agent],
         tasks=[desirability_task, feasibility_task, viability_task, dfv_decision_task],

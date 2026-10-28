@@ -34,12 +34,8 @@ reasoning_llm = LLM(
     api_key=OPENAI_API_KEY,
     temperature=0.2,
     max_tokens=23000,
-    timeout=float(os.getenv("CREWAI_TIMEOUT_SECONDS", "600")),
-    extra_body=(
-        {"chat_template_kwargs": {"enable_thinking": False}}
-        if os.getenv("OPENAI_MODEL_NAME", "").endswith("nemotron-3.5-lightning-30b-a3b")
-        else {}
-    ),
+    timeout=1800,
+    thinking={"type": "disabled"},
 )
 
 # Discover all skills in a directory

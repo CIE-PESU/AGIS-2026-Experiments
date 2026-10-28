@@ -15,8 +15,7 @@ const names: Record<string, string> = {
   "/workspace": "Workspace",
   "/workspace/tipsc": "TIPSC Evaluation",
   "/workspace/dfv": "DFV Analysis",
-  "/workspace/discovery": "Customer Discovery",
-  "/workspace/pmf": "Product-Market Fit"
+  "/workspace/discovery": "Customer Discovery"
 };
 console.count("WorkspaceLayout mounted");
 export function WorkspaceLayout() {

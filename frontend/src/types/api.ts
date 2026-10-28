@@ -294,11 +294,6 @@ export interface PMFResult {
 
 export type SessionDocument = {
 session_id: string;
-version?: number;
-correlation_id?: string | null;
-dfv_inputs?: { desirability_context: string; feasibility_context: string; viability_context: string } | null;
-discovery_inputs?: Record<string, unknown> | null;
-failure_metadata?: { error_message: string; error_code: string } | null;
 team_id?: string | null;
 student_id?: string | null;
 workspace_id?: string | null;
