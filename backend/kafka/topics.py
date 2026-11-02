@@ -19,9 +19,13 @@ class KafkaTopic:
     # Consumed by the DFV worker.
     USER_SESSION_DFV = "userSession.dfv"
 
-    # Published by the backend when DFV completes.
+    # Published by the backend when Discovery completes.
     # Consumed by the Discovery worker.
     USER_SESSION_DISCOVERY = "userSession.discovery"
+
+    # Published by the backend for PMF analysis.
+    # Consumed by the PMF worker.
+    USER_SESSION_PMF = "userSession.pmf"
 
     # Published by the backend for async user notifications.
     USER_SESSION_NOTIFICATIONS = "userSession.notifications"
@@ -31,4 +35,5 @@ class KafkaTopic:
     # Dead-letter queues
     USER_SESSION_DFV_DLQ = "userSession.dfv.dlq"
     USER_SESSION_DISCOVERY_DLQ = "userSession.discovery.dlq"
+    USER_SESSION_PMF_DLQ = "userSession.pmf.dlq"
     USER_SESSION_TIPSC_DLQ = "userSession.tipsc.dlq"

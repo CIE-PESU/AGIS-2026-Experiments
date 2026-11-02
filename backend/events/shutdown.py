@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 
 
 async def on_shutdown() -> None:
+    from services.session_task_registry import stop_session_tasks
+    await stop_session_tasks()
     """
     FastAPI lifespan shutdown handler.
 
@@ -36,7 +38,7 @@ async def on_shutdown() -> None:
         from kafka.producer import kafka_producer
 
         await kafka_producer.stop()
-        logger.info("[shutdown] Kafka Producer closed ✓")
+        logger.info("[shutdown] Kafka Producer closed [OK]")
     except Exception as exc:
         logger.error("[shutdown] Kafka Producer close error: %s", exc)
 
@@ -45,7 +47,7 @@ async def on_shutdown() -> None:
         from services.timeout_supervisor import timeout_supervisor
 
         await timeout_supervisor.stop()
-        logger.info("[shutdown] Timeout supervisor stopped ✓")
+        logger.info("[shutdown] Timeout supervisor stopped [OK]")
     except Exception as exc:
         logger.error("[shutdown] Timeout supervisor stop error: %s", exc)
 
@@ -53,7 +55,7 @@ async def on_shutdown() -> None:
         from database.mongodb import disconnect_db
 
         await disconnect_db()
-        logger.info("[shutdown] MongoDB closed ✓")
+        logger.info("[shutdown] MongoDB closed [OK]")
     except Exception as exc:
         logger.error("[shutdown] MongoDB close error: %s", exc)
 

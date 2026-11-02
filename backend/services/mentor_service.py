@@ -31,6 +31,9 @@ from schemas.mentor import MentorSessionListItem, MentorTeamResponse, TeamMember
 logger = logging.getLogger(__name__)
 
 
+logger = logging.getLogger(__name__)
+
+
 async def sync_mentor_teams(mentor_id: str) -> list[str]:
     """
     Ensure User.mentor_team_ids matches all Team documents where mentor_id is assigned.

@@ -75,6 +75,7 @@ async function performRefresh(): Promise<boolean> {
   });
 
   if (!response.ok) {
+    if (response.status !== 401 && response.status !== 403) throw await parseError(response);
     clearTokens();
     return false;
   }

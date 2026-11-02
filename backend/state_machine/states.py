@@ -15,6 +15,7 @@ class SessionStatus(str, Enum):
     # TIPSC pipeline
     PRE_EVAL = "pre_eval"
     VALIDATION_RUNNING = "validation_running"
+    REGULATORY_RUNNING = "regulatory_running"
     ETHICS_RUNNING = "ethics_running"
     TIPSC_RUNNING = "tipsc_running"
 
@@ -37,6 +38,12 @@ class SessionStatus(str, Enum):
     DISCOVERY_RUNNING = "discovery_running"
     DISCOVERY_FAILED = "discovery_failed"
 
+    # PMF
+    PMF_WAITING = "pmf_waiting"
+    PMF_RUNNING = "pmf_running"
+    PMF_COMPLETED = "pmf_completed"
+    PMF_FAILED = "pmf_failed"
+
     # Global terminal states
     COMPLETED = "completed"
     FAILED = "failed"
@@ -48,11 +55,16 @@ RUNNING_STATES = frozenset(
         SessionStatus.QUEUED,
         SessionStatus.PRE_EVAL,
         SessionStatus.VALIDATION_RUNNING,
+        SessionStatus.REGULATORY_RUNNING,
         SessionStatus.ETHICS_RUNNING,
         SessionStatus.TIPSC_RUNNING,
         SessionStatus.TIPSC_REEVALUATION,
+        SessionStatus.DFV_WAITING,
         SessionStatus.DFV_RUNNING,
+        SessionStatus.DISCOVERY_WAITING,
         SessionStatus.DISCOVERY_RUNNING,
+        SessionStatus.PMF_WAITING,
+        SessionStatus.PMF_RUNNING,
     }
 )
 

@@ -85,21 +85,6 @@ class PipelineStages:
             followup_context,
         )
     
-    def execute_followup(
-        self,
-        tipsc_output,
-        followup_context,
-        compliance_context,
-    ):
-        return run_followup(
-            self.llm,
-            tipsc_output,
-            self.agents_cfg,
-            self.task_cfg,
-            followup_context,
-            compliance_context,
-        )
-    
     def execute_compliance_context(
         self,
         ethics,
