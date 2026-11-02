@@ -8,6 +8,7 @@ import subprocess
 import sys
 from contextlib import contextmanager
 from pathlib import Path
+from uuid import uuid4
 
 from filelock import FileLock, Timeout
 
@@ -31,8 +32,10 @@ class ProcessTree:
             import win32con
             import win32job
 
-            job = win32job.CreateJobObject(None, None)
+            job = None
             try:
+                # pywin32 requires a string name. Keep each ownership scope private.
+                job = win32job.CreateJobObject(None, f"agis-child-{pid}-{uuid4().hex}")
                 limits = win32job.QueryInformationJobObject(
                     job, win32job.JobObjectExtendedLimitInformation
                 )
@@ -51,7 +54,8 @@ class ProcessTree:
                     process.Close()
                 self.job = job
             except BaseException:
-                job.Close()
+                if job is not None:
+                    job.Close()
                 # This PID was just started by our caller. Fail closed if ownership cannot be established.
                 subprocess.run(
                     ["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True, check=False

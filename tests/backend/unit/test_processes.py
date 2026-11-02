@@ -9,6 +9,40 @@ import pytest
 from core.processes import ProcessTree, child_options, instance_lock
 
 
+@pytest.mark.parametrize("fail_at", ["create", "configure"])
+def test_windows_ownership_failure_cleans_up_new_child(monkeypatch, fail_at):
+    from types import SimpleNamespace
+    import core.processes as processes
+
+    closed = []
+    killed = []
+    job = SimpleNamespace(Close=lambda: closed.append(True))
+
+    def create(attributes, name):
+        assert isinstance(name, str) and name
+        if fail_at == "create":
+            raise RuntimeError("job creation failed")
+        return job
+
+    def configure(*args):
+        raise RuntimeError("job configuration failed")
+
+    monkeypatch.setattr(processes, "sys", SimpleNamespace(platform="win32"))
+    monkeypatch.setitem(sys.modules, "win32api", SimpleNamespace())
+    monkeypatch.setitem(sys.modules, "win32con", SimpleNamespace())
+    monkeypatch.setitem(sys.modules, "win32job", SimpleNamespace(
+        CreateJobObject=create, QueryInformationJobObject=configure,
+        JobObjectExtendedLimitInformation=9,
+    ))
+    monkeypatch.setattr(processes, "subprocess", SimpleNamespace(
+        run=lambda command, **kwargs: killed.append(command),
+    ))
+    with pytest.raises(RuntimeError, match="job .* failed"):
+        ProcessTree(12345)
+    assert killed == [["taskkill", "/PID", "12345", "/T", "/F"]]
+    assert closed == ([] if fail_at == "create" else [True])
+
+
 def is_running(pid):
     if os.name == "nt":
         import win32api
