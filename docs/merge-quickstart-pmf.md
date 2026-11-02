@@ -29,8 +29,25 @@ Added PMF route/adaptor mapping, job and result schemas, persistence, transition
 
 Automated model outputs are deterministic substitutes; these checks do not validate live LLM/search/PES-provider availability or establish that every possible runtime bug is absent.
 
-## Remaining dependency limitation
+## Initial dependency limitation (superseded by CI correction)
 
-The Python dependency audit remains failing: 17 upstream advisories across ChromaDB and Filelock, including ten additional Filelock findings without reviewed exceptions. A compatible resolver dry run cannot select the required Filelock major-version fix, and the audit lists no ChromaDB fix. No findings were suppressed or newly allowlisted. See [dependency security](dependency-security.md).
+At the initial merge verification, the Python dependency audit was failing: 17 upstream advisories across ChromaDB and Filelock, including ten additional Filelock findings without reviewed exceptions. A compatible resolver dry run cannot select the required Filelock major-version fix, and the audit lists no ChromaDB fix. No findings were suppressed or newly allowlisted. See [dependency security](dependency-security.md).
 
 Test containers use project `agis-merge-tests`, MongoDB port 27018, Kafka port 19092, and temporary databases. They do not modify the development database. The test stack is stopped after verification. No remote push is performed.
+
+## CI failure investigation
+
+[GitHub Actions run 41471635896](https://github.com/CIE-PESU/AGIS-2026-Experiments/actions/runs/41471635896) at commit `47c3e81` exposed six integration/browser failures. The failing API logins returned HTTP 429, and the three browser login tests consequently stayed on the login page. Module-level rate-limit windows leaked login history across independently created app instances; faster Linux runs accumulated requests before the window expired. Rate-limit windows now belong to each middleware instance. Regression tests verify that throttling still rejects excess requests and that a fresh app has independent history.
+
+The Python 3.13 job failed only at dependency auditing; Python 3.12 was canceled by the matrix fail-fast policy. Filelock 4.2.6 now resolves its thirteen advisories through an explicit, tested uv override of LiteLLM's `<4` metadata bound. The old Filelock exceptions were removed. The audit passes with the four existing reviewed ChromaDB exceptions; no new exception was introduced.
+
+The workflow now uses Node 24-based v7 setup/checkout actions, pins Ubuntu 24.04, and lets both Python matrix jobs finish independently. Isolated test MongoDB hostnames can be supplied through `AGIS_TEST_MONGODB_URI` for container verification.
+
+### Follow-up verification
+
+- Python 3.12 and 3.13: 748 unit tests passed; mypy and generated contracts passed.
+- Fresh Linux container with Python 3.13, Node 24, uv 0.13.6, and locked dependencies: all workflow commands passed. This includes lint/format/types, 748 unit tests, contracts, exact requirements export, Python audit, 10 frontend tests, frontend build/audit, and all 15 real MongoDB/Kafka/browser integration tests. The runner exited with code 0. Integration tests took 74 seconds, so the complete suite also exercises the login sequence that failed in CI.
+- The Python audit now succeeds while printing the four existing ChromaDB exceptions. npm audit reports zero vulnerabilities.
+- The actual GitHub Actions rerun is pending publication of this follow-up commit; the original run remains a record of the old code.
+
+The Linux verification used temporary project `agis-ci-linux` and an isolated MongoDB container, not the development database. Test containers were removed after verification. No remote push was performed.

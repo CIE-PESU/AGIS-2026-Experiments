@@ -73,7 +73,7 @@ AGIS_INTEGRATION=1 uv run pytest -m integration
 docker compose -p agis-tests -f backend/docker-compose.test.yml down -v
 ```
 
-Tests use MongoDB port 27018, Kafka port 19092, unique temporary database names, fake agent outputs, and test-only credentials. Browser tests also use ports 18008 and 15167. Tests never use the development database or make paid LLM calls. Install browser OS libraries with `playwright install --with-deps chromium` on Linux. Without `AGIS_INTEGRATION=1`, integration tests are explicitly skipped.
+Tests use MongoDB port 27018 by default (`AGIS_TEST_MONGODB_URI` can select an isolated container hostname), Kafka port 19092, unique temporary database names, fake agent outputs, and test-only credentials. Browser tests also use ports 18008 and 15167. Tests never use the development database or make paid LLM calls. Install browser OS libraries with `playwright install --with-deps chromium` on Linux. Without `AGIS_INTEGRATION=1`, integration tests are explicitly skipped.
 
 ## Dependencies and API contracts
 

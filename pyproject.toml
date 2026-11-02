@@ -23,7 +23,8 @@ dependencies = [
   "tavily-python>=0.8.5",
   "python-multipart>=0.0.32,<1",
   "ulid-py==1.1.0",
-  "pyyaml>=6.0,<7"
+  "pyyaml>=6.0,<7",
+  "filelock>=4.2.6,<5"
 ]
 
 [dependency-groups]
@@ -41,6 +42,9 @@ dev = [
 
 [tool.uv]
 package = false
+# LiteLLM's <4 metadata excludes security fixes. Consumers use FileLock's retained API;
+# tests/backend/unit/test_filelock_compatibility.py verifies those call patterns.
+override-dependencies = ["filelock>=4.2.6,<5"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -17,7 +17,7 @@ if BACKEND_ROOT not in sys.path:
 for key, value in {
     "JWT_SECRET": "test-only-signing-secret-at-least-32-characters",
     "WORKER_INTERNAL_SECRET": "test-only-worker-secret-32-characters",
-    "MONGODB_URI": "mongodb://127.0.0.1:27018",
+    "MONGODB_URI": os.environ.get("AGIS_TEST_MONGODB_URI", "mongodb://127.0.0.1:27018"),
     "MONGODB_DB_NAME": "agis_tests",
     "KAFKA_BOOTSTRAP_SERVERS": "127.0.0.1:19092",
     "PES_AUTH_URL": "http://invalid.test/auth",

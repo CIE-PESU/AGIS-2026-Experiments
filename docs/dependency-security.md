@@ -2,12 +2,11 @@
 
 The lockfile is authoritative. Run `uv run python scripts/audit_dependencies.py` and `npm audit --prefix frontend` after dependency changes. The Python checker prints known upstream risks and rejects new, changed-version, or expired exceptions. It does not claim that the environment is free of advisories. Run `uv run pip-audit` for the unfiltered findings.
 
-As of 28 October 2026, seven Python advisories remain in two transitive dependencies:
+As of 2 November 2026, four reviewed Python advisories remain in ChromaDB 1.5.9. CrewAI requires this package; the audit lists no patched release. AGIS does not start a Chroma HTTP server or expose Chroma collection configuration. [CrewAI upstream issue](https://github.com/crewAIInc/crewAI/issues/8313), [published ChromaDB release](https://pypi.org/project/chromadb/).
 
-- **ChromaDB 1.5.9:** CrewAI requires it; the latest published ChromaDB release has four server-side advisories and no patched release. AGIS does not start a Chroma HTTP server or expose Chroma collection configuration. Do not deploy a Chroma server alongside this application. [CrewAI upstream issue](https://github.com/crewAIInc/crewAI/issues/8313), [published ChromaDB release](https://pypi.org/project/chromadb/).
-- **Filelock 3.32.7:** LiteLLM declares `filelock<4`, which prevents selecting the patched 4.2.1 release without violating the supported dependency contract. The affected features involve SQLite reader/writer locks or Windows soft locks in directories writable by other local accounts. Run AGIS as a dedicated user with private cache/lock directories; do not use shared writable temporary directories for locks. [POSIX/SQLite advisory](https://github.com/advisories/GHSA-v4x8-3wr5-3wq8), [Windows SQLite advisory](https://github.com/advisories/GHSA-9vhv-jxww-xfm5), [Windows soft-lock advisory](https://github.com/advisories/GHSA-567q-5qvw-pf92).
+Filelock is upgraded to 4.2.6, removing the thirteen findings from 3.32.7. LiteLLM still declares `filelock<4`, so root `pyproject.toml` uses an explicit uv override. This is a deliberate compatibility override: the installed consumers use the retained `FileLock`, `SoftFileLock`, and `Timeout` APIs. `tests/backend/unit/test_filelock_compatibility.py` exercises LiteLLM's profile-lock pattern, Hugging Face's `WeakFileLock`, and CacheControl's file cache. Full application and browser integration tests also run with the upgraded package. See the [upstream changelog](https://py-filelock.readthedocs.io/en/latest/changelog.html).
 
-Exact versions, IDs, reasons, and the next review deadline are recorded in `dependency-advisories.json`. Exceptions expire on 1 January 2027. Replace affected dependencies or remove exceptions when upstream compatibility permits a patch. A future upgrade must be tested; do not force an incompatible version simply to silence an audit.
+Only the four ChromaDB exceptions remain in `dependency-advisories.json`, expiring on 1 January 2027. No new advisory is suppressed. New or changed findings continue to fail the audit. Use the root uv environment; a standalone pip resolver will still see LiteLLM's old metadata upper bound. Review and remove the override when LiteLLM's dependency metadata permits the patched version directly.
 
 The frontend lock currently has no npm audit findings. JWT handling uses PyJWT with explicit algorithm and required claims. Local passwords use salted scrypt. Refresh tokens use indexed SHA-256 digests of high-entropy random tokens and atomic one-time rotation.
 
@@ -21,6 +20,6 @@ New unique indexes enforce one active student workspace and one active session p
 
 The latest compatible Beanie/lazy-model and CrewAI-tools releases also emit upstream deprecation warnings. Tests do not suppress them; moving to Beanie 2 requires a separate Motor/PyMongo migration and compatibility validation. They are warnings rather than failing application checks.
 
-## 2 November 2026 merge verification
+## CI correction after merge verification
 
-A clean `uv sync --locked` environment reports 17 advisories: four for ChromaDB 1.5.9 and thirteen for Filelock 3.32.7. Ten Filelock findings are additional to the existing reviewed exceptions, so `scripts/audit_dependencies.py` currently fails as designed. No new exceptions were added. The audit lists no fixed ChromaDB version; the Filelock fixes require 4.0.9 or 4.2.1. A resolver dry run upgrading LiteLLM and Filelock still retains Filelock 3.32.7 under the compatible dependency constraints. Resolving this requires an upstream compatibility change or a separately validated dependency migration. The frontend audit reports zero vulnerabilities.
+The first merge verification identified 17 advisories but left the audit failing. The follow-up upgrade to Filelock 4.2.6 resolves all thirteen Filelock findings and removes their old exceptions. The audit now succeeds while visibly reporting the four existing reviewed ChromaDB findings.

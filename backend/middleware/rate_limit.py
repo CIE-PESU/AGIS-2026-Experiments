@@ -23,14 +23,11 @@ from datetime import UTC, datetime
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
+from starlette.types import ASGIApp
 
 from core.config import settings
 
 logger = logging.getLogger(__name__)
-
-# Stores: key → deque of request timestamps (float, epoch seconds)
-_login_windows: dict[str, deque] = defaultdict(deque)
-_api_windows: dict[str, deque] = defaultdict(deque)
 
 _WINDOW_SECONDS = 60  # 1-minute sliding window
 
@@ -85,6 +82,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     Applies sliding window rate limiting to login and API endpoints.
     """
 
+    def __init__(self, app: ASGIApp) -> None:
+        super().__init__(app)
+        # Each application owns its windows; app factories must not share login history.
+        self._login_windows: dict[str, deque] = defaultdict(deque)
+        self._api_windows: dict[str, deque] = defaultdict(deque)
+
     async def dispatch(self, request: Request, call_next) -> Response:
         path = request.url.path
 
@@ -94,7 +97,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # ── Login rate limit (per IP) ──────────────────────────────────────────
         if path.endswith("/auth/login"):
             client_ip = request.client.host if request.client else "unknown"
-            if _is_rate_limited(_login_windows, client_ip, settings.RATE_LIMIT_LOGIN_PER_MINUTE):
+            if _is_rate_limited(
+                self._login_windows, client_ip, settings.RATE_LIMIT_LOGIN_PER_MINUTE
+            ):
                 logger.warning("Login rate limit exceeded for IP=%s", client_ip)
                 return _rate_limit_error()
 
@@ -112,7 +117,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 pass  # Unauthenticated requests: rate limit by IP instead
 
             limit_key = user_id or (request.client.host if request.client else "unknown")
-            if _is_rate_limited(_api_windows, limit_key, settings.RATE_LIMIT_API_PER_MINUTE):
+            if _is_rate_limited(self._api_windows, limit_key, settings.RATE_LIMIT_API_PER_MINUTE):
                 logger.warning("API rate limit exceeded for key=%s", limit_key)
                 return _rate_limit_error()
 
