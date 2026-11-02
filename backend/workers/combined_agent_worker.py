@@ -1,19 +1,19 @@
 """
-Combined DFV + Customer Discovery agent worker.
+Combined DFV, Customer Discovery, and PMF agent worker.
 
 Responsibilities:
 - Consume userSession.dfv
-- Consume userSession.discovery
+- Consume userSession.discovery and userSession.pmf
 - Execute the corresponding agent
 - Report output (success or failure) to the backend internal API
-- Commit Kafka offset (single-shot execution)
+- Persist callbacks and commit Kafka offsets after backend acceptance
 
 Architecture:
     Kafka -> Worker -> Agent -> Internal Backend API -> MongoDB
 
 The worker NEVER writes directly to MongoDB.
 The backend remains the single source of truth for state transitions and persistence.
-The worker executes each message single-shot without local retries or DLQ requeueing.
+Callback delivery retries reuse the persisted result. Malformed jobs go to a DLQ.
 """
 
 from __future__ import annotations
@@ -298,8 +298,6 @@ class CombinedAgentWorker:
     # =========================================================================
 
     async def start(self) -> None:
-        print("START() ENTERED")
-
         logger.info("Starting Combined Agent Worker")
 
         consumer_options = {
@@ -327,7 +325,7 @@ class CombinedAgentWorker:
                     **consumer_options,
                 )
                 await self.consumer_dfv.start()
-                print("DFV consumer started")
+                logger.info("DFV consumer started")
                 break
             except Exception as e:
                 if self.consumer_dfv is not None:
@@ -353,7 +351,7 @@ class CombinedAgentWorker:
                     **consumer_options,
                 )
                 await self.consumer_discovery.start()
-                print("Discovery consumer started")
+                logger.info("Discovery consumer started")
                 break
             except Exception as e:
                 if self.consumer_discovery is not None:
@@ -379,7 +377,7 @@ class CombinedAgentWorker:
                     **consumer_options,
                 )
                 await self.consumer_pmf.start()
-                print("PMF consumer started")
+                logger.info("PMF consumer started")
                 break
             except Exception as e:
                 if self.consumer_pmf is not None:
@@ -417,7 +415,7 @@ class CombinedAgentWorker:
         )
 
         await self.producer.start()
-        print("Producer started")
+        logger.info("Producer started")
 
         port = int(os.getenv("WORKER_HEALTH_PORT", "0"))
         if port:
@@ -540,11 +538,11 @@ class CombinedAgentWorker:
         )
         path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         connection = sqlite3.connect(path)
-        path.chmod(0o600)
-        connection.execute(
-            "CREATE TABLE IF NOT EXISTS deliveries (job TEXT PRIMARY KEY, session TEXT, kind TEXT, body TEXT)"
-        )
         try:
+            path.chmod(0o600)
+            connection.execute(
+                "CREATE TABLE IF NOT EXISTS deliveries (job TEXT PRIMARY KEY, session TEXT, kind TEXT, body TEXT)"
+            )
             yield connection
             connection.commit()
         finally:
@@ -566,7 +564,13 @@ class CombinedAgentWorker:
                 f"/internal/sessions/{row[0]}/{row[1]}", json=json.loads(row[2])
             )
             # Missing/superseded runs are terminal: retrying can never apply this result.
-            code = response.json().get("error", {}).get("code") if response.is_error else None
+            code = None
+            if response.is_error and response.status_code != 404:
+                try:
+                    error = response.json().get("error", {})
+                    code = error.get("code") if isinstance(error, dict) else None
+                except (ValueError, AttributeError):
+                    pass
             terminal = response.status_code == 404 or (
                 response.status_code == 409
                 and code in {"CORRELATION_ID_MISMATCH", "INVALID_STATE_TRANSITION"}

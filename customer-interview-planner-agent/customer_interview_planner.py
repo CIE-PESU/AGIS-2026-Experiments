@@ -1,33 +1,19 @@
-import os
 import json
-import sys
+import os
 from pathlib import Path
+
+from crewai import LLM, Agent, Crew, Process, Task
+from crewai.skills import activate_skill, discover_skills
 from dotenv import load_dotenv
-from crewai import Agent, Task, Crew, Process, LLM
-from crewai.skills import discover_skills, activate_skill
-
-# Load .env FIRST, before anything reads from it.
-load_dotenv()
-
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-BACKEND_ENV = PROJECT_ROOT / ".env"
+load_dotenv(PROJECT_ROOT / ".env")
 
-load_dotenv(dotenv_path=BACKEND_ENV)
-
-
-import litellm
-litellm.drop_params = True
-
-# LLM endpoint is configurable via .env — reuses the same LM_STUDIO_BASE_URL
-# and LM_STUDIO_MODEL variables as the DFV agent, so one .env controls both
-# flows. Falls back to your own local LM Studio if not set.
+# All agents use the shared root provider configuration.
 LM_URL = os.environ["LM_STUDIO_URL"]
 LM_MODEL = os.environ["OPENAI_MODEL_NAME"]
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# We are using Bonsai8B as the Local LLM for this Agent (or whatever
-# LM_STUDIO_MODEL is set to in .env)
 reasoning_llm = LLM(
     model=LM_MODEL,
     base_url=LM_URL,
@@ -40,7 +26,7 @@ reasoning_llm = LLM(
         else {}
     ),
     max_tokens=int(os.getenv("LLM_MAX_OUTPUT_TOKENS", "4096")),
-    timeout=float(os.getenv("CREWAI_TIMEOUT_SECONDS", "600"))
+    timeout=float(os.getenv("CREWAI_TIMEOUT_SECONDS", "600")),
 )
 
 # Discover all skills in a directory
@@ -59,7 +45,7 @@ customer_discovery_planner = Agent(
     """,
     llm=reasoning_llm,
     verbose=False,
-    skills=activated  # Note that we are using the SKILL.md from the skills directory
+    skills=activated,  # Note that we are using the SKILL.md from the skills directory
 )
 
 
@@ -251,14 +237,14 @@ Provide a short summary explaining:
 
 The report should be practical, student-friendly, and focused on collecting evidence rather than confirming assumptions.
 """,
-        agent=customer_discovery_planner
+        agent=customer_discovery_planner,
     )
 
     crew = Crew(
         agents=[customer_discovery_planner],
         tasks=[customer_discovery_task],
         process=Process.sequential,
-        verbose=False
+        verbose=False,
     )
 
     return crew.kickoff()
@@ -272,80 +258,76 @@ SAMPLE_DISCOVERY_INPUTS = {
         {
             "segment": "Mid-level pharmaceutical distributors",
             "role": "Primary user",
-            "customer_type": "Business User"
+            "customer_type": "Business User",
         },
         {
             "segment": "Pharmaceutical manufacturers",
             "role": "Economic buyer",
-            "customer_type": "Decision Maker"
-        }
+            "customer_type": "Decision Maker",
+        },
     ],
-
     "problem_statement": "Counterfeit medicines continue to enter the pharmaceutical supply chain. Existing QR-code based approaches are vulnerable because counterfeiters can duplicate valid codes and place them on fake products. Current verification approaches may not adequately prevent counterfeit inventory while maintaining operational efficiency.",
-
     "problem_consequence": [
         "Distributors face legal liability and compliance risks.",
         "Pharmacists and distributors may lose trust within the supply chain.",
         "Manufacturers suffer revenue loss and brand damage.",
         "Patients may consume ineffective or unsafe medicines.",
-        "Counterfeit products undermine confidence in pharmaceutical distribution."
+        "Counterfeit products undermine confidence in pharmaceutical distribution.",
     ],
-
     "current_alternatives": [
         "Static QR codes on medicine packaging",
         "Hologram-based verification",
         "SMS verification systems",
         "Centralized tracking databases",
         "Enterprise traceability software",
-        "Manual inventory inspection processes"
+        "Manual inventory inspection processes",
     ],
-
     "key_assumptions": [
         "Counterfeit medicines are a sufficiently important problem for distributors to actively seek better solutions.",
         "Workflow disruption is a major reason existing verification systems are not widely adopted.",
         "Distributors prefer solutions integrated into existing ERP systems rather than standalone applications.",
         "Legal liability protection is a stronger motivator than counterfeit detection itself.",
         "Manufacturers are willing to invest in improved traceability and verification capabilities.",
-        "Current QR-based verification approaches are perceived as inadequate by supply-chain stakeholders."
+        "Current QR-based verification approaches are perceived as inadequate by supply-chain stakeholders.",
     ],
-
     "what_we_already_know": [
         "The team conducted interviews with 2 distributors and 6 pharmacists.",
         "Interview feedback suggested resistance to standalone applications.",
         "Interview feedback suggested preference for integration with existing ERP systems such as Tally.",
         "The team pivoted away from a standalone verification app based on interview findings.",
-        "The team believes workflow friction is a significant adoption barrier."
+        "The team believes workflow friction is a significant adoption barrier.",
     ],
-
     "biggest_uncertainty": [
         "How important is counterfeit medicine detection relative to other operational challenges faced by distributors?",
         "What business consequences do distributors actually experience due to counterfeit products?",
         "Would distributors change their existing processes to improve counterfeit detection?",
         "What evidence would convince manufacturers to pay for improved traceability?",
         "Is legal liability protection truly the primary buying motivation?",
-        "How frequently do counterfeit-related incidents occur in practice?"
+        "How frequently do counterfeit-related incidents occur in practice?",
     ],
-
-    "customer_type": [
-        "Business User",
-        "Decision Maker"
-    ],
-
+    "customer_type": ["Business User", "Decision Maker"],
     "proposed_solution_context": {
         "purpose": "Background context only. Do not validate directly during customer discovery interviews.",
-        "summary": "A pharmaceutical traceability platform using parent-child QR relationships, ERP integration, anomaly detection and supply-chain verification to reduce counterfeit medicine circulation while minimizing workflow disruption."
-    }
+        "summary": "A pharmaceutical traceability platform using parent-child QR relationships, ERP integration, anomaly detection and supply-chain verification to reduce counterfeit medicine circulation while minimizing workflow disruption.",
+    },
 }
 
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="Customer Discovery CLI: real input or an explicitly requested demo.")
+
+    parser = argparse.ArgumentParser(
+        description="Customer Discovery CLI: real input or an explicitly requested demo."
+    )
     choice = parser.add_mutually_exclusive_group(required=True)
     choice.add_argument("--input", type=Path, help="UTF-8 JSON founder input file")
     choice.add_argument("--sample", action="store_true", help="Explicitly use demonstration inputs")
     args = parser.parse_args()
-    inputs = SAMPLE_DISCOVERY_INPUTS if args.sample else json.loads(args.input.read_text(encoding="utf-8"))
+    inputs = (
+        SAMPLE_DISCOVERY_INPUTS
+        if args.sample
+        else json.loads(args.input.read_text(encoding="utf-8"))
+    )
     if not isinstance(inputs, dict) or not inputs:
         parser.error("A non-empty founder input object is required.")
     if args.sample:

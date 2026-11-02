@@ -1,16 +1,15 @@
 from engine.workers import (
-    PreEvalWorker,
-    ValidationWorker,
-    RegulatoryWorker,
     EthicsWorker,
-    TIPSCWorker,
     FollowUpWorker,
+    PreEvalWorker,
+    RegulatoryWorker,
     TIPSCReevalWorker,
+    TIPSCWorker,
+    ValidationWorker,
 )
 
 
 class WorkerDispatcher:
-
     def __init__(self, stages):
         self.preeval_worker = PreEvalWorker(stages)
         self.validation_worker = ValidationWorker(stages)
@@ -30,22 +29,21 @@ class WorkerDispatcher:
         return await self.regulatory_worker.execute(preeval)
 
     async def dispatch_ethics(self, preeval, validation_context, regulatory_context):
-        return await self.ethics_worker.execute(
-            preeval, validation_context, regulatory_context
-        )
+        return await self.ethics_worker.execute(preeval, validation_context, regulatory_context)
 
-    async def dispatch_tipsc(self, preeval, validation_context, compliance_context, followup_context=""):
-        return await self.tipsc_worker.execute(
-            preeval, validation_context, compliance_context
-        )
+    async def dispatch_tipsc(
+        self, preeval, validation_context, compliance_context, followup_context=""
+    ):
+        return await self.tipsc_worker.execute(preeval, validation_context, compliance_context)
 
     async def dispatch_followup(self, tipsc_output, followup_context, compliance_context):
         return await self.followup_worker.execute(
             tipsc_output, followup_context, compliance_context
         )
 
-    async def dispatch_tipsc_reeval(self, preeval, validation_context, compliance_context, followup_context):
+    async def dispatch_tipsc_reeval(
+        self, preeval, validation_context, compliance_context, followup_context
+    ):
         return await self.tipsc_reeval_worker.execute(
             preeval, validation_context, compliance_context, followup_context
         )
-    

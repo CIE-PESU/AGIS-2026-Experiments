@@ -58,32 +58,3 @@ export function useSessionStream(
     };
   }, [sessionId, enabled]);
 }
-
-import { deriveCanonicalStageAccess } from "@/utils/sessionStatus";
-import type { StageStatus } from "@/data/session";
-
-/** Map backend session status to UI stage unlock state */
-export function deriveStageAccess(doc: any | null) {
-  const access = deriveCanonicalStageAccess(doc);
-  const toStageStatus = (s: string): StageStatus => {
-    if (s === "failed") return "failed";
-    if (s === "GO" || s === "NO-GO") return "completed";
-    return s as StageStatus;
-  };
-  return {
-    tipsc: toStageStatus(access.tipsc),
-    dfv: toStageStatus(access.dfv),
-    discovery: toStageStatus(access.discovery)
-  };
-}
-
-export function isFlowRunning(status: SessionDocument["status"]) {
-  return (
-    status.endsWith("_running") ||
-    status === "queued" ||
-    status === "pre_eval" ||
-    status === "tipsc_reevaluation" ||
-    status === "dfv_waiting" ||
-    status === "discovery_waiting"
-  );
-}

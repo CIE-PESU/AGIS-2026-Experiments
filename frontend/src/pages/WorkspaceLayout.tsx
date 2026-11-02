@@ -8,7 +8,6 @@ import { useAuth } from "@/context/AuthContext";
 import { getSessionComments } from "@/services/authSessions";
 import type { MentorComment } from "@/types/api";
 import { useSessionPolling } from "@/hooks/useSessionPolling";
-import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { WorkspaceErrorBoundary } from "@/components/shared/WorkspaceErrorBoundary";
 

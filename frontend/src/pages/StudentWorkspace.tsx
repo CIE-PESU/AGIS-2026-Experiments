@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Archive, Download, Target, TrendingUp, Users, Clock, Eye, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ import {
 import { MentorChat } from "@/components/shared/MentorChat";
 import { StatusBadge, TrafficDot } from "@/components/shared/StatusBadge";
 import { Timeline } from "@/components/shared/Timeline";
-import { deriveStageAccess, isFlowRunning } from "@/hooks/useSessionPolling";
+import { deriveStageAccess, isFlowRunning } from "@/utils/sessionStatus";
 import { archiveSession as archiveSessionApi, deleteSession as deleteSessionApi, getTeamProgress } from "@/services/authSessions";
 import { useAuth } from "@/context/AuthContext";
 import { downloadMarkdown, generateMarkdown } from "@/utils/exportMarkdown";

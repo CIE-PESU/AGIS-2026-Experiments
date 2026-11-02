@@ -26,14 +26,14 @@ async def dump_seed_data():
     data = {"users": [], "teams": []}
 
     for u in users:
-        u_dict = u.model_dump(exclude={"password_hash", "encrypted_password"})
+        u_dict = u.model_dump(exclude={"password_hash", "encrypted_password", "revision_id"})
         u_dict["id"] = str(u.id)
         if u_dict.get("team_id"):
             u_dict["team_id"] = str(u_dict["team_id"])
         data["users"].append(u_dict)
 
     for t in teams:
-        t_dict = t.model_dump()
+        t_dict = t.model_dump(exclude={"revision_id"})
         t_dict["id"] = str(t.id)
         data["teams"].append(t_dict)
 
@@ -47,8 +47,10 @@ async def dump_seed_data():
 
     seed_file.parent.mkdir(parents=True, exist_ok=True)
     tmp_file = seed_file.with_suffix(f".{uuid.uuid4().hex}.tmp")
-    with tmp_file.open("x", encoding="utf-8") as f:
-        tmp_file.chmod(0o600)
-        json.dump(data, f, indent=2, default=str)
-
-    os.replace(tmp_file, seed_file)
+    try:
+        with tmp_file.open("x", encoding="utf-8") as f:
+            tmp_file.chmod(0o600)
+            json.dump(data, f, indent=2, default=str)
+        os.replace(tmp_file, seed_file)
+    finally:
+        tmp_file.unlink(missing_ok=True)

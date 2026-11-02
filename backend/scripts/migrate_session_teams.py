@@ -1,69 +1,39 @@
-"""
-One-time migration script for existing databases.
-Synchronizes all active sessions so Session.team_id matches the student's User.team_id.
+"""Synchronize active session team IDs from user records, including unassigned users.
 
-Usage:
-  python backend/scripts/migrate_session_teams.py
+Run with the API and worker stopped:
+    uv run python -m backend.scripts.migrate_session_teams
 """
-
-from __future__ import annotations
 
 import asyncio
-import logging
+import sys
+from pathlib import Path
 
-from beanie import init_beanie
 from motor.motor_asyncio import AsyncIOMotorClient
 
-from core.config import settings
-from models.session import Session
-from models.team import Team
-from models.user import User
-from state_machine.states import SessionStatus
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from core.config import settings  # noqa: E402
 
 
-async def migrate():
-    logger.info("Connecting to MongoDB: %s", settings.MONGODB_URI)
-    client = AsyncIOMotorClient(settings.MONGODB_URI)
-    await init_beanie(
-        database=client[settings.MONGODB_DB_NAME], document_models=[User, Team, Session]
-    )
-
-    students = await User.find(User.role == "student").to_list()
-    logger.info("Found %d students to process.", len(students))
-
-    updated_count = 0
-    for student in students:
-        if not student.team_id:
-            continue
-
-        student_id_str = str(student.id)
-
-        # Find active sessions whose team_id diverges from student.team_id
-        diverged_sessions = await Session.find(
-            {
-                "student_id": student_id_str,
-                "team_id": {"$ne": student.team_id},
-                "status": {"$ne": SessionStatus.ARCHIVED.value},
-            }
-        ).to_list()
-
-        for session in diverged_sessions:
-            logger.info(
-                "Updating Session %s (student: %s, SRN: %s) team_id: %s -> %s",
-                session.id,
-                student_id_str,
-                student.srn,
-                session.team_id,
-                student.team_id,
+async def migrate() -> None:
+    client: AsyncIOMotorClient = AsyncIOMotorClient(settings.MONGODB_URI)
+    try:
+        database = client[settings.MONGODB_DB_NAME]
+        count = 0
+        async for student in database.users.find({"role": "student"}):
+            team_id = student.get("team_id") or ""
+            result = await database.sessions.update_many(
+                {
+                    "student_id": str(student["_id"]),
+                    "team_id": {"$ne": team_id},
+                    "status": {"$ne": "archived"},
+                },
+                {"$set": {"team_id": team_id}, "$inc": {"version": 1}},
             )
-            session.team_id = student.team_id
-            await session.save()
-            updated_count += 1
-
-    logger.info("Migration complete. Total session documents updated: %d", updated_count)
+            count += result.modified_count
+        print(f"Updated {count} active session team references.")
+    finally:
+        client.close()
 
 
 if __name__ == "__main__":

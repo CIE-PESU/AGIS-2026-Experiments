@@ -57,5 +57,4 @@ markers = ["integration: requires isolated MongoDB and Kafka", "smoke: requires 
 [tool.mypy]
 python_version = "3.12"
 ignore_missing_imports = true
-exclude = ["backend/app/", "backend/tests/"]
 plugins = ["pydantic.mypy"]

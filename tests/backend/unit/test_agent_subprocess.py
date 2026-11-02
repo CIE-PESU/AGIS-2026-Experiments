@@ -7,7 +7,6 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-
 from workers import combined_agent_worker as worker_module
 
 
@@ -32,7 +31,9 @@ async def test_agent_subprocess_reads_result_file(monkeypatch):
         return Process()
 
     monkeypatch.setattr(worker_module.asyncio, "create_subprocess_exec", create)
-    assert await worker_module.CombinedAgentWorker()._run_agent("dfv", {"idea": "test"}) == {"decision": "GO"}
+    assert await worker_module.CombinedAgentWorker()._run_agent("dfv", {"idea": "test"}) == {
+        "decision": "GO"
+    }
 
 
 @pytest.mark.asyncio
@@ -62,3 +63,35 @@ async def test_agent_subprocess_is_killed_on_timeout(monkeypatch):
     with pytest.raises(asyncio.TimeoutError):
         await worker_module.CombinedAgentWorker()._run_agent("dfv", {})
     assert killed
+
+
+def test_agent_imports_do_not_replace_shared_provider_functions():
+    import importlib
+    from pathlib import Path
+
+    import litellm
+    from crewai import LLM
+    from crewai.llms import cache
+    from workers.combined_agent_worker import _load_module
+
+    original = (
+        litellm.drop_params,
+        litellm.completion,
+        litellm.acompletion,
+        LLM.supports_function_calling,
+        cache.mark_cache_breakpoint,
+    )
+    root = Path(__file__).resolve().parents[3]
+    _load_module("agis_dfv_import_regression", str(root / "DFV-agent" / "main.py"))
+    importlib.import_module("quickstart_agent.main")
+    _load_module(
+        "agis_discovery_import_regression",
+        str(root / "customer-interview-planner-agent" / "customer_interview_planner.py"),
+    )
+    assert original == (
+        litellm.drop_params,
+        litellm.completion,
+        litellm.acompletion,
+        LLM.supports_function_calling,
+        cache.mark_cache_breakpoint,
+    )

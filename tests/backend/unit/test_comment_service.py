@@ -9,7 +9,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 import pytest
-
 from services.comment_exceptions import (
     CommentNotFoundError,
     InsufficientPermissionsError,
@@ -58,11 +57,7 @@ class FakeCommentRepo:
         return c
 
     async def find_by_session(self, session_id):
-        return [
-            c
-            for c in self._comments.values()
-            if c.session_id == session_id and not c.deleted
-        ]
+        return [c for c in self._comments.values() if c.session_id == session_id and not c.deleted]
 
     async def find_by_id(self, comment_id):
         c = self._comments.get(comment_id)
@@ -121,7 +116,9 @@ async def test_mentor_on_unassigned_team_cannot_add_comment():
     service, *_ = build_service({SESSION.session_id: SESSION})
     mentor = FakeUser(user_id="mentor_1", role="mentor", mentor_team_ids=["team_2"])
 
-    with pytest.raises(InsufficientPermissionsError, match="You are not assigned to this session's team"):
+    with pytest.raises(
+        InsufficientPermissionsError, match="You are not assigned to this session's team"
+    ):
         await service.add_comment(SESSION.session_id, mentor, "a" * 20)
 
 

@@ -8,7 +8,7 @@ All authenticated requests use `services/apiClient.ts`, including admin actions,
 
 `utils/sessionStatus.ts` maps the `SessionStatus` union exhaustively, including Ethics processing. The backend owns unlock decisions; the frontend renders them. TIPSC's `ready_for_dfv` gates DFV, and a DFV NO-GO locks Discovery. Successful Discovery unlocks Product-Market Fit at `/workspace/pmf`. PMF waiting/running/failed/completed statuses retain access to earlier reports and Quickstart. PMF results are included in session exports. `mapSessionResults.ts` accepts the backend's `IMPORTANT` score and the legacy agent `I` alias.
 
-Polling uses the shared client and stops on authentication failure. SSE uses authenticated fetch, handles normal stream closure and errors with bounded reconnect delay, and aborts/cancels timers on unmount. Tokens are not sent in query strings. LocalStorage retains tokens and display identity; authorization is always enforced on the backend.
+Polling uses the shared client and stops on authentication failure. SSE uses authenticated fetch, handles normal stream closure and errors with bounded reconnect delay, and aborts/cancels timers on unmount. Tokens are not sent in query strings. LocalStorage retains tokens and the active session identifier; identity is restored from `/auth/me`, even if the previous display cache is missing. Delayed refresh responses cannot restore credentials after logout or overwrite a different login; authorization is always enforced on the backend.
 
 Vite proxies `/api/v1` to `VITE_BACKEND_URL` in development. Configure `VITE_API_BASE_URL` at build time or a reverse proxy for production. Never rely on the development proxy in production. Generated `dist/` output and local environment files are excluded from source control.
 
@@ -17,3 +17,5 @@ Run `npm test`, `npm run build`, and `npm audit` from `frontend/`. Real-browser 
 Brand images are bundled in `frontend/public/branding/`, preserving the original assets while removing dependence on external image hosts.
 
 Production mock datasets and their API simulator were removed. `data/session.ts` contains shared types and real intake-question labels. Comment outages show an error instead of fabricated messages, and uncollected Discovery facts remain unspecified.
+
+Python lint and formatting cover the entire repository. Frontend builds also reject unused local variables and parameters. Stage derivation and running-state detection live in `utils/sessionStatus.ts`; polling and streaming share those semantics.

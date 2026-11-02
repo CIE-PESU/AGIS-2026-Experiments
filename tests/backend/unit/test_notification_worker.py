@@ -1,8 +1,7 @@
 """Notification updates must never create a new session document."""
 
-from bson import ObjectId
 import pytest
-
+from bson import ObjectId
 from workers.notification_worker import NotificationWorker
 
 
@@ -24,12 +23,14 @@ async def test_notification_uses_object_id_and_never_upserts():
     collection = Collection()
     worker.db = {"sessions": collection}
     session_id = str(ObjectId())
-    await worker._handle_message({
-        "userSession_id": session_id,
-        "correlation_id": "current-run",
-        "flow": "dfv",
-        "status": "done",
-    })
+    await worker._handle_message(
+        {
+            "userSession_id": session_id,
+            "correlation_id": "current-run",
+            "flow": "dfv",
+            "status": "done",
+        }
+    )
     args, kwargs = collection.update_args
     assert args[0]["_id"] == ObjectId(session_id)
     assert args[0]["correlation_id"] == "current-run"
@@ -41,10 +42,12 @@ async def test_invalid_flow_cannot_become_mongo_field():
     worker = NotificationWorker()
     collection = Collection()
     worker.db = {"sessions": collection}
-    await worker._handle_message({
-        "userSession_id": str(ObjectId()),
-        "correlation_id": "current-run",
-        "flow": "bad.field",
-        "status": "done",
-    })
+    await worker._handle_message(
+        {
+            "userSession_id": str(ObjectId()),
+            "correlation_id": "current-run",
+            "flow": "bad.field",
+            "status": "done",
+        }
+    )
     assert collection.update_args is None

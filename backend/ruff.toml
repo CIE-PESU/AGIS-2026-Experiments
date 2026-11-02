@@ -14,8 +14,7 @@ ignore = [
     "B008",  # Depends(...) in argument defaults is the standard FastAPI idiom
     "UP046", # Pydantic/Beanie generics retain the supported Generic[T] declaration
     "UP042", # SessionStatus(str, Enum) is intentional — kept for Pydantic/JSON
-             # serialization compatibility; 233 state-machine tests already
-             # depend on this exact form.
+             # serialization compatibility with persisted state-machine values.
 ]
 
 [lint.per-file-ignores]

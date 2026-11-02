@@ -13,7 +13,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 from tipsc_models import (
     EthicsOutput,
@@ -65,15 +64,15 @@ class PipelineContext:
 
     state: PipelineState = PipelineState.QUEUED
 
-    preeval: Optional[PreEvalOutput] = None
+    preeval: PreEvalOutput | None = None
 
-    validation: Optional[ValidationOutput] = None
+    validation: ValidationOutput | None = None
 
-    regulatory: Optional[RegulatoryOutput] = None
+    regulatory: RegulatoryOutput | None = None
 
-    ethics: Optional[EthicsOutput] = None
+    ethics: EthicsOutput | None = None
 
-    tipsc: Optional[TIPSCOutput] = None
+    tipsc: TIPSCOutput | None = None
 
     compliance_context: str = ""
 

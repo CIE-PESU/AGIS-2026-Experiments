@@ -20,22 +20,19 @@ Also covers the validation hardening rules:
 
 from __future__ import annotations
 
-import re
-import asyncio
 import inspect
+import re
+from unittest.mock import MagicMock
 
 import pytest
-from pydantic import ValidationError
-
-from utils.object_id import validate_object_id
 from exceptions.base import ValidationException
-from schemas.session import SessionCreateRequest
+from pydantic import ValidationError
 from schemas.flow import DFVTriggerRequest
+from schemas.session import SessionCreateRequest
 from services.session_service import SessionService
 from services.worker_service import WorkerService
-from state_machine.states import SessionStatus, TERMINAL_STATES
-from unittest.mock import AsyncMock, MagicMock, patch
-
+from state_machine.states import TERMINAL_STATES, SessionStatus
+from utils.object_id import validate_object_id
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SRN regex validation
@@ -51,11 +48,11 @@ class TestSRNValidation:
         "PES3UG21ME123",
     ]
     invalid_srns = [
-        "PES22UG22CS001",   # extra digit in campus code
-        "pes2ug22cs001",    # lowercase
-        "PES2UG22CS1",      # too short sequence
-        "2UG22CS001",       # missing PES prefix
-        "PES2UG22CS0011",   # too long sequence
+        "PES22UG22CS001",  # extra digit in campus code
+        "pes2ug22cs001",  # lowercase
+        "PES2UG22CS1",  # too short sequence
+        "2UG22CS001",  # missing PES prefix
+        "PES2UG22CS0011",  # too long sequence
         "",
         "random_string",
     ]
@@ -112,10 +109,10 @@ class TestObjectIdValidation:
 class TestSessionCreateRequestValidation:
     def _valid_body(self, **overrides) -> dict:
         return {
-            "problem_statement": "A" * 50,   # exactly at min
+            "problem_statement": "A" * 50,  # exactly at min
             "customer_segment": "Test Segment",
             "consequence": "Test consequence",
-            "proposed_solution": "B" * 10,   # exactly at min
+            "proposed_solution": "B" * 10,  # exactly at min
             "target_geography": "US",
             "industry_sector": "Tech",
             **overrides,
@@ -146,7 +143,9 @@ class TestSessionCreateRequestValidation:
             SessionCreateRequest(**self._valid_body(proposed_solution="A" * 3001))
 
     def test_whitespace_stripped(self):
-        body = SessionCreateRequest(**self._valid_body(problem_statement="  " + "A" * 50 + "  ", proposed_solution="B" * 10))
+        body = SessionCreateRequest(
+            **self._valid_body(problem_statement="  " + "A" * 50 + "  ", proposed_solution="B" * 10)
+        )
         assert not body.problem_statement.startswith(" ")
         assert not body.problem_statement.endswith(" ")
 

@@ -1,100 +1,87 @@
+"""Import sanitized metadata with stable IDs and preserve existing credentials.
+
+Run from the repository root:
+    uv run python -m backend.scripts.sync_db --file /private/path/accounts.json
+Add --apply to write the metadata. The default only validates the file.
+"""
+
+import argparse
 import asyncio
-import json
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
-# Add the backend root directory to the python path so we can import from core/models
-backend_dir = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(backend_dir))
+from bson import ObjectId
+from motor.motor_asyncio import AsyncIOMotorClient
 
-from beanie import init_beanie  # noqa: E402
-from motor.motor_asyncio import AsyncIOMotorClient  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from core.config import settings  # noqa: E402
-from models.user import User  # noqa: E402
+from schemas.seed import SeedData  # noqa: E402
 
 
-async def sync():
-    seed_file = Path(__file__).parent / "seed_data.json"
-    if not seed_file.exists():
-        print(f"Error: {seed_file} not found.")
-        sys.exit(1)
+async def sync(seed_file: Path, *, apply: bool = False) -> None:
+    data = SeedData.model_validate_json(seed_file.read_text(encoding="utf-8"))
+    print(f"Validated {len(data.users)} users and {len(data.teams)} teams.")
+    if not apply:
+        print("No writes made. Add --apply to import this metadata.")
+        return
 
+    client: AsyncIOMotorClient = AsyncIOMotorClient(settings.MONGODB_URI)
     try:
-        with open(seed_file) as f:
-            data = json.load(f)
-    except json.JSONDecodeError as e:
-        print(f"Error parsing {seed_file}: {e}")
-        sys.exit(1)
+        database = client[settings.MONGODB_DB_NAME]
+        users = {str(row["_id"]): row async for row in database.users.find()}
+        teams = {str(row["_id"]): row async for row in database.teams.find()}
+        srns = {row["srn"].strip().upper(): key for key, row in users.items()}
+        # Reject identity collisions before writing any records.
+        for user in data.users:
+            if user.srn in srns and srns[user.srn] != user.id:
+                raise ValueError("An imported SRN already belongs to a different user ID")
+            if user.id in users and users[user.id]["srn"].strip().upper() != user.srn:
+                raise ValueError("An imported user ID already belongs to a different SRN")
+            users[user.id] = {**users.get(user.id, {}), **user.model_dump(exclude_unset=True)}
+        for team in data.teams:
+            teams[team.id] = {**teams.get(team.id, {}), **team.model_dump(exclude_unset=True)}
+        users_by_srn = {user["srn"].strip().upper(): user for user in users.values()}
+        for team_id, team in teams.items():
+            mentor = users.get(team.get("mentor_id", ""))
+            if team.get("mentor_id") and (not mentor or mentor["role"] != "mentor"):
+                raise ValueError("Every team must reference an existing mentor")
+            for member_srn in team.get("members", []):
+                member = users_by_srn.get(member_srn)
+                if not member or member["role"] != "student" or member.get("team_id") != team_id:
+                    raise ValueError("Team members must reference students with matching team_id")
+        for user in users.values():
+            team_id = user.get("team_id")
+            if team_id and (
+                team_id not in teams or user["srn"] not in teams[team_id].get("members", [])
+            ):
+                raise ValueError("Student team_id must reference a team containing that student")
 
-    print(f"Connecting to MongoDB at {settings.MONGODB_URI}...")
-    client = AsyncIOMotorClient(settings.MONGODB_URI)
-    print(
-        f"Found {len(data.get('users', []))} users and {len(data.get('teams', []))} teams in seed_data.json. Syncing..."
-    )
+        for collection, records in ((database.users, data.users), (database.teams, data.teams)):
+            for record in records:
+                updates = record.model_dump(exclude={"id"}, exclude_unset=True)
+                # Omitted optional fields never clear existing associations.
+                if updates.get("created_at") is None:
+                    updates.pop("created_at", None)
+                defaults = {} if "created_at" in updates else {"created_at": datetime.now(UTC)}
+                await collection.update_one(
+                    {"_id": ObjectId(record.id)},
+                    {"$set": updates, "$setOnInsert": defaults},
+                    upsert=True,
+                )
+        print("Metadata imported. Existing credentials were preserved.")
+    finally:
+        client.close()
 
-    from models.team import Team
 
-    await init_beanie(database=client[settings.MONGODB_DB_NAME], document_models=[User, Team])
-
-    # Sync Users
-    for item in data.get("users", []):
-        srn = item.get("srn")
-        if not srn:
-            continue
-
-        user = await User.find_one(User.srn == srn)
-        if not user:
-            user = User(
-                srn=srn,
-                name=item.get("name", srn),
-                email=item.get("email"),
-                role=item.get("role", "student"),
-                team_id=item.get("team_id"),
-            )
-            await user.insert()
-            print(f"  [Inserted User] {srn}")
-        else:
-            user.name = item.get("name", user.name)
-            user.email = item.get("email", user.email)
-            user.role = item.get("role", user.role)
-            user.team_id = item.get("team_id")
-            await user.save()
-            print(f"  [Updated User]  {srn}")
-
-    # Sync Teams (overwrite by ID or name)
-    from bson import ObjectId
-
-    for item in data.get("teams", []):
-        team_id = item.get("id")
-        team = None
-        if team_id:
-            team = await Team.get(team_id)
-
-        if not team:
-            # If not found by ID, try by name, or insert new
-            team = await Team.find_one(Team.team_name == item.get("team_name"))
-
-        if not team:
-            # Recreate with the exact same ID if possible
-            new_id = ObjectId(team_id) if team_id else None
-            team = Team(
-                id=new_id,
-                team_name=item.get("team_name"),
-                mentor_id=item.get("mentor_id"),
-                members=item.get("members", []),
-            )
-            await team.insert()
-            print(f"  [Inserted Team] {team.team_name}")
-        else:
-            team.team_name = item.get("team_name")
-            team.mentor_id = item.get("mentor_id")
-            team.members = item.get("members", [])
-            await team.save()
-            print(f"  [Updated Team]  {team.team_name}")
-
-    print("Sync complete.")
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--file", type=Path, default=Path(__file__).with_name("seed_data.json"))
+    parser.add_argument("--apply", action="store_true")
+    args = parser.parse_args()
+    asyncio.run(sync(args.file, apply=args.apply))
 
 
 if __name__ == "__main__":
-    asyncio.run(sync())
+    main()

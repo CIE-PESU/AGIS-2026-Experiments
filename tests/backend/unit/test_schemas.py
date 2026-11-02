@@ -1,20 +1,17 @@
 """
-tests/contract/test_schemas.py — Contract tests for Kafka message schemas.
+tests/backend/unit/test_schemas.py — Contract tests for Kafka message schemas.
 
 Verifies that serialisation/deserialisation round-trips are stable between
 the backend and the AI-agent worker repos. Run with:
 
-    pytest backend/tests/contract/ -v
+    pytest tests/backend/unit/test_schemas.py -v
 
 These tests do NOT require a running Kafka broker or MongoDB instance.
 They only validate Python object ↔ JSON round-trips.
 """
 
-import pytest
-
-from kafka.payloads import TIPSCEventPayload, DFVEventPayload, DiscoveryEventPayload
+from kafka.payloads import DFVEventPayload, DiscoveryEventPayload, TIPSCEventPayload
 from models.session import Session, StateTransition
-
 
 # ---------------------------------------------------------------------------
 # Kafka payload contract tests (kafka/payloads.py)
@@ -47,7 +44,14 @@ class TestTIPSCPayload:
             correlation_id="cor_xyz",
         )
         dumped = payload.model_dump()
-        for field in ("session_id", "student_id", "team_id", "problem_statement", "idea", "correlation_id"):
+        for field in (
+            "session_id",
+            "student_id",
+            "team_id",
+            "problem_statement",
+            "idea",
+            "correlation_id",
+        ):
             assert field in dumped, f"Required field '{field}' missing from payload"
 
 

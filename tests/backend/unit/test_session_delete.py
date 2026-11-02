@@ -4,7 +4,6 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
-
 from exceptions.base import InsufficientPermissionsError
 from schemas.auth import CurrentUser
 from services.session_service import SessionService
@@ -14,9 +13,13 @@ from state_machine.states import SessionStatus
 @pytest.mark.asyncio
 async def test_owner_can_delete_completed_session(monkeypatch):
     repo = SimpleNamespace(
-        find_by_id=AsyncMock(return_value=SimpleNamespace(
-            student_id="owner", workspace_id=None, status=SessionStatus.COMPLETED,
-        )),
+        find_by_id=AsyncMock(
+            return_value=SimpleNamespace(
+                student_id="owner",
+                workspace_id=None,
+                status=SessionStatus.COMPLETED,
+            )
+        ),
         delete_by_id=AsyncMock(return_value=True),
     )
     monkeypatch.setattr("services.session_service.session_repo", repo)
@@ -31,9 +34,13 @@ async def test_owner_can_delete_completed_session(monkeypatch):
 @pytest.mark.asyncio
 async def test_teammate_cannot_delete_another_students_session(monkeypatch):
     repo = SimpleNamespace(
-        find_by_id=AsyncMock(return_value=SimpleNamespace(
-            student_id="owner", workspace_id=None, status=SessionStatus.COMPLETED,
-        )),
+        find_by_id=AsyncMock(
+            return_value=SimpleNamespace(
+                student_id="owner",
+                workspace_id=None,
+                status=SessionStatus.COMPLETED,
+            )
+        ),
         delete_by_id=AsyncMock(),
     )
     monkeypatch.setattr("services.session_service.session_repo", repo)
@@ -49,9 +56,13 @@ async def test_teammate_cannot_delete_another_students_session(monkeypatch):
 @pytest.mark.asyncio
 async def test_running_session_can_be_deleted(monkeypatch):
     repo = SimpleNamespace(
-        find_by_id=AsyncMock(return_value=SimpleNamespace(
-            student_id="owner", workspace_id=None, status=SessionStatus.QUEUED,
-        )),
+        find_by_id=AsyncMock(
+            return_value=SimpleNamespace(
+                student_id="owner",
+                workspace_id=None,
+                status=SessionStatus.QUEUED,
+            )
+        ),
         delete_by_id=AsyncMock(return_value=True),
     )
     monkeypatch.setattr("services.session_service.session_repo", repo)

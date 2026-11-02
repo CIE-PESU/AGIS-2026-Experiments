@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import List
 
 
 @dataclass
@@ -15,7 +14,7 @@ class FollowUpContext:
     between the founder and the TIPSC system.
     """
 
-    exchanges: List[FollowUpExchange] = field(default_factory=list)
+    exchanges: list[FollowUpExchange] = field(default_factory=list)
 
     def add(self, question: str, answer: str):
         self.exchanges.append(
@@ -36,7 +35,6 @@ class FollowUpContext:
         output.append("=" * 60)
 
         for i, exchange in enumerate(self.exchanges, start=1):
-
             output.append(f"\nQuestion {i}:")
             output.append(exchange.question)
 
@@ -63,7 +61,7 @@ class FollowUpContext:
 
     def latest_answer(self):
         return self.exchanges[-1].answer if self.exchanges else None
-    
+
     def latest_context(self, max_turns: int = 3) -> str:
         """
         Returns only the latest follow-up exchanges.
@@ -81,7 +79,6 @@ class FollowUpContext:
         output.append("=" * 60)
 
         for i, exchange in enumerate(recent, start=1):
-
             output.append(f"\nQuestion {i}")
             output.append(exchange.question)
 

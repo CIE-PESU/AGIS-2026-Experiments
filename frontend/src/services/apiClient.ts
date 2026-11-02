@@ -55,24 +55,29 @@ async function parseError(response: Response): Promise<ApiRequestError> {
   }
 }
 
-let refreshInFlight: Promise<boolean> | null = null;
+let refreshInFlight: { token: string; promise: Promise<boolean> } | null = null;
 
 export function refreshAccessToken(): Promise<boolean> {
-  if (!refreshInFlight) {
-    refreshInFlight = performRefresh().finally(() => { refreshInFlight = null; });
+  const token = getRefreshToken();
+  if (!token) return Promise.resolve(false);
+  if (!refreshInFlight || refreshInFlight.token !== token) {
+    const promise = performRefresh(token).finally(() => {
+      if (refreshInFlight?.promise === promise) refreshInFlight = null;
+    });
+    refreshInFlight = { token, promise };
   }
-  return refreshInFlight;
+  return refreshInFlight.promise;
 }
 
-async function performRefresh(): Promise<boolean> {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) return false;
-
+async function performRefresh(refreshToken: string): Promise<boolean> {
   const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refresh_token: refreshToken })
   });
+
+  // A logout or a different login can finish while this request is in flight.
+  if (getRefreshToken() !== refreshToken) return Boolean(getAccessToken());
 
   if (!response.ok) {
     if (response.status !== 401 && response.status !== 403) throw await parseError(response);
@@ -81,6 +86,7 @@ async function performRefresh(): Promise<boolean> {
   }
 
   const body = (await response.json()) as ApiSuccess<{ access_token: string; refresh_token: string }>;
+  if (getRefreshToken() !== refreshToken) return Boolean(getAccessToken());
   setTokens(body.data.access_token, body.data.refresh_token);
   return true;
 }

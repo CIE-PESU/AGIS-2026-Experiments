@@ -1,7 +1,7 @@
 import { apiFetch } from "@/services/apiClient";
 import { useState, useMemo, useEffect } from "react";
 import { Navigate } from "react-router-dom";
-import { Plus, Trash2, Edit, Users, UserCheck, BookOpen, Layers, Settings, ShieldAlert, LogOut, Copy, Link2, RefreshCw, Ban, CheckCircle2 } from "lucide-react";
+import { Plus, Trash2, Edit, Users, UserCheck, BookOpen, Layers, ShieldAlert, LogOut, Copy, Link2, RefreshCw, Ban, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -332,7 +332,7 @@ export function AdminDashboard() {
         throw new Error(data.error || "Failed to save advisor in backend");
       }
 
-      const responseData = await res.json();
+      await res.json();
 
       toast.success(
         isAddMentorMode
@@ -353,16 +353,6 @@ export function AdminDashboard() {
   const handleDeleteMentor = async (mentorId: string) => {
     if (confirm("Are you sure you want to delete this advisor? Associated access links will be revoked and supervised teams unassigned.")) {
       try {
-        // Revoke associated workspace if active
-        const ws = workspaces.find(w => w.mentor_id === mentorId);
-        if (ws && ws.status === "active") {
-          try {
-            await revokeWorkspace(ws.workspace_id);
-          } catch (e) {
-            // Best effort revocation
-          }
-        }
-
         const res = await apiFetch(`/admin/mentors/${mentorId}`, {
           method: "DELETE",
         });

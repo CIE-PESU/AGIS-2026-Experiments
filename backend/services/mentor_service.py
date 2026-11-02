@@ -58,7 +58,7 @@ async def sync_mentor_teams(mentor_id: str) -> list[str]:
     mentor_team_ids = list(all_teams.keys())
 
     mentor.mentor_team_ids = mentor_team_ids
-    await mentor.save()
+    await mentor.set({User.mentor_team_ids: mentor_team_ids})
     return mentor_team_ids
 
 
@@ -239,19 +239,11 @@ class MentorService:
 
             # Resolve member user docs
             members: list[TeamMemberInfo] = []
-            for member_id in team.members:
-                try:
-                    user = await User.get(PydanticObjectId(member_id))
-                    if user:
-                        members.append(
-                            TeamMemberInfo(
-                                user_id=str(user.id),
-                                name=user.name,
-                                srn=user.srn,
-                            )
-                        )
-                except Exception:
-                    pass
+            team_users = await User.find(
+                {"srn": {"$in": team.members}, "role": "student"}
+            ).to_list()
+            for user in team_users:
+                members.append(TeamMemberInfo(user_id=str(user.id), name=user.name, srn=user.srn))
 
             # Count active sessions (non-archived) for this team
             active_count = await session_repo.count_by_teams(

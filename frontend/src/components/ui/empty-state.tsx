@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { ArrowRight, Sparkles, Lightbulb, Users, Target, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Sparkles, Lightbulb, Users, Target } from "lucide-react";
 
 interface EmptyStateProps {
   title: string;

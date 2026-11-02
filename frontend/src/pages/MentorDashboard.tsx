@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Navigate } from "react-router-dom";
-import { Clock, Eye, LogOut, MessageSquare, Send, Loader2 } from "lucide-react";
+import { Clock, Eye, LogOut, MessageSquare, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,7 +13,7 @@ import { StatusBadge, TrafficDot } from "@/components/shared/StatusBadge";
 import { useAuth } from "@/context/AuthContext";
 import { getTeamsWithMembers, getComments, addComment, Comment, getMentors } from "@/utils/adminData";
 
-import { deriveStageAccess } from "@/hooks/useSessionPolling";
+import { deriveStageAccess } from "@/utils/sessionStatus";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export function MentorDashboard() {
@@ -46,7 +46,6 @@ export function MentorDashboard() {
 
   const [comments, setComments] = useState<Record<string, Comment[]>>({});
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [sending, setSending] = useState<Record<string, boolean>>({});
 
   const refreshComments = useCallback(async () => {
     const allComments: Record<string, Comment[]> = {};

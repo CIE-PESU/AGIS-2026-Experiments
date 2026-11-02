@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Start one local platform; `uv run python dev.py` also works in PowerShell."""
+
 from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 import shutil
 import signal
 import socket
@@ -14,6 +14,7 @@ import time
 import urllib.error
 import urllib.request
 import uuid
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "backend"))
@@ -35,24 +36,34 @@ def check_ports(ports=(8008, 8009, 5167)) -> None:
             try:
                 listener.bind(("127.0.0.1", port))
             except OSError as exc:
-                raise RuntimeError(f"Port {port} is already occupied. Stop the existing instance before starting AGIS.") from exc
+                raise RuntimeError(
+                    f"Port {port} is already occupied. Stop the existing instance before starting AGIS."
+                ) from exc
 
 
 def run_services() -> int:
-    from dotenv import load_dotenv
     from core.llm_provider import check_model_server, is_local_endpoint
+    from dotenv import load_dotenv
 
     load_dotenv(ROOT / ".env", encoding="utf-8")
     endpoint = os.getenv("LM_STUDIO_URL", "")
     if is_local_endpoint(endpoint):
-        check_model_server(endpoint, os.getenv("OPENAI_MODEL_NAME", ""), os.getenv("OPENAI_API_KEY", ""))
+        check_model_server(
+            endpoint, os.getenv("OPENAI_MODEL_NAME", ""), os.getenv("OPENAI_API_KEY", "")
+        )
     command = frontend_command()
     check_ports()
     processes = []
     run_id = uuid.uuid4().hex
 
     def start(arguments, cwd, extra=None):
-        env = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8", "AGIS_RUN_ID": run_id, **(extra or {})}
+        env = {
+            **os.environ,
+            "PYTHONUTF8": "1",
+            "PYTHONIOENCODING": "utf-8",
+            "AGIS_RUN_ID": run_id,
+            **(extra or {}),
+        }
         process = subprocess.Popen(arguments, cwd=cwd, env=env, **child_options())
         processes.append((process, None))
         tree = ProcessTree(process.pid)
@@ -68,7 +79,9 @@ def run_services() -> int:
                 with urllib.request.urlopen(url, timeout=2) as response:
                     if response.status == 200:
                         if check_instance and json.load(response).get("instance_id") != run_id:
-                            raise RuntimeError("Readiness responded from a different AGIS instance; startup stopped.")
+                            raise RuntimeError(
+                                "Readiness responded from a different AGIS instance; startup stopped."
+                            )
                         return
             except (OSError, urllib.error.URLError):
                 pass
@@ -80,9 +93,16 @@ def run_services() -> int:
 
     previous = signal.signal(signal.SIGTERM, stop)
     try:
-        start([sys.executable, "-m", "uvicorn", "main:app", "--host", "127.0.0.1", "--port", "8008"], ROOT / "backend")
+        start(
+            [sys.executable, "-m", "uvicorn", "main:app", "--host", "127.0.0.1", "--port", "8008"],
+            ROOT / "backend",
+        )
         wait_ready("http://127.0.0.1:8008/api/v1/ready", check_instance=True)
-        start([sys.executable, "-m", "workers.combined_agent_worker"], ROOT / "backend", {"WORKER_HEALTH_PORT": "8009"})
+        start(
+            [sys.executable, "-m", "workers.combined_agent_worker"],
+            ROOT / "backend",
+            {"WORKER_HEALTH_PORT": "8009"},
+        )
         wait_ready("http://127.0.0.1:8009/health", check_instance=True)
         start(command, ROOT / "frontend")
         wait_ready("http://127.0.0.1:5167")

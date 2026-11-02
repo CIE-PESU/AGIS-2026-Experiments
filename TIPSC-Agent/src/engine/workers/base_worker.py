@@ -1,9 +1,7 @@
-import asyncio
 from abc import ABC, abstractmethod
 
 
 class BaseWorker(ABC):
-
     def __init__(self, stages):
         self.stages = stages
 

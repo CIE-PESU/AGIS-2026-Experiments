@@ -51,8 +51,9 @@ Alternatively activate the root `.venv` and run the first two commands from `bac
 ## Verify changes
 
 ```bash
-uv run ruff check backend
-uv run ruff format --check backend
+uv run ruff check .
+uv run ruff format --check .
+uv run python scripts/check_repository.py
 uv run mypy backend
 uv run pytest -m 'not integration'
 npm test --prefix frontend
@@ -114,3 +115,20 @@ After a successful Discovery run, open the Product-Market Fit card in the worksp
 See [merge verification](merge-quickstart-pmf.md) for the combined branch checks and remaining upstream dependency findings.
 
 Native Windows instructions and local-model capability checks: [Windows and local LLM operation](windows-local-llm.md). Runtime mock-data fallbacks have been removed; standalone examples require an explicit `--sample` flag.
+
+## Account metadata maintenance
+
+`backend/scripts/seed_data.json` is intentionally empty. Use a private sanitized export rather than committing account records. From the repository root:
+
+```bash
+uv run python -m backend.scripts.inspect_db --collection teams --limit 20
+uv run python -m backend.scripts.initial_dump
+uv run python -m backend.scripts.sync_db --file /private/path/accounts-export.json
+# Stop the API/worker and back up the database before applying an import.
+uv run python -m backend.scripts.sync_db --file /private/path/accounts-export.json --apply
+uv run python -m backend.scripts.migrate_session_teams
+```
+
+Export requires `AGIS_EXPORT_PATH` outside the checkout and omits credentials. Import validates stable ObjectIds, normalized SRNs, duplicate records, and team references before writes. Omitted optional fields preserve existing values; imports never overwrite stored passwords. A fresh database restored from metadata needs local passwords provisioned separately. Imports and the session-team migration are maintenance operations, not multi-document transactions: keep writers stopped, retain a backup, and rerun after correcting an interrupted import.
+
+Team members are student SRNs; mentor/team references are ObjectId strings. Use authenticated admin APIs or the dashboard for normal assignment/deletion. Person-specific repair scripts, import-time database mutations, the obsolete live smoke script, and the duplicate backend test tree have been removed. The isolated integration suite is the maintained end-to-end check.

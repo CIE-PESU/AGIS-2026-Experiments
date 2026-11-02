@@ -1,7 +1,7 @@
-from .message import WorkerMessage
-from .topics import KafkaTopics
-from .producer import MessageProducer
 from .consumer import MessageConsumer
+from .message import WorkerMessage
+from .producer import MessageProducer
+from .topics import KafkaTopics
 
 __all__ = [
     "WorkerMessage",

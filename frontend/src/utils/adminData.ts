@@ -11,6 +11,8 @@ export interface Student {
   teamId: string | null;
   sessionId?: string | null;
   status?: string;
+  tipsc?: { ready_for_dfv: boolean };
+  dfv_raw?: unknown;
 }
 
 export interface Team {
@@ -120,10 +122,10 @@ export async function getStudents(): Promise<Student[]> {
   const mapTips = (tips: any) => {
     if (!tips || Object.keys(tips).length === 0) return {};
     return {
-      timely: { status: tips.T || "yellow", explanation: tips.T_reason || "" },
-      importance: { status: tips.IMPORTANT || tips.I || "yellow", explanation: tips.IMPORTANT_reason || tips.I_reason || "" },
-      profitable: { status: tips.P || "yellow", explanation: tips.P_reason || "" },
-      solvable: { status: tips.S || "yellow", explanation: tips.S_reason || "" }
+      timely: { status: (tips.T || "yellow").toLowerCase(), explanation: tips.T_reason || "" },
+      importance: { status: (tips.IMPORTANT || tips.I || "yellow").toLowerCase(), explanation: tips.IMPORTANT_reason || tips.I_reason || "" },
+      profitable: { status: (tips.P || "yellow").toLowerCase(), explanation: tips.P_reason || "" },
+      solvable: { status: (tips.S || "yellow").toLowerCase(), explanation: tips.S_reason || "" }
     };
   };
 
@@ -133,11 +135,13 @@ export async function getStudents(): Promise<Student[]> {
     email: s.email,
     tips: mapTips(s.tips),
     dfv: s.dfv || "Pending",
-    jtbd: false,
-    lastActive: "Just now",
+    jtbd: Boolean(s.discovery_completed),
+    lastActive: s.last_active ? new Date(s.last_active).toLocaleString("en-IN") : "No activity",
     teamId: s.team_id || null,
     sessionId: s.session_id || null,
-    status: s.status
+    status: s.status,
+    tipsc: s.tipsc,
+    dfv_raw: s.dfv_raw
   }));
 }
 

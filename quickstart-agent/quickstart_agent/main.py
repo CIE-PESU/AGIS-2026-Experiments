@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """Quickstart Agent - Lite evaluation: Ethics + TIPSC + DFV in one rapid assessment."""
 
-import asyncio
 import json
 import os
 import re
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
-from datetime import datetime
 
 from dotenv import load_dotenv
 
@@ -17,63 +16,11 @@ load_dotenv(ROOT_DIR / ".env")
 os.environ.setdefault("CREWAI_DISABLE_TELEMETRY", "true")
 os.environ.setdefault("OTEL_SDK_DISABLED", "true")
 
-import litellm
-litellm.drop_params = True
-
-_original_litellm_completion = litellm.completion
-_original_litellm_acompletion = litellm.acompletion
-
-
-def _sanitize_tool_choice(kwargs):
-    tool_choice = kwargs.get("tool_choice")
-    if isinstance(tool_choice, dict):
-        tc_type = tool_choice.get("type")
-        kwargs["tool_choice"] = "required" if tc_type in ("function", "tool") else "auto"
-    return kwargs
-
-
-def _patched_litellm_completion(*args, **kwargs):
-    kwargs = _sanitize_tool_choice(kwargs)
-    max_retries = 3
-    for attempt in range(max_retries):
-        res = _original_litellm_completion(*args, **kwargs)
-        if res and hasattr(res, "choices") and len(res.choices) > 0:
-            msg = res.choices[0].message
-            content = getattr(msg, "content", None)
-            tool_calls = getattr(msg, "tool_calls", None)
-            if content or tool_calls:
-                return res
-            if attempt < max_retries - 1:
-                continue
-        return res
-    return res
-
-
-async def _patched_litellm_acompletion(*args, **kwargs):
-    kwargs = _sanitize_tool_choice(kwargs)
-    max_retries = 3
-    for attempt in range(max_retries):
-        res = await _original_litellm_acompletion(*args, **kwargs)
-        if res and hasattr(res, "choices") and len(res.choices) > 0:
-            msg = res.choices[0].message
-            content = getattr(msg, "content", None)
-            tool_calls = getattr(msg, "tool_calls", None)
-            if content or tool_calls:
-                return res
-            if attempt < max_retries - 1:
-                continue
-        return res
-    return res
-
-
-litellm.completion = _patched_litellm_completion
-litellm.acompletion = _patched_litellm_acompletion
-
 import yaml
-from crewai import Agent, Task, Crew, Process, LLM
-from crewai_tools import TavilySearchTool, SerperDevTool
+from crewai import LLM, Agent, Crew, Process, Task
+from crewai_tools import SerperDevTool, TavilySearchTool
 
-from quickstart_agent.models import QuickstartInput, QuickstartOutput, ParameterRating
+from quickstart_agent.models import QuickstartInput, QuickstartOutput
 
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
 SERPER_API_KEY = os.getenv("SERPER_API_KEY")
@@ -159,64 +106,37 @@ def _extract_json_block(raw: str) -> str:
         start = cleaned.find("{")
         end = cleaned.rfind("}")
         if start != -1 and end != -1 and start < end:
-            cleaned = cleaned[start:end + 1]
+            cleaned = cleaned[start : end + 1]
     return cleaned
+
+
+def _parse_result(input_data: QuickstartInput, result) -> QuickstartOutput:
+    raw = getattr(result, "raw", "") or ""
+    cleaned = _extract_json_block(raw)
+    try:
+        parsed = json.loads(cleaned)
+    except json.JSONDecodeError as exc:
+        raise ValueError("Quickstart agent returned invalid JSON") from exc
+    if not isinstance(parsed, dict):
+        raise ValueError("Quickstart agent output must be an object")
+    return QuickstartOutput.from_raw(
+        input_data,
+        parsed.get("parameters", []),
+        parsed.get("parameter_advice", {}),
+        parsed.get("priority_advice", []),
+    )
 
 
 def run_quickstart_eval(input_data: QuickstartInput) -> QuickstartOutput:
     """Synchronous version for CLI usage."""
-    crew = create_crew()
-    result = crew.kickoff(inputs=input_data.model_dump())
-
-    raw_val = getattr(result, "raw", "") or ""
-    cleaned = _extract_json_block(raw_val)
-
-    if not cleaned or not cleaned.startswith("{"):
-        raise ValueError(
-            f"Agent returned empty or non-JSON output.\nRaw: {repr(raw_val[:500])}"
-        )
-
-    try:
-        parsed = json.loads(cleaned)
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"JSON parse failed: {exc}\nCleaned: {repr(cleaned[:500])}")
-
-    params = parsed.get("parameters", [])
-    advice = parsed.get("parameter_advice", {})
-    priority = parsed.get("priority_advice", [])
-
-    if len(params) != 10:
-        raise ValueError(f"Expected 10 parameters, got {len(params)}")
-
-    return QuickstartOutput.from_raw(input_data, params, advice, priority)
+    result = create_crew().kickoff(inputs=input_data.model_dump())
+    return _parse_result(input_data, result)
 
 
 async def run_quickstart_eval_async(input_data: QuickstartInput) -> QuickstartOutput:
     """Async version for FastAPI usage."""
-    crew = create_crew()
-    result = await crew.kickoff_async(inputs=input_data.model_dump())
-
-    raw_val = getattr(result, "raw", "") or ""
-    cleaned = _extract_json_block(raw_val)
-
-    if not cleaned or not cleaned.startswith("{"):
-        raise ValueError(
-            f"Agent returned empty or non-JSON output.\nRaw: {repr(raw_val[:500])}"
-        )
-
-    try:
-        parsed = json.loads(cleaned)
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"JSON parse failed: {exc}\nCleaned: {repr(cleaned[:500])}")
-
-    params = parsed.get("parameters", [])
-    advice = parsed.get("parameter_advice", {})
-    priority = parsed.get("priority_advice", [])
-
-    if len(params) != 10:
-        raise ValueError(f"Expected 10 parameters, got {len(params)}")
-
-    return QuickstartOutput.from_raw(input_data, params, advice, priority)
+    result = await create_crew().kickoff_async(inputs=input_data.model_dump())
+    return _parse_result(input_data, result)
 
 
 def print_banner():
@@ -289,12 +209,14 @@ PARAM_LABELS = {
 
 def print_pretty_table(output: QuickstartOutput):
     print("\n" + "=" * 70)
-    print(f"  QUICKSTART EVALUATION RESULTS")
+    print("  QUICKSTART EVALUATION RESULTS")
     print("=" * 70)
 
-    print(f"\n  Summary: {RATING_COLORS['GREEN']}GREEN: {output.green_count}{RATING_COLORS['RESET']}  "
-          f"{RATING_COLORS['YELLOW']}YELLOW: {output.yellow_count}{RATING_COLORS['RESET']}  "
-          f"{RATING_COLORS['RED']}RED: {output.red_count}{RATING_COLORS['RESET']}\n")
+    print(
+        f"\n  Summary: {RATING_COLORS['GREEN']}GREEN: {output.green_count}{RATING_COLORS['RESET']}  "
+        f"{RATING_COLORS['YELLOW']}YELLOW: {output.yellow_count}{RATING_COLORS['RESET']}  "
+        f"{RATING_COLORS['RED']}RED: {output.red_count}{RATING_COLORS['RESET']}\n"
+    )
 
     print(f"  {'Parameter':<38} {'Rating':<8} Reason")
     print("  " + "-" * 68)
@@ -339,7 +261,7 @@ def print_json(output: QuickstartOutput):
 def save_json(output: QuickstartOutput):
     out_dir = Path(__file__).parent.parent / "outputs"
     out_dir.mkdir(parents=True, exist_ok=True)
-    ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     path = out_dir / f"quickstart_{ts}.json"
     with open(path, "w", encoding="utf-8") as f:
         json.dump(output.model_dump(), f, indent=2, default=str)
@@ -354,7 +276,7 @@ def read_stdin_input() -> QuickstartInput | None:
         content = sys.stdin.read().strip()
         if not content:
             return None
-        lines = content.split('\n')
+        lines = content.split("\n")
         # Handle case where first line is a choice ("1" or "2") and second is JSON
         if len(lines) >= 2 and lines[0] in ("1", "2"):
             data = json.loads(lines[1])

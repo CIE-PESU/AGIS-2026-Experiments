@@ -1,5 +1,7 @@
-from pydantic import BaseModel, field_validator, model_validator
 from typing import Literal
+
+from pydantic import BaseModel, field_validator, model_validator
+
 
 class RefinedIdea(BaseModel):
     customer_segment: str
@@ -17,7 +19,7 @@ class TIPSValidatedMetrics(BaseModel):
 
 class TIPSRAGScores(BaseModel):
     T: Literal["GREEN", "YELLOW", "RED"]
-    I: Literal["GREEN", "YELLOW", "RED"]
+    I: Literal["GREEN", "YELLOW", "RED"]  # noqa: E741 — public TIPSC dimension name
     P: Literal["GREEN", "YELLOW", "RED"]
     S: Literal["GREEN", "YELLOW", "RED"]
     T_reason: str = ""
@@ -35,20 +37,20 @@ class TIPSRAGScores(BaseModel):
     def handle_case_insensitivity(cls, data: dict):
         if not isinstance(data, dict):
             return data
-        
+
         # Check for lowercase or capitalized variants of reason fields
         for letter in ["T", "I", "P", "S"]:
             upper_key = f"{letter}_reason"
             lower_key = f"{letter.lower()}_reason"
             title_key = f"{letter}_Reason"
-            
+
             # If the correct key is missing, try to find an alternative
             if upper_key not in data or not data[upper_key]:
                 if lower_key in data and data[lower_key]:
                     data[upper_key] = data[lower_key]
                 elif title_key in data and data[title_key]:
                     data[upper_key] = data[title_key]
-                    
+
         return data
 
     @field_validator("T_reason", "I_reason", "P_reason", "S_reason", mode="before")
@@ -82,7 +84,7 @@ class PreEvalOutput(BaseModel):
         "proposed_solution",
         "target_geography",
         "industry_sector",
-        mode="before"
+        mode="before",
     )
     @classmethod
     def fix_strings(cls, v):
@@ -133,7 +135,7 @@ class EthicsOutput(BaseModel):
     ethics_pass: bool
     compliance_flag: bool
     rejection_reason: str  # empty string when ethics_pass is True
- 
+
     @field_validator(
         "harm_vector",
         "legal_risk",
@@ -143,18 +145,18 @@ class EthicsOutput(BaseModel):
     @classmethod
     def uppercase_scores(cls, v):
         return v.strip().upper() if isinstance(v, str) else v
- 
+
     @field_validator("rejection_reason", mode="before")
     @classmethod
     def normalize_rejection(cls, v):
         if v is None:
             return ""
         return str(v)
-    
+
     @model_validator(mode="after")
     def enforce_aggregation_rules(self) -> "EthicsOutput":
         gates = [self.harm_vector, self.legal_risk, self.problem_solution_integrity]
- 
+
         correct_pass = "RED" not in gates
         if self.ethics_pass != correct_pass:
             print(f"  [Auto-correct] ethics_pass: {self.ethics_pass} -> {correct_pass}")
@@ -162,39 +164,37 @@ class EthicsOutput(BaseModel):
 
         correct_compliance_flag = self.legal_risk == "YELLOW"
         if self.compliance_flag != correct_compliance_flag:
-            print(f"  [Auto-correct] compliance_flag: {self.compliance_flag} -> {correct_compliance_flag}")
+            print(
+                f"  [Auto-correct] compliance_flag: {self.compliance_flag} -> {correct_compliance_flag}"
+            )
             self.compliance_flag = correct_compliance_flag
 
         if not self.ethics_pass and not self.rejection_reason:
             failed_gate = (
-                "harm_vector" if self.harm_vector == "RED"
-                else "legal_risk" if self.legal_risk == "RED"
+                "harm_vector"
+                if self.harm_vector == "RED"
+                else "legal_risk"
+                if self.legal_risk == "RED"
                 else "problem_solution_integrity"
             )
             self.rejection_reason = f"Blocked: {failed_gate} gate scored RED."
-            print(f"  [Auto-correct] rejection_reason was empty on a failing result; filled from {failed_gate}.")
- 
+            print(
+                f"  [Auto-correct] rejection_reason was empty on a failing result; filled from {failed_gate}."
+            )
+
         return self
 
 
 class TIPSCOutput(BaseModel):
     refined_idea: RefinedIdea
 
-    solution_alignment: Literal[
-        "GREEN",
-        "YELLOW",
-        "RED"
-    ]
+    solution_alignment: Literal["GREEN", "YELLOW", "RED"]
 
     tips_validated_metrics: TIPSValidatedMetrics
 
     tips_rag_scores: TIPSRAGScores
 
-    overall_readiness: Literal[
-        "STRONG",
-        "MODERATE",
-        "WEAK"
-    ]
+    overall_readiness: Literal["STRONG", "MODERATE", "WEAK"]
 
     ready_for_dfv: bool
 
@@ -207,10 +207,9 @@ class TIPSCOutput(BaseModel):
     @classmethod
     def uppercase_literals(cls, v):
         return v.strip().upper() if isinstance(v, str) else v
-    
 
-    # comment this to check without python level for overall readiness 
-    @model_validator(mode="after")                          # ← ADD THIS
+    # comment this to check without python level for overall readiness
+    @model_validator(mode="after")  # ← ADD THIS
     def enforce_aggregation_rules(self) -> "TIPSCOutput":
         scores = [
             self.tips_rag_scores.T,
@@ -228,7 +227,9 @@ class TIPSCOutput(BaseModel):
             correct_readiness = "MODERATE"
 
         if self.overall_readiness != correct_readiness:
-            print(f"  [Auto-correct] overall_readiness: {self.overall_readiness} -> {correct_readiness}")
+            print(
+                f"  [Auto-correct] overall_readiness: {self.overall_readiness} -> {correct_readiness}"
+            )
             self.overall_readiness = correct_readiness
 
         # Recompute ready_for_dfv using the corrected readiness
@@ -251,13 +252,13 @@ class ApplicableRegulation(BaseModel):
     jurisdiction: str
     compliance_burden: Literal["HIGH", "MEDIUM", "LOW"]
     brief_requirement: str
- 
+
     @field_validator("compliance_burden", mode="before")
     @classmethod
     def uppercase_burden(cls, v):
         return v.strip().upper() if isinstance(v, str) else v
- 
- 
+
+
 class RegulatoryOutput(BaseModel):
     target_geography: str
     industry_sector: str
@@ -265,36 +266,34 @@ class RegulatoryOutput(BaseModel):
     regulatory_summary: str
     requires_specialist_review: bool
     key_compliance_risks: list[str] = []
- 
+
     @field_validator("applicable_regulations", mode="before")
     @classmethod
     def normalize_regulations(cls, v):
         if not isinstance(v, list):
             return []
         return v
- 
+
     @field_validator("key_compliance_risks", mode="before")
     @classmethod
     def normalize_risks(cls, v):
         if not isinstance(v, list):
             return []
         return [str(r) for r in v]
- 
+
     @field_validator("regulatory_summary", mode="before")
     @classmethod
     def normalize_summary(cls, v):
         if isinstance(v, list):
             return " ".join(str(x) for x in v)
         return str(v) if v else "No regulatory summary available."
- 
+
     @field_validator("target_geography", "industry_sector", mode="before")
     @classmethod
     def fix_strings(cls, v):
         if isinstance(v, list):
             return " ".join(map(str, v))
         return str(v) if v else ""
- 
-
 
 
 class FollowUpOutput(BaseModel):
@@ -320,6 +319,3 @@ class FollowUpOutput(BaseModel):
                     # Fallback: join all values
                     normalized.append(" ".join(str(v) for v in item.values()))
         return normalized
-
-
-

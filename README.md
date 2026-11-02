@@ -21,8 +21,9 @@ Open `http://localhost:5167`. API docs: `http://localhost:8008/docs`. Readiness:
 ## Verify
 
 ```bash
-uv run ruff check backend
-uv run ruff format --check backend
+uv run ruff check .
+uv run ruff format --check .
+uv run python scripts/check_repository.py
 uv run mypy backend
 uv run pytest -m 'not integration'
 npm test --prefix frontend
@@ -34,6 +35,7 @@ npm audit --prefix frontend
 
 For real MongoDB/Kafka and browser tests, see the [running guide](docs/workflow_and_running_guide.md). Dependency versions are maintained in root `pyproject.toml` and `uv.lock`; `requirements.txt` is a generated runtime export. Agent manifests describe their standalone packages, but all platform commands use the root environment.
 
+- [Repository audit](docs/repository-audit.md)
 - [Setup and operations](docs/workflow_and_running_guide.md)
 - [Backend](docs/backend-arch.md) and [frontend](docs/frontend-arch.md) architecture
 - [API and contracts](docs/api-spec.md)

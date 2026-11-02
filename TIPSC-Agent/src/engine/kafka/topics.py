@@ -2,7 +2,6 @@ from enum import Enum
 
 
 class KafkaTopics(str, Enum):
-
     PRE_EVAL = "userSession.preeval"
 
     VALIDATION = "userSession.validation"

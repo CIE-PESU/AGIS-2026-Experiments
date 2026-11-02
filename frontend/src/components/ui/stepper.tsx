@@ -52,10 +52,7 @@ export function Stepper({
           >
             <div className="flex items-start gap-3">
               <div className="relative">
-                <span className={cn("flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold transition-all duration-200 flex-shrink-0",
-                  isCompleted ? "bg-primary text-white" :
-                  isCurrent ? "bg-primary text-white ring-2 ring-primary ring-offset-2" :
-                  "bg-muted text-muted-foreground")}>
+                <span className={circleClass}>
                   {isCompleted ? "✓" : index + 1}
                 </span>
                 {index < steps.length - 1 && (

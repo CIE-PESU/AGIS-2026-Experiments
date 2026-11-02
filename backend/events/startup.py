@@ -36,10 +36,10 @@ TIPSC_SRC_PATH = str(TIPSC_SRC_DIR)
 
 # TIPSC uses absolute imports such as:
 #
-#     from models import PreEvalOutput
+#     from tipsc_models import PreEvalOutput
 #     from engine.dispatcher import WorkerDispatcher
 #
-# Therefore TIPSC/src must be resolved before backend modules.
+# Add TIPSC/src without shadowing the backend persistence models.
 if TIPSC_SRC_PATH not in sys.path:
     sys.path.append(TIPSC_SRC_PATH)
 

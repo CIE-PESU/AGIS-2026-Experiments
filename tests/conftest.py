@@ -6,12 +6,18 @@ without needing to set PYTHONPATH manually.
 Run all unit tests from the repo root:
     pytest tests/backend/unit/ -v
 """
-import sys
+
 import os
+import sys
 
 BACKEND_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "backend"))
 if BACKEND_ROOT not in sys.path:
     sys.path.insert(0, BACKEND_ROOT)
+PROJECT_ROOT = os.path.dirname(BACKEND_ROOT)
+for source in ("TIPSC-Agent/src", "quickstart-agent"):
+    path = os.path.join(PROJECT_ROOT, source)
+    if path not in sys.path:
+        sys.path.append(path)
 
 # Tests never authenticate against real services or use developer secrets.
 for key, value in {
@@ -21,9 +27,20 @@ for key, value in {
     "MONGODB_DB_NAME": "agis_tests",
     "KAFKA_BOOTSTRAP_SERVERS": "127.0.0.1:19092",
     "PES_AUTH_URL": "http://invalid.test/auth",
-    "TAVILY_API_KEY": "test-only", "OPENAI_API_KEY": "test-only",
-    "OPENAI_MODEL_NAME": "openai/test-model", "LM_STUDIO_URL": "http://invalid.test/v1",
-    "CREWAI_DISABLE_TELEMETRY": "true", "CREWAI_TRACING_ENABLED": "false", "OTEL_SDK_DISABLED": "true",
-    "DEBUG": "false", "FERNET_KEY": "", "ENVIRONMENT": "test", "JWT_EXPIRY_MINUTES": "15",
+    "TAVILY_API_KEY": "test-only",
+    "SERPER_API_KEY": "test-only",
+    "OPENAI_API_KEY": "test-only",
+    "OPENAI_MODEL_NAME": "openai/test-model",
+    "LM_STUDIO_URL": "http://invalid.test/v1",
+    "CREWAI_DISABLE_TELEMETRY": "true",
+    "CREWAI_TRACING_ENABLED": "false",
+    "OTEL_SDK_DISABLED": "true",
+    "DEBUG": "false",
+    "FERNET_KEY": "",
+    "ENVIRONMENT": "test",
+    "JWT_EXPIRY_MINUTES": "15",
 }.items():
     os.environ[key] = value
+
+# Optional production exports must never run from a test request.
+os.environ.pop("AGIS_EXPORT_PATH", None)

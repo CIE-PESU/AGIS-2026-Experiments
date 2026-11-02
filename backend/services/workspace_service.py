@@ -113,11 +113,11 @@ class WorkspaceService:
 
     async def redeem_magic_link(self, raw_token: str) -> WorkspaceAccessResponse:
         """
-        Public action: Redeem magic link token for access + refresh JWTs.
+        Public action: Redeem a magic link for a short-lived access JWT.
 
         Validates token SHA-256 digest against DB. Checks if active.
         Issues access JWT with role="mentor_workspace" and workspace_id.
-        Issues refresh token with workspace_id explicitly populated.
+        No refresh token is issued; redeem the link again after expiry.
         """
         if not raw_token or not raw_token.strip():
             raise TokenInvalidError("Magic token is missing.")
@@ -131,7 +131,7 @@ class WorkspaceService:
         # Synthetic user ID representing this workspace's primary subject claim
         synthetic_sub = f"ws_{workspace.workspace_id}"
 
-        # Create access JWT carrying role="mentor_workspace" and workspace_id (7-day validity, no refresh token)
+        # The workspace access JWT uses the configured access-token lifetime.
         access_token = create_access_token(
             user_id=synthetic_sub,
             role=UserRole.MENTOR_WORKSPACE,
@@ -163,6 +163,7 @@ class WorkspaceService:
                 name=item.name,
                 type=item.type.value,
                 status=item.status.value,
+                mentor_id=item.mentor_id,
                 created_at=item.created_at.isoformat(),
                 revoked_at=item.revoked_at.isoformat() if item.revoked_at else None,
             )

@@ -1,7 +1,7 @@
-from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any
 import uuid
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from typing import Any
 
 
 @dataclass
@@ -17,12 +17,8 @@ class WorkerMessage:
 
     payload: Any
 
-    correlation_id: str = field(
-        default_factory=lambda: str(uuid.uuid4())
-    )
+    correlation_id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
-    timestamp: str = field(
-        default_factory=lambda: datetime.utcnow().isoformat()
-    )
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
     version: str = "1.0"

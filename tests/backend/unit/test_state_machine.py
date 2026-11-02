@@ -11,16 +11,13 @@ Covers every acceptance criterion from Day 1:
 import itertools
 
 import pytest
-
 from state_machine.exceptions import InvalidStateTransitionError
 from state_machine.states import RUNNING_STATES, SessionStatus
 from state_machine.transitions import ALLOWED_TRANSITIONS
 from state_machine.validator import validate_transition
 
 ALLOWED_PAIRS = [
-    (current, target)
-    for current, targets in ALLOWED_TRANSITIONS.items()
-    for target in targets
+    (current, target) for current, targets in ALLOWED_TRANSITIONS.items() for target in targets
 ]
 
 ALL_PAIRS = list(itertools.product(SessionStatus, SessionStatus))

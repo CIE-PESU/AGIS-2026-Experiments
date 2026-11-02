@@ -1,6 +1,5 @@
 import pytest
 from pydantic import ValidationError
-
 from schemas.comment import CommentCreateRequest
 
 

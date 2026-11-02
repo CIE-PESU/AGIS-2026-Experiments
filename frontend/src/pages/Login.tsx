@@ -1,4 +1,4 @@
-import { FormEvent, useState, useEffect } from "react";
+import { FormEvent, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -22,9 +22,6 @@ export function Login() {
     const destination = redirectTo || getRoleHome(user.role);
     return <Navigate to={destination} replace />;
   }
-
-  const nonStudentRoles = ["admin", "ashwin", "bhavesh", "urav"];
-  const isStudent = !nonStudentRoles.includes(srn.toLowerCase()) && !srn.includes("@");
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();

@@ -11,6 +11,7 @@ Usage:
 """
 
 import asyncio
+
 from aiokafka.admin import AIOKafkaAdminClient, NewTopic
 from aiokafka.errors import TopicAlreadyExistsError
 

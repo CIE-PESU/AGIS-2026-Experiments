@@ -19,3 +19,5 @@ Search-enabled agents use `TAVILY_API_KEY` and/or `SERPER_API_KEY`. Configure bo
 Automated integration tests use controlled agent outputs and never call these providers. A live provider check must use non-sensitive sample input and be run separately from ordinary CI.
 
 For Windows setup and read-only/model capability checks, see [Windows and local LLM operation](windows-local-llm.md). `LLM_MAX_OUTPUT_TOKENS` supplies a shared completion budget; keep prompt plus completion tokens within the configured server context.
+
+Agents use the configured CrewAI provider without replacing global LiteLLM completion functions, CrewAI cache functions, or tool-support detection. Endpoint implementations must support the tool/JSON behavior required by the selected agents; run the capability checks when switching models or servers.

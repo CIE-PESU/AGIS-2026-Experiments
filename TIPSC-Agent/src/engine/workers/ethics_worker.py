@@ -1,9 +1,9 @@
 import asyncio
+
 from engine.workers.base_worker import BaseWorker
 
 
 class EthicsWorker(BaseWorker):
-
     async def execute(
         self,
         preeval,

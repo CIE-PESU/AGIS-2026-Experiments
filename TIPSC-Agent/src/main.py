@@ -2,25 +2,25 @@
 """Pre-Eval -> TIPSC pipeline using crewAI with local LLM (LM Studio)."""
 
 import asyncio
-import os,re
-from tipsc_utils.followup_context import FollowUpContext
+import os
+
 from dotenv import load_dotenv
+from tipsc_utils.followup_context import FollowUpContext
+
 load_dotenv()
 os.environ["OTEL_SDK_DISABLED"] = "true"
 os.environ["CREWAI_DISABLE_TELEMETRY"] = "true"
 
 import json
+import logging
 import sys
 from pathlib import Path
 
 import yaml
 from crewai import LLM
-from tipsc_models import TIPSCOutput, EthicsOutput, ValidationOutput, RegulatoryOutput
-
-from engine.stages import PipelineStages
 from engine.pipeline_executor import PipelineExecutor
-
-import logging
+from engine.stages import PipelineStages
+from tipsc_models import EthicsOutput, RegulatoryOutput, TIPSCOutput, ValidationOutput
 
 if os.getenv("DISABLE_LITELLM_LOGS", "true").lower() == "true":
     logging.getLogger("LiteLLM").setLevel(logging.WARNING)
@@ -88,7 +88,9 @@ def load_llm() -> LLM:
 
 
 def print_validation_summary(val: ValidationOutput) -> None:
-    verdict_icon = lambda v: "✅" if v == "CONFIRMED" else ("❓" if v == "UNCONFIRMED" else "❌")
+    def verdict_icon(v):
+        return "✅" if v == "CONFIRMED" else ("❓" if v == "UNCONFIRMED" else "❌")
+
     summary_icon = {"STRONG": "✅", "MIXED": "⚠️ ", "WEAK": "❌"}
 
     print(f"  Geography: {val.target_geography}  |  Sector: {val.industry_sector}")
@@ -105,7 +107,9 @@ def print_validation_summary(val: ValidationOutput) -> None:
 def print_regulatory_summary(reg: "RegulatoryOutput") -> None:
     burden_icon = {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🟢"}
     print(f"  Geography: {reg.target_geography}  |  Sector: {reg.industry_sector}")
-    print(f"  Specialist review required: {'⚠️  Yes' if reg.requires_specialist_review else '✅ No'}")
+    print(
+        f"  Specialist review required: {'⚠️  Yes' if reg.requires_specialist_review else '✅ No'}"
+    )
     if reg.applicable_regulations:
         print()
         for r in reg.applicable_regulations:
@@ -115,20 +119,23 @@ def print_regulatory_summary(reg: "RegulatoryOutput") -> None:
     else:
         print("  No specific regulations identified.")
     if reg.key_compliance_risks:
-        print(f"\n  Key risks:")
+        print("\n  Key risks:")
         for risk in reg.key_compliance_risks:
             print(f"    • {risk}")
     print(f"\n  Summary: {reg.regulatory_summary}")
 
 
 def print_ethics_result(ethics: EthicsOutput) -> None:
-    gate_icon = lambda score: "✅" if score == "GREEN" else ("⚠️ " if score == "YELLOW" else "❌")
+    def gate_icon(score):
+        return "✅" if score == "GREEN" else ("⚠️ " if score == "YELLOW" else "❌")
 
     print(f"\n  Harm Vector:              {gate_icon(ethics.harm_vector)} {ethics.harm_vector}")
     print(f"    {ethics.harm_reason}")
     print(f"  Legal Risk:               {gate_icon(ethics.legal_risk)} {ethics.legal_risk}")
     print(f"    {ethics.legal_reason}")
-    print(f"  Problem-Solution Integrity: {gate_icon(ethics.problem_solution_integrity)} {ethics.problem_solution_integrity}")
+    print(
+        f"  Problem-Solution Integrity: {gate_icon(ethics.problem_solution_integrity)} {ethics.problem_solution_integrity}"
+    )
     print(f"    {ethics.integrity_reason}")
 
     if ethics.compliance_flag:
@@ -138,7 +145,9 @@ def print_ethics_result(ethics: EthicsOutput) -> None:
 
 def print_tipsc_summary(tips_out: TIPSCOutput) -> None:
     s = tips_out.tips_rag_scores
-    score_icon = lambda v: "🟢" if v == "GREEN" else ("🟡" if v == "YELLOW" else "🔴")
+
+    def score_icon(v):
+        return "🟢" if v == "GREEN" else ("🟡" if v == "YELLOW" else "🔴")
 
     print(f"  {score_icon(s.T)} T (Timely):     {s.T}")
     if s.T_reason:
@@ -154,6 +163,7 @@ def print_tipsc_summary(tips_out: TIPSCOutput) -> None:
         print(f"      {s.S_reason}")
     print(f"\n  Readiness: {tips_out.overall_readiness}  |  DFV: {tips_out.ready_for_dfv}")
 
+
 # ── Entry point ────────────────────────────────
 
 
@@ -164,7 +174,7 @@ async def main():
     tipsc_rubric = load_text("skills/tipsc/SKILL.md")
     ethics_rubric = load_text("skills/ethics/SKILL.md")
 
-    llm=load_llm()
+    llm = load_llm()
 
     stages = PipelineStages(
         llm=llm,
@@ -175,11 +185,9 @@ async def main():
         ethics_rubric=ethics_rubric,
     )
 
-
     # Quick connectivity check
     try:
-        llm.call([{"role": "user",
-                    "content": "Respond with one word: ok."}])
+        llm.call([{"role": "user", "content": "Respond with one word: ok."}])
     except Exception as e:
         url = os.getenv("LM_STUDIO_URL")
         print(f"ERROR: Cannot reach LM Studio at {url}. Is the server running?")
@@ -201,8 +209,7 @@ async def main():
     }
 
     executor = PipelineExecutor(stages)
-    results= await executor.run(preeval_input)
-
+    results = await executor.run(preeval_input)
 
     preeval_out = results["preeval"]
     save_json(preeval_out.model_dump(), "preeval_output.json")
@@ -221,7 +228,6 @@ async def main():
     regulatory_out = results["regulatory"]
     save_json(regulatory_out.model_dump(), "regulatory_output.json")
     print_regulatory_summary(regulatory_out)
-    regulatory_context = regulatory_out.model_dump_json(indent=2)
 
     print("\n" + "=" * 60)
     print("PHASE 4: Ethics Pre-Screen")
@@ -233,7 +239,9 @@ async def main():
 
     if regulatory_out.requires_specialist_review and not ethics_out.compliance_flag:
         ethics_out.compliance_flag = True
-        print("  [Auto-correct] compliance_flag: False -> True (requires_specialist_review override)")
+        print(
+            "  [Auto-correct] compliance_flag: False -> True (requires_specialist_review override)"
+        )
 
     if not ethics_out.ethics_pass:
         print("\n" + "=" * 60)
@@ -272,7 +280,6 @@ async def main():
                 print(f"  {dim}: {state}")
 
     for turn in range(MAX_FOLLOWUP_TURNS):
-
         # Skip the loop entirely if TIPSC itself says no follow-up needed
         if not tips_out.needs_followup and turn == 0:
             print("\n  No further follow-up needed.")
@@ -326,7 +333,6 @@ async def main():
         print_tipsc_summary(tips_out)
 
     save_json(tips_out.model_dump(), "tipsc_output_final.json")
-
 
     print("\n" + "=" * 60)
     print("RESULTS")

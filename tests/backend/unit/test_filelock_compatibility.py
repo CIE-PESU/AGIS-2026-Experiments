@@ -1,4 +1,5 @@
 """Validate the third-party locking calls affected by our security override."""
+
 from contextlib import ExitStack
 
 import pytest

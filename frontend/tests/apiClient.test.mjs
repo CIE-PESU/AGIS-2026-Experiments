@@ -56,3 +56,39 @@ test('public login works without a token', async () => {
   await client.apiRequest('/auth/login',{auth:false,method:'POST'});
   assert.deepEqual(calls,['/api/v1/auth/login']);
 });
+
+test('a refresh response cannot restore credentials after logout', async () => {
+  client.setTokens('expired', 'old-refresh');
+  let complete;
+  globalThis.fetch = () => new Promise(resolve => { complete = resolve; });
+  const refreshing = client.refreshAccessToken();
+  client.clearTokens();
+  complete(ok({ access_token: 'stale-access', refresh_token: 'stale-refresh' }));
+  assert.equal(await refreshing, false);
+  assert.equal(client.getAccessToken(), null);
+  assert.equal(client.getRefreshToken(), null);
+});
+
+test('a rejected old refresh cannot clear a different login', async () => {
+  client.setTokens('expired', 'old-refresh');
+  let complete;
+  globalThis.fetch = () => new Promise(resolve => { complete = resolve; });
+  const refreshing = client.refreshAccessToken();
+  client.setTokens('other-access', 'other-refresh');
+  complete(new Response('{}', { status: 401 }));
+  assert.equal(await refreshing, true);
+  assert.equal(client.getAccessToken(), 'other-access');
+  assert.equal(client.getRefreshToken(), 'other-refresh');
+});
+
+test('concurrent requests share a refresh for the same identity', async () => {
+  client.setTokens('expired', 'refresh');
+  let complete, count = 0;
+  globalThis.fetch = () => { count++; return new Promise(resolve => { complete = resolve; }); };
+  const first = client.refreshAccessToken();
+  const second = client.refreshAccessToken();
+  complete(ok({ access_token: 'new-access', refresh_token: 'new-refresh' }));
+  assert.equal(await first, true);
+  assert.equal(await second, true);
+  assert.equal(count, 1);
+});

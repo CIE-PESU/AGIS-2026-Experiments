@@ -1,7 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { clearTokens, getAccessToken, getRefreshToken } from "@/services/apiClient";
 import { login as apiLogin, logout as apiLogout, getActiveSession, getCurrentUser } from "@/services/authSessions";
-import { deriveStageAccess } from "@/hooks/useSessionPolling";
+import { deriveStageAccess } from "@/utils/sessionStatus";
 import type { DFVResult, JTBDResult, StageStatus, TIPSCResult } from "@/data/session";
 import type { Role, SessionDocument, SessionStatus } from "@/types/api";
 import { mapTipscOutput, mapDfvOutput, mapDiscoveryOutput } from "@/utils/mapSessionResults";
@@ -43,50 +43,39 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 const timestamp = () =>
   new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(new Date());
 
-function inferMockRole(srn: string): Role {
-  const value = srn.trim().toLowerCase();
-  if (value.includes("admin")) return "admin";
-  if (value.includes("mentor") || value.includes("@")) return "mentor";
-  return "student";
-}
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AppUser | null>(() => {
-    if (!getAccessToken() && !getRefreshToken()) return null;
-    const saved = localStorage.getItem("appUser");
-    try { return saved ? JSON.parse(saved) : null; }
-    catch { return null; }
-  });
+  const authGeneration = useRef(0);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [sessionId, setSessionIdState] = useState<string | null>(() =>
     getAccessToken() || getRefreshToken() ? localStorage.getItem("appSessionId") : null
   );
 
-  useEffect(() => {
-    if (user) localStorage.setItem("appUser", JSON.stringify(user));
-    else localStorage.removeItem("appUser");
-  }, [user]);
+  useEffect(() => { localStorage.removeItem("appUser"); }, []);
 
   useEffect(() => {
     if (sessionId) localStorage.setItem("appSessionId", sessionId);
     else localStorage.removeItem("appSessionId");
   }, [sessionId]);
 
-  const [hydrating, setHydrating] = useState(Boolean(user));
+  const [hydrating, setHydrating] = useState(Boolean(getAccessToken() || getRefreshToken()));
   useEffect(() => {
     let cancelled = false;
+    const generation = authGeneration.current;
+    const isCurrent = () => !cancelled && generation === authGeneration.current;
     async function restore() {
       try {
-        if (!user) return;
+        if (!getAccessToken() && !getRefreshToken()) return;
         const profile = await getCurrentUser();
-        if (cancelled) return;
+        if (!isCurrent()) return;
         setUser({userId: profile.user_id, srn: profile.srn, name: profile.name,
           role: profile.role, teamId: profile.team_id ?? null});
         if (profile.role === "student" || profile.role === "mentor_workspace") {
           try {
             const active = await getActiveSession(profile.user_id);
-            if (!cancelled && active) setSessionFromServer(active);
+            if (isCurrent() && active) setSessionFromServer(active);
           } catch (error: any) {
             if (error.status !== 404) throw error;
+            if (isCurrent()) resetWorkspace();
           }
         }
       } finally {
@@ -110,6 +99,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const resetWorkspace = useCallback(() => {
+    authGeneration.current += 1;
     setSessionIdState(null);
     setServerStatus(null);
     setPendingQuestion(null);
@@ -137,33 +127,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [resetWorkspace]);
 
   const login = useCallback(async (srn: string, password: string): Promise<Role> => {
-    try {
-      const data = await apiLogin(srn, password, undefined);
-      const resolvedTeamId = data.user.team_id ?? null;
-      setUser({
-        userId: data.user.user_id,
-        srn: data.user.srn,
-        name: data.user.name,
-        role: data.role,
-        teamId: resolvedTeamId
-      });
-      resetWorkspace();
+    const data = await apiLogin(srn, password, undefined);
+    const resolvedTeamId = data.user.team_id ?? null;
+    setUser({
+      userId: data.user.user_id,
+      srn: data.user.srn,
+      name: data.user.name,
+      role: data.role,
+      teamId: resolvedTeamId
+    });
+    resetWorkspace();
+    const generation = authGeneration.current;
 
-      if (data.role === "student") {
-        try {
-          const activeSession = await getActiveSession(data.user.user_id);
-          if (activeSession) {
-            setSessionFromServer(activeSession);
-          }
-        } catch {
-          // Ignore, no active session or network error
+    if (data.role === "student") {
+      try {
+        const activeSession = await getActiveSession(data.user.user_id);
+        if (activeSession && generation === authGeneration.current) {
+          setSessionFromServer(activeSession);
         }
-        setTimeline([{ label: "Session Started", timestamp: timestamp() }]);
+      } catch {
+        // Ignore, no active session or network error
       }
-      return data.role;
-    } catch (error) {
-      throw error;
+      setTimeline([{ label: "Session Started", timestamp: timestamp() }]);
     }
+    return data.role;
   }, [resetWorkspace]);
 
   const loginWithWorkspace = useCallback(async (workspaceId: string, name: string, role: Role) => {
@@ -176,12 +163,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       teamId: null,
     });
     resetWorkspace();
+    const generation = authGeneration.current;
     setTimeline([{ label: "Workspace Session Joined", timestamp: timestamp() }]);
 
     // Load existing active session for this workspace user
     try {
       const activeSession = await getActiveSession(userId);
-      if (activeSession) {
+      if (activeSession && generation === authGeneration.current) {
         setSessionFromServer(activeSession);
       }
     } catch {
@@ -205,7 +193,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [resetWorkspace]);
 
   const setSessionFromServer = useCallback((doc: SessionDocument) => {
-    console.log("Incoming session update:", doc.status);
     setSessionIdState(doc.session_id ?? (doc as any)._id ?? null);
     setServerStatus(doc.status);
     setPendingQuestion(doc.pending_question ?? null);
@@ -237,18 +224,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const setFormData = useCallback((data: FormDataMap) => updateFormData(data), []);
   const setSessionId = useCallback((id: string | null) => setSessionIdState(id), []);
 
-const archiveSession = useCallback(() => {
-  localStorage.removeItem("appSessionId");
-
-  setSessionIdState(null);
-  setServerStatus(null);
-  setPendingQuestion(null);
-  setSession(defaultSession);
-  setResults(defaultResults);
-  updateFormData({});
-  setTimeline([]);
-  setSessionDoc(null);
-}, []);
+  const archiveSession = resetWorkspace;
 
   const value = useMemo(
     () => ({

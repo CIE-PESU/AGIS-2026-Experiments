@@ -1,10 +1,8 @@
 from dataclasses import dataclass
-from typing import List
 
 
 @dataclass
 class EvidenceChange:
-
     criterion: str
     previous_state: str
     current_state: str
@@ -12,10 +10,9 @@ class EvidenceChange:
 
 
 class ReEvaluationTracker:
-
     def __init__(self):
 
-        self.changes: List[EvidenceChange] = []
+        self.changes: list[EvidenceChange] = []
 
     def add_change(
         self,
@@ -37,7 +34,6 @@ class ReEvaluationTracker:
     def build_summary(self):
 
         if not self.changes:
-
             return "No evidence changes detected."
 
         output = []
@@ -46,7 +42,6 @@ class ReEvaluationTracker:
         output.append("=" * 50)
 
         for change in self.changes:
-
             output.append(
                 f"""
 Criterion:

@@ -20,6 +20,7 @@ Protected endpoints use `Authorization: Bearer <access_token>`. Workspace tokens
 | Founder answer | `POST /sessions/{session_id}/followup` | Claims one pending turn atomically; schedules reevaluation |
 | DFV | `POST /sessions/{session_id}/trigger/dfv` | Requires TIPSC readiness, publishes validated job |
 | Discovery | `POST /sessions/{session_id}/trigger/discovery` | Rejects DFV NO-GO; publishes validated job |
+| PMF | `POST /sessions/{session_id}/trigger/pmf` | Requires completed Discovery; publishes a job with upstream reports |
 | Stream | `GET /sessions/{session_id}/stream` | Authenticated SSE, no URL tokens; expires/rechecks authorization |
 | Comments | `GET/POST /sessions/{session_id}/comments` | Raw list/object responses; only assigned mentors/admins can post |
 | Delete comment | `DELETE /comments/{comment_id}` | Author/admin permission; 204 response |
@@ -39,3 +40,5 @@ Successful session/auth/flow operations use `{data, meta}`; paginated operations
 `POST /internal/sessions/{session_id}/output` accepts `correlation_id`, `flow`, `output`, `duration_seconds`, and `worker_id`. `POST .../failure` accepts `correlation_id`, `flow`, `error_code`, `error_message`, and `retry_count`. Both require the worker header. Duplicate accepted results/failures are safe to replay. A stale run is rejected; a version conflict is retryable. The worker persists callbacks before delivery and retains offsets during transient outages.
 
 See [flow shapes](flow-shapes.md), [RBAC](rbac.md), and the generated schemas for field constraints.
+
+Team member lists contain normalized student SRNs; team and mentor identifiers are MongoDB ObjectId strings. Duplicate members, unknown students, and assigning a student to two teams are rejected before mutation. Deleting a mentor revokes associated workspaces and refresh tokens and unassigns supervised teams. Mentor assignments are resolved on each protected request.

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+
 from engine.dispatcher import WorkerDispatcher
 from engine.state_machine import PipelineContext, PipelineState
 
@@ -7,16 +8,13 @@ logger = logging.getLogger(__name__)
 
 
 class PipelineExecutor:
-
     def __init__(self, stages):
         self.stages = stages
         self.dispatcher = WorkerDispatcher(stages)
 
     async def run(self, preeval_input):
 
-        context = PipelineContext(
-            state=PipelineState.PRE_EVAL
-        )
+        context = PipelineContext(state=PipelineState.PRE_EVAL)
 
         logger.info("Starting Pre-Evaluation")
 

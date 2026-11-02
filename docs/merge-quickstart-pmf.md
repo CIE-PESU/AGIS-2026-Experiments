@@ -1,4 +1,6 @@
-# Quickstart and PMF merge verification
+# Historical Quickstart and PMF merge verification
+
+This records earlier merge checks and test counts. For the current repository verification commands and behavior, see [setup and operations](workflow_and_running_guide.md) and the [repository audit](repository-audit.md).
 
 Verified on 2 November 2026 on `develop-merge_q_p`.
 

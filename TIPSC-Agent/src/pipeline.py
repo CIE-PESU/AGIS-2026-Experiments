@@ -1,10 +1,17 @@
-import os,re
 import json
-from crewai import Agent, Crew, LLM, Process, Task
+import os
+import re
+
+from crewai import LLM, Agent, Crew, Process, Task
 from crewai_tools import TavilySearchTool
-from tipsc_models import PreEvalOutput, TIPSCOutput, FollowUpOutput, EthicsOutput, ValidationOutput, RegulatoryOutput
-
-
+from tipsc_models import (
+    EthicsOutput,
+    FollowUpOutput,
+    PreEvalOutput,
+    RegulatoryOutput,
+    TIPSCOutput,
+    ValidationOutput,
+)
 
 try:
     search_tool = TavilySearchTool()
@@ -18,6 +25,7 @@ def repair_json_keys(text: str) -> str:
     emitted by LLMs (e.g. Gemini 3.5 Flash Lite) before colons.
     Example: `{ _ timely_factor: "..." }` -> `{ "timely_factor": "..." }`
     """
+
     def _quote_key(m: re.Match) -> str:
         key = m.group(1)
         return f'"{key}":'
@@ -27,19 +35,13 @@ def repair_json_keys(text: str) -> str:
     # Malformed:  "I": "I_reason": "reason text", "I": "GREEN"
     # We rewrite the first occurrence to use the correct _reason key,
     # so both keys coexist: "I_reason": "reason text", "I": "GREEN"
-    text = re.sub(
-        r'"([A-Z])":\s*"\1_reason":\s*"([^"]*)"',
-        r'"\1_reason": "\2"',
-        text
-    )
+    text = re.sub(r'"([A-Z])":\s*"\1_reason":\s*"([^"]*)"', r'"\1_reason": "\2"', text)
     # Also handle single-quoted values
-    text = re.sub(
-        r'"([A-Z])":\s*"\1_reason":\s*\'([^\']*)\'',
-        r'"\1_reason": \'\2\'',
-        text
-    )
+    text = re.sub(r'"([A-Z])":\s*"\1_reason":\s*\'([^\']*)\'', r'"\1_reason": \'\2\'', text)
 
-    return re.sub(r'(?<=[{\s,])(?:[_\-\*]\s*)?([a-zA-Z_][a-zA-Z0-9_]*)\s*:(?!\s*//)', _quote_key, text)
+    return re.sub(
+        r"(?<=[{\s,])(?:[_\-\*]\s*)?([a-zA-Z_][a-zA-Z0-9_]*)\s*:(?!\s*//)", _quote_key, text
+    )
 
 
 def clean_json(text: str) -> str:
@@ -96,14 +98,13 @@ def clean_json(text: str) -> str:
         elif start is not None:
             out.append(ch)
 
-    raise ValueError(
-        f"clean_json: no complete JSON object found.\nFirst 200 chars: {text[:200]!r}"
-    )
+    raise ValueError(f"clean_json: no complete JSON object found.\nFirst 200 chars: {text[:200]!r}")
+
 
 JSON_SYSTEM_PREFIX = (
     "You are a strict RFC8259 JSON-only output machine. "
     "You MUST respond with a single valid JSON object and nothing else. "
-    "Every key MUST be double-quoted (e.g. \"key\": \"value\"). Never emit unquoted keys or bullet points inside JSON. "
+    'Every key MUST be double-quoted (e.g. "key": "value"). Never emit unquoted keys or bullet points inside JSON. '
     "No markdown. No code fences. No explanation. No preamble. No trailing text. "
     "Your entire response is parsed directly by json.loads(). "
     "Start your response with { and end it with }."
@@ -117,7 +118,11 @@ def call_llm_for_json(llm: LLM, messages: list) -> str:
     return llm.call(enforced).strip()
 
 
-def run_preeval(llm: LLM, skill_text: str, preeval_input: dict,) -> PreEvalOutput:
+def run_preeval(
+    llm: LLM,
+    skill_text: str,
+    preeval_input: dict,
+) -> PreEvalOutput:
 
     if "idea" in preeval_input:
         founder_context = f"""
@@ -175,11 +180,11 @@ def run_preeval(llm: LLM, skill_text: str, preeval_input: dict,) -> PreEvalOutpu
 
                 Do not invent, infer, or assume any information that is not explicitly provided.
                 Output ONLY valid JSON.
-            """
-        }
+            """,
+        },
     ]
 
-    raw = clean_json(call_llm_for_json(llm,messages))
+    raw = clean_json(call_llm_for_json(llm, messages))
 
     try:
         return PreEvalOutput.model_validate_json(raw)
@@ -222,8 +227,12 @@ def normalize_validation_dict(data: dict, preeval: PreEvalOutput) -> dict:
     # Case: model wrapped the whole payload under one top-level key
     # e.g. {"competitor_landscape": {"geography": ..., "checked_assumptions": [...]}}
     known_keys = {
-        "target_geography", "industry_sector", "checked_assumptions",
-        "competitor_landscape", "market_notes", "validation_summary",
+        "target_geography",
+        "industry_sector",
+        "checked_assumptions",
+        "competitor_landscape",
+        "market_notes",
+        "validation_summary",
     }
     if not (known_keys & data.keys()) and len(data) == 1:
         inner = next(iter(data.values()))
@@ -242,7 +251,6 @@ def normalize_validation_dict(data: dict, preeval: PreEvalOutput) -> dict:
     mn = data.get("market_notes")
     if isinstance(mn, (dict, list)):
         data["market_notes"] = json.dumps(mn, default=str)
-
 
     # Normalize verdict strings in checked_assumptions.
     # Small models like Mistral 7B decorate verdicts with extra text, e.g.
@@ -263,7 +271,9 @@ def normalize_validation_dict(data: dict, preeval: PreEvalOutput) -> dict:
                     break
             else:
                 # No prefix matched — fall back to UNCONFIRMED so Pydantic doesn't crash
-                print(f"  [Auto-correct] unrecognised verdict {item.get('verdict')!r} -> 'UNCONFIRMED'")
+                print(
+                    f"  [Auto-correct] unrecognised verdict {item.get('verdict')!r} -> 'UNCONFIRMED'"
+                )
                 item["verdict"] = "UNCONFIRMED"
 
     # Normalize validation_summary the same way (e.g. "MIXED - see notes")
@@ -272,7 +282,9 @@ def normalize_validation_dict(data: dict, preeval: PreEvalOutput) -> dict:
     for canonical in _SUMMARY_PREFIXES:
         if vs.startswith(canonical):
             if vs != canonical:
-                print(f"  [Auto-correct] validation_summary: {data['validation_summary']!r} -> {canonical!r}")
+                print(
+                    f"  [Auto-correct] validation_summary: {data['validation_summary']!r} -> {canonical!r}"
+                )
             data["validation_summary"] = canonical
             break
 
@@ -298,9 +310,9 @@ def run_validation(
         goal=agents_cfg["validation_agent"]["goal"],
         backstory=agents_cfg["validation_agent"]["backstory"],
         llm=llm,
-        tools=[search_tool],
+        tools=[search_tool] if search_tool is not None else [],
         max_iter=8,
-        max_execution_time=int(os.environ.get("VALIDATION_TIMEOUT_SECS", 600)),
+        max_execution_time=int(os.environ.get("VALIDATION_TIMEOUT_SECS", "600")),
     )
 
     research_task = Task(
@@ -327,14 +339,15 @@ def run_validation(
         result = crew.kickoff()
         research_notes = result.raw
     except TimeoutError:
-        print("  Validation research timed out before completing all searches. "
-              "Falling back to assumptions-only validation (no search evidence).")
+        print(
+            "  Validation research timed out before completing all searches. "
+            "Falling back to assumptions-only validation (no search evidence)."
+        )
         research_notes = (
             "Research did not complete in time. No search evidence was gathered. "
             "Treat every assumption below as UNCONFIRMED with evidence "
             "'No evidence found — research timed out.'\n\n"
-            f"Assumptions to cover:\n"
-            + "\n".join(f"- {a}" for a in preeval.assumptions)
+            "Assumptions to cover:\n" + "\n".join(f"- {a}" for a in preeval.assumptions)
         )
 
     # Step 2: format-only pass (no tools, no ReAct loop). A separate,
@@ -375,8 +388,10 @@ def run_validation(
     try:
         return _attempt_format(format_prompt)
     except Exception as e:
-        print(f"  Validation formatting failed ({e}). Retrying once with a "
-              "stricter, schema-only prompt...")
+        print(
+            f"  Validation formatting failed ({e}). Retrying once with a "
+            "stricter, schema-only prompt..."
+        )
         stricter_prompt = (
             "Your previous output did not match the required flat JSON "
             "schema. Output ONLY the JSON object below, filled in, with "
@@ -402,12 +417,17 @@ def run_validation(
 
 # ── Phase 3: Regulatory mapping ───────────────────────────────────────────────
 
+
 def normalize_regulatory_dict(data: dict, preeval: PreEvalOutput) -> dict:
     if not isinstance(data, dict):
         return data
     known_keys = {
-        "target_geography", "industry_sector", "applicable_regulations",
-        "regulatory_summary", "requires_specialist_review", "key_compliance_risks",
+        "target_geography",
+        "industry_sector",
+        "applicable_regulations",
+        "regulatory_summary",
+        "requires_specialist_review",
+        "key_compliance_risks",
     }
     if not (known_keys & data.keys()) and len(data) == 1:
         inner = next(iter(data.values()))
@@ -447,9 +467,9 @@ def run_regulatory(
         goal=agents_cfg["regulatory_agent"]["goal"],
         backstory=agents_cfg["regulatory_agent"]["backstory"],
         llm=llm,
-        tools=[search_tool],
+        tools=[search_tool] if search_tool is not None else [],
         max_iter=6,
-        max_execution_time=int(os.environ.get("REGULATORY_TIMEOUT_SECS", 300)),
+        max_execution_time=int(os.environ.get("REGULATORY_TIMEOUT_SECS", "300")),
     )
 
     task = Task(
@@ -543,7 +563,7 @@ def run_regulatory(
             )
 
 
- # ── Phase 4: Ethics pre-screen ────────────────────────────────────────────────
+# ── Phase 4: Ethics pre-screen ────────────────────────────────────────────────
 
 
 def run_ethics(
@@ -613,12 +633,14 @@ def run_tipsc(
             tipsc_rubric=rubric,
             preeval_json=preeval.model_dump_json(indent=2),
             validation_context=validation_context if validation_context else "Not yet available.",
-            compliance_context=compliance_context if compliance_context else "No compliance concerns flagged.",
+            compliance_context=compliance_context
+            if compliance_context
+            else "No compliance concerns flagged.",
             followup_context=followup_context if followup_context else "None provided.",
         ),
         expected_output=task_cfg["tipsc_task"]["expected_output"],
         agent=agent,
-        )
+    )
 
     crew = Crew(
         agents=[agent],
@@ -656,7 +678,9 @@ def run_followup(
     task = Task(
         description=task_cfg["followup_task"]["description"].format(
             tipsc_json=tipsc_output.model_dump_json(indent=2),
-            compliance_context=compliance_context if compliance_context else "No compliance concerns flagged.",
+            compliance_context=compliance_context
+            if compliance_context
+            else "No compliance concerns flagged.",
             followup_context=followup_context if followup_context else "None yet.",
         ),
         expected_output=task_cfg["followup_task"]["expected_output"],
@@ -718,6 +742,7 @@ def build_compliance_context(ethics: EthicsOutput, regulatory: "RegulatoryOutput
 
 
 import pydantic
+
 
 def parse_pydantic_result(result, model):
     if hasattr(result, "pydantic") and result.pydantic and isinstance(result.pydantic, model):

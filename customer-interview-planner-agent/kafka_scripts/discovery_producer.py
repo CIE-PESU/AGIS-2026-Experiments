@@ -7,10 +7,10 @@ team can publish test jobs without depending on the backend service being
 up, and without depending on real TIPSC/DFV output being available yet.
 """
 
-import uuid
 import asyncio
-from aiokafka import AIOKafkaProducer
+import uuid
 
+from aiokafka import AIOKafkaProducer
 from models.schema import DiscoveryJobMessage, DiscoveryJobPayload
 
 KAFKA_BOOTSTRAP_SERVERS = "127.0.0.1:9092"
@@ -37,7 +37,9 @@ async def publish_discovery_job(
         key=userSession_id.encode("utf-8"),  # same session always lands on same partition
     )
 
-    print(f"[Producer] Queued discovery job | session={userSession_id} | correlation={correlation_id}")
+    print(
+        f"[Producer] Queued discovery job | session={userSession_id} | correlation={correlation_id}"
+    )
     return correlation_id
 
 

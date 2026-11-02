@@ -10,7 +10,7 @@ Roles are issued by the backend. LocalStorage UI state cannot grant access. All 
 | admin | View/manage sessions through authorized admin/session operations | Read/post; delete any comment | Mentor/team/workspace lifecycle, metrics and audit |
 | worker | No browser role; internal callbacks use worker-secret authentication | None | Output/failure callbacks only |
 
-Flow idempotency never bypasses ownership. A session with no student owner is not available to an arbitrary student. Login-supplied team IDs cannot assign membership. Mentor team claims are refreshed from server-side assignments at login/refresh. Regular JWT claims remain valid until expiry; use short lifetimes and revoke/rotate credentials where needed. Workspace revocation is checked immediately on protected requests and repeatedly during SSE.
+Flow idempotency never bypasses ownership. A session with no student owner is not available to an arbitrary student. Login-supplied team IDs cannot assign membership. Mentor account existence and team assignments are checked on every protected request, so reassignment and mentor deletion take effect immediately. Other signed JWT claims remain valid until expiry; use short lifetimes and revoke/rotate credentials where needed. Workspace revocation is checked immediately on protected requests and repeatedly during SSE.
 
 SSE requires the Authorization header in every environment. There is no unauthenticated development stream. Quickstart accepts student, mentor-workspace, and admin roles; a traditional mentor dashboard identity is not a Quickstart workspace identity.
 

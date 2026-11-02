@@ -1,0 +1,13 @@
+extend = "backend/ruff.toml"
+
+[lint.per-file-ignores]
+# These entry points initialize environment variables or import paths first.
+"DFV-agent/main.py" = ["E402"]
+"DFV-agent/*.ipynb" = ["E402"]
+"TIPSC-Agent/src/main.py" = ["E402"]
+"TIPSC-Agent/src/pipeline.py" = ["E402"]
+"customer-interview-planner-agent/customer_interview_planner.py" = ["E402"]
+"customer-interview-planner-agent/models/schema.py" = ["E402"]
+"quickstart-agent/quickstart_agent/main.py" = ["E402"]
+"dev.py" = ["E402"]
+"tests/tipsc/manual_async_pipeline.py" = ["E402"]

@@ -1,4 +1,5 @@
 """Real MongoDB/Kafka, real API/pipeline, deterministic agent outputs; no paid calls."""
+
 import asyncio
 import os
 import uuid
@@ -11,60 +12,96 @@ import pytest
 from aiokafka import AIOKafkaConsumer
 from pydantic import BaseModel, ConfigDict
 
-pytestmark = [pytest.mark.integration, pytest.mark.skipif(
-    os.getenv("AGIS_INTEGRATION") != "1", reason="Set AGIS_INTEGRATION=1 and start the isolated test stack")]
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.skipif(
+        os.getenv("AGIS_INTEGRATION") != "1",
+        reason="Set AGIS_INTEGRATION=1 and start the isolated test stack",
+    ),
+]
 
 
 class Output(BaseModel):
     model_config = ConfigDict(extra="allow")
 
 
-INTAKE = dict(problem_statement="Students lack affordable access to expert mentorship in their region.",
+INTAKE = dict(
+    problem_statement="Students lack affordable access to expert mentorship in their region.",
     customer_segment="University students in smaller cities seeking business mentorship.",
     consequence="Students cannot validate ideas and spend money on weak businesses.",
-    assumptions=["Students will use a remote mentor"], proposed_solution="An affordable remote mentorship platform connecting students and experts.",
-    target_geography="India", industry_sector="Education")
-DFV = {k: "Relevant evidence and market context. " * 5 for k in
-       ["desirability_context", "feasibility_context", "viability_context"]}
-DISCOVERY = dict(target_customer_segment=[dict(segment="students", role="learner", customer_type="B2C")],
-    problem_statement=INTAKE["problem_statement"], problem_consequence=["Lost time"],
-    current_alternatives=["Friends"], key_assumptions=["Will pay"], what_we_already_know=["Need help"],
-    biggest_uncertainty=["Willingness to pay"], customer_type=["B2C"],
-    proposed_solution_context=dict(purpose="Mentorship", summary=INTAKE["proposed_solution"]))
+    assumptions=["Students will use a remote mentor"],
+    proposed_solution="An affordable remote mentorship platform connecting students and experts.",
+    target_geography="India",
+    industry_sector="Education",
+)
+DFV = {
+    k: "Relevant evidence and market context. " * 5
+    for k in ["desirability_context", "feasibility_context", "viability_context"]
+}
+DISCOVERY = dict(
+    target_customer_segment=[dict(segment="students", role="learner", customer_type="B2C")],
+    problem_statement=INTAKE["problem_statement"],
+    problem_consequence=["Lost time"],
+    current_alternatives=["Friends"],
+    key_assumptions=["Will pay"],
+    what_we_already_know=["Need help"],
+    biggest_uncertainty=["Willingness to pay"],
+    customer_type=["B2C"],
+    proposed_solution_context=dict(purpose="Mentorship", summary=INTAKE["proposed_solution"]),
+)
 
 
 @pytest.fixture
 async def stack(monkeypatch, tmp_path):
     from core.config import settings
     from database.mongodb import connect_db, disconnect_db, get_client
-    from kafka.producer import kafka_producer
-    from events import startup
-    from backend.main import create_app
     from engine.async_pipeline_executor import AsyncPipelineExecutor
     from engine.db import SessionStore
-    from tipsc_models import PreEvalOutput
+    from events import startup
+    from kafka.producer import kafka_producer
     from services.session_task_registry import stop_session_tasks
+    from tipsc_models import PreEvalOutput
+
+    from backend.main import create_app
+
     monkeypatch.setattr(settings, "MONGODB_DB_NAME", "agis_test_" + uuid.uuid4().hex)
     monkeypatch.setattr(settings, "RATE_LIMIT_API_PER_MINUTE", 10000)
     monkeypatch.setenv("WORKER_DELIVERY_DB", str(tmp_path / "deliveries.sqlite3"))
     await connect_db()
     from database.indexes import create_indexes
+
     await create_indexes()
     await kafka_producer.start()
-    executor = AsyncPipelineExecutor(SimpleNamespace(execute_compliance_context=lambda *_: "No restrictions"),
-        SessionStore(get_client()[settings.MONGODB_DB_NAME]["sessions"]))
-    tipsc = Output(ready_for_dfv=True, needs_followup=False, overall_readiness="STRONG",
-        solution_alignment="GREEN", tips_rag_scores={k: "GREEN" for k in "TIPS"}, refined_idea={})
+    executor = AsyncPipelineExecutor(
+        SimpleNamespace(execute_compliance_context=lambda *_: "No restrictions"),
+        SessionStore(get_client()[settings.MONGODB_DB_NAME]["sessions"]),
+    )
+    tipsc = Output(
+        ready_for_dfv=True,
+        needs_followup=False,
+        overall_readiness="STRONG",
+        solution_alignment="GREEN",
+        tips_rag_scores={k: "GREEN" for k in "TIPS"},
+        refined_idea={},
+    )
     executor.dispatcher = SimpleNamespace(
         dispatch_preeval=AsyncMock(side_effect=lambda data: PreEvalOutput(**data)),
         dispatch_validation=AsyncMock(return_value=Output(validation_summary="STRONG")),
         dispatch_regulatory=AsyncMock(return_value=Output(regulatory_summary="No restriction")),
         dispatch_ethics=AsyncMock(return_value=Output(ethics_pass=True, compliance_flag=False)),
-        dispatch_tipsc=AsyncMock(return_value=tipsc), dispatch_tipsc_reeval=AsyncMock(return_value=tipsc),
-        dispatch_followup=AsyncMock(return_value=Output(needs_followup=True, questions=["What evidence supports willingness to pay?"])))
+        dispatch_tipsc=AsyncMock(return_value=tipsc),
+        dispatch_tipsc_reeval=AsyncMock(return_value=tipsc),
+        dispatch_followup=AsyncMock(
+            return_value=Output(
+                needs_followup=True, questions=["What evidence supports willingness to pay?"]
+            )
+        ),
+    )
     monkeypatch.setattr(startup, "tipsc_executor_instance", executor)
     app = create_app()
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
         yield SimpleNamespace(client=client, executor=executor, tipsc=tipsc, app=app)
     await stop_session_tasks()
     await kafka_producer.stop()
@@ -73,18 +110,24 @@ async def stack(monkeypatch, tmp_path):
 
 
 async def login(stack, srn="PES2UG22CS001", role="student"):
-    from models.user import User
     from core.security import hash_password
-    await User(srn=srn, name="Test User", role=role, password_hash=hash_password("test-password-123")).insert()
-    response = await stack.client.post("/api/v1/auth/login", json={"srn": srn, "password": "test-password-123"})
+    from models.user import User
+
+    await User(
+        srn=srn, name="Test User", role=role, password_hash=hash_password("test-password-123")
+    ).insert()
+    response = await stack.client.post(
+        "/api/v1/auth/login", json={"srn": srn, "password": "test-password-123"}
+    )
     assert response.status_code == 200, response.text
     data = response.json()["data"]
     return {"Authorization": "Bearer " + data["access_token"]}, data
 
 
 async def create(stack, headers):
-    response = await stack.client.post("/api/v1/sessions", json=INTAKE,
-        headers={**headers, "Idempotency-Key": str(uuid.uuid4())})
+    response = await stack.client.post(
+        "/api/v1/sessions", json=INTAKE, headers={**headers, "Idempotency-Key": str(uuid.uuid4())}
+    )
     assert response.status_code == 201, response.text
     return response.json()["data"]["session_id"]
 
@@ -95,14 +138,20 @@ async def wait_status(stack, session_id, headers, status):
         assert response.status_code == 200, response.text
         if response.json()["data"]["status"] == status:
             return response.json()["data"]
-        await asyncio.sleep(.02)
+        await asyncio.sleep(0.02)
     raise AssertionError(response.text)
 
 
 async def consume_one(topic, trigger):
     from core.config import settings
-    consumer = AIOKafkaConsumer(topic, bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS,
-        group_id="test-" + uuid.uuid4().hex, auto_offset_reset="latest", enable_auto_commit=False)
+
+    consumer = AIOKafkaConsumer(
+        topic,
+        bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS,
+        group_id="test-" + uuid.uuid4().hex,
+        auto_offset_reset="latest",
+        enable_auto_commit=False,
+    )
     await consumer.start()
     try:
         # Wait for the group assignment, then publish.
@@ -114,6 +163,7 @@ async def consume_one(topic, trigger):
         assert response.status_code == 202, response.text
         message = await asyncio.wait_for(consumer.getone(), 15)
         import json
+
         return json.loads(message.value), response.json()["data"]
     finally:
         await consumer.stop()
@@ -121,9 +171,18 @@ async def consume_one(topic, trigger):
 
 async def callback(stack, session_id, flow, correlation_id, output):
     from core.config import settings
-    response = await stack.client.post(f"/internal/sessions/{session_id}/output", json={
-        "flow": flow, "correlation_id": correlation_id, "output": {"status": "done", "output": output},
-        "duration_seconds": 1, "worker_id": "integration"}, headers={"X-Worker-Secret": settings.WORKER_INTERNAL_SECRET})
+
+    response = await stack.client.post(
+        f"/internal/sessions/{session_id}/output",
+        json={
+            "flow": flow,
+            "correlation_id": correlation_id,
+            "output": {"status": "done", "output": output},
+            "duration_seconds": 1,
+            "worker_id": "integration",
+        },
+        headers={"X-Worker-Secret": settings.WORKER_INTERNAL_SECRET},
+    )
     assert response.status_code == 200, response.text
 
 
@@ -131,25 +190,54 @@ async def test_tipsc_to_dfv_to_discovery(stack):
     headers, tokens = await login(stack)
     session_id = await create(stack, headers)
     await wait_status(stack, session_id, headers, "tipsc_completed")
-    refreshed = await stack.client.post("/api/v1/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
+    refreshed = await stack.client.post(
+        "/api/v1/auth/refresh", json={"refresh_token": tokens["refresh_token"]}
+    )
     assert refreshed.status_code == 200, refreshed.text
     from auth.jwt import decode_token
-    assert decode_token(refreshed.json()["data"]["access_token"])["workspace_id"] == decode_token(tokens["access_token"])["workspace_id"]
+
+    assert (
+        decode_token(refreshed.json()["data"]["access_token"])["workspace_id"]
+        == decode_token(tokens["access_token"])["workspace_id"]
+    )
     key = str(uuid.uuid4())
-    job, result = await consume_one("userSession.dfv", lambda: stack.client.post(
-        f"/api/v1/sessions/{session_id}/trigger/dfv", json=DFV, headers={**headers, "Idempotency-Key": key}))
+    job, result = await consume_one(
+        "userSession.dfv",
+        lambda: stack.client.post(
+            f"/api/v1/sessions/{session_id}/trigger/dfv",
+            json=DFV,
+            headers={**headers, "Idempotency-Key": key},
+        ),
+    )
     assert job["correlation_id"] == result["correlation_id"]
-    await callback(stack, session_id, "dfv", job["correlation_id"], {"final_decision": {"status": "GO"}})
+    await callback(
+        stack, session_id, "dfv", job["correlation_id"], {"final_decision": {"status": "GO"}}
+    )
     # Late timeout must not overwrite a completed flow.
     from repositories.session_repo import session_repo
     from state_machine.states import SessionStatus
-    assert not await session_repo.update_flow_failure(session_id, SessionStatus.DFV_FAILED, {"flow": "dfv"}, correlation_id=job["correlation_id"])
-    replay = await stack.client.post(f"/api/v1/sessions/{session_id}/trigger/dfv", json=DFV,
-        headers={**headers, "Idempotency-Key": key})
-    assert replay.status_code == 202 and replay.json()["data"]["correlation_id"] == job["correlation_id"]
-    job, _ = await consume_one("userSession.discovery", lambda: stack.client.post(
-        f"/api/v1/sessions/{session_id}/trigger/discovery", json=DISCOVERY, headers=headers))
-    await callback(stack, session_id, "discovery", job["correlation_id"], {"report": "Interview guide"})
+
+    assert not await session_repo.update_flow_failure(
+        session_id, SessionStatus.DFV_FAILED, {"flow": "dfv"}, correlation_id=job["correlation_id"]
+    )
+    replay = await stack.client.post(
+        f"/api/v1/sessions/{session_id}/trigger/dfv",
+        json=DFV,
+        headers={**headers, "Idempotency-Key": key},
+    )
+    assert (
+        replay.status_code == 202
+        and replay.json()["data"]["correlation_id"] == job["correlation_id"]
+    )
+    job, _ = await consume_one(
+        "userSession.discovery",
+        lambda: stack.client.post(
+            f"/api/v1/sessions/{session_id}/trigger/discovery", json=DISCOVERY, headers=headers
+        ),
+    )
+    await callback(
+        stack, session_id, "discovery", job["correlation_id"], {"report": "Interview guide"}
+    )
     await wait_status(stack, session_id, headers, "completed")
 
 
@@ -158,9 +246,19 @@ async def test_followup_claim_is_atomic(stack):
     headers, _ = await login(stack)
     session_id = await create(stack, headers)
     await wait_status(stack, session_id, headers, "waiting_for_founder")
-    stack.executor.dispatcher.dispatch_tipsc_reeval.return_value = stack.tipsc.model_copy(update={"needs_followup": False})
-    responses = await asyncio.gather(*[stack.client.post(f"/api/v1/sessions/{session_id}/followup",
-        json={"answer": "We interviewed twenty paying customers and confirmed demand."}, headers=headers) for _ in range(2)])
+    stack.executor.dispatcher.dispatch_tipsc_reeval.return_value = stack.tipsc.model_copy(
+        update={"needs_followup": False}
+    )
+    responses = await asyncio.gather(
+        *[
+            stack.client.post(
+                f"/api/v1/sessions/{session_id}/followup",
+                json={"answer": "We interviewed twenty paying customers and confirmed demand."},
+                headers=headers,
+            )
+            for _ in range(2)
+        ]
+    )
     assert sorted(r.status_code for r in responses) == [202, 409]
     doc = await wait_status(stack, session_id, headers, "tipsc_completed")
     assert len(doc["followup_history"]) == 1
@@ -170,29 +268,47 @@ async def test_cross_owner_idempotency_and_no_go(stack):
     headers, _ = await login(stack)
     session_id = await create(stack, headers)
     await wait_status(stack, session_id, headers, "tipsc_completed")
-    job, _ = await consume_one("userSession.dfv", lambda: stack.client.post(
-        f"/api/v1/sessions/{session_id}/trigger/dfv", json=DFV, headers=headers))
+    job, _ = await consume_one(
+        "userSession.dfv",
+        lambda: stack.client.post(
+            f"/api/v1/sessions/{session_id}/trigger/dfv", json=DFV, headers=headers
+        ),
+    )
     other, _ = await login(stack, "PES2UG22CS002")
-    denied = await stack.client.post(f"/api/v1/sessions/{session_id}/trigger/dfv", json=DFV,
-        headers={**other, "Idempotency-Key": str(uuid.uuid4())})
+    denied = await stack.client.post(
+        f"/api/v1/sessions/{session_id}/trigger/dfv",
+        json=DFV,
+        headers={**other, "Idempotency-Key": str(uuid.uuid4())},
+    )
     assert denied.status_code == 404, denied.text
-    await callback(stack, session_id, "dfv", job["correlation_id"], {"final_decision": {"status": "NO-GO"}})
-    blocked = await stack.client.post(f"/api/v1/sessions/{session_id}/trigger/discovery", json=DISCOVERY, headers=headers)
+    await callback(
+        stack, session_id, "dfv", job["correlation_id"], {"final_decision": {"status": "NO-GO"}}
+    )
+    blocked = await stack.client.post(
+        f"/api/v1/sessions/{session_id}/trigger/discovery", json=DISCOVERY, headers=headers
+    )
     assert blocked.status_code == 409, blocked.text
 
 
 async def test_refresh_rotation_has_one_winner(stack):
     _, tokens = await login(stack)
-    responses = await asyncio.gather(*[stack.client.post("/api/v1/auth/refresh",
-        json={"refresh_token": tokens["refresh_token"]}) for _ in range(2)])
+    responses = await asyncio.gather(
+        *[
+            stack.client.post(
+                "/api/v1/auth/refresh", json={"refresh_token": tokens["refresh_token"]}
+            )
+            for _ in range(2)
+        ]
+    )
     assert sorted(r.status_code for r in responses) == [200, 401]
 
 
 async def test_workspace_revocation_and_stale_pipeline_write(stack):
-    from services.workspace_service import workspace_service
-    from engine.db import SessionStore
-    from database.mongodb import get_client
     from core.config import settings
+    from database.mongodb import get_client
+    from engine.db import SessionStore
+    from services.workspace_service import workspace_service
+
     raw, _ = await workspace_service.create_magic_link_workspace("Isolated", "test-admin")
     access = await workspace_service.redeem_magic_link(raw)
     headers = {"Authorization": "Bearer " + access.access_token}
@@ -203,6 +319,7 @@ async def test_workspace_revocation_and_stale_pipeline_write(stack):
     with pytest.raises(RuntimeError):
         await store.update_session(session_id, {"status": "tipsc_running"})
     from fastapi import BackgroundTasks
+
     tasks = BackgroundTasks()
     await workspace_service.revoke_workspace(access.workspace_id, tasks)
     # Access is denied immediately, before asynchronous deletion.
@@ -210,23 +327,31 @@ async def test_workspace_revocation_and_stale_pipeline_write(stack):
     assert denied.status_code == 401, denied.text
     await tasks()
     from repositories.session_repo import session_repo
+
     assert await session_repo.find_by_id(session_id) is None
 
 
 async def test_real_application_startup_and_readiness(monkeypatch):
     from core.config import settings
-    from backend.main import create_app
     from database.mongodb import get_client
     from events import startup
+
+    from backend.main import create_app
+
     monkeypatch.setattr(settings, "MONGODB_DB_NAME", "agis_test_" + uuid.uuid4().hex)
     monkeypatch.setattr(startup, "tipsc_executor_instance", None)
     app = create_app()
     async with app.router.lifespan_context(app):
-        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
             ready = await client.get("/api/v1/ready")
             assert ready.status_code == 200, ready.text
             for collection in ["users", "sessions", "workspaces"]:
-                assert await get_client()[settings.MONGODB_DB_NAME][collection].count_documents({}) == 0
+                assert (
+                    await get_client()[settings.MONGODB_DB_NAME][collection].count_documents({})
+                    == 0
+                )
             health = await client.get("/api/v1/health")
             assert health.json()["services"]["kafka_producer"] == "connected"
         info = await get_client()[settings.MONGODB_DB_NAME]["refresh_tokens"].index_information()
@@ -238,19 +363,33 @@ async def test_real_application_startup_and_readiness(monkeypatch):
 async def test_simultaneous_session_creation_has_one_record(stack):
     headers, _ = await login(stack)
     key = str(uuid.uuid4())
-    responses = await asyncio.gather(*[stack.client.post("/api/v1/sessions", json=INTAKE,
-        headers={**headers, "Idempotency-Key": key}) for _ in range(2)])
+    responses = await asyncio.gather(
+        *[
+            stack.client.post(
+                "/api/v1/sessions", json=INTAKE, headers={**headers, "Idempotency-Key": key}
+            )
+            for _ in range(2)
+        ]
+    )
     assert all(r.status_code == 201 for r in responses), [r.text for r in responses]
     assert len({r.json()["data"]["session_id"] for r in responses}) == 1
     from models.session import Session
+
     assert await Session.find_all().count() == 1
 
 
 async def test_abandoned_tipsc_becomes_retryable(stack):
     from models.session import Session
     from services.timeout_supervisor import TimeoutSupervisor
-    session = Session(student_id="orphan", problem_statement="Test", idea="Test",
-        status="tipsc_running", correlation_id="old-run", updated_at=datetime.now(UTC) - timedelta(hours=2))
+
+    session = Session(
+        student_id="orphan",
+        problem_statement="Test",
+        idea="Test",
+        status="tipsc_running",
+        correlation_id="old-run",
+        updated_at=datetime.now(UTC) - timedelta(hours=2),
+    )
     await session.insert()
     await TimeoutSupervisor().check_and_recover_stuck_sessions(timeout_seconds=1800)
     recovered = await Session.get(session.id)
@@ -259,27 +398,40 @@ async def test_abandoned_tipsc_becomes_retryable(stack):
 
 
 async def test_quickstart_uses_canonical_agent_contract(stack, monkeypatch):
-    from quickstart_agent.models import QuickstartInput, QuickstartOutput, ParameterRating
     from typing import get_args
+
+    from quickstart_agent.models import ParameterRating, QuickstartInput, QuickstartOutput
+
     headers, _ = await login(stack)
-    payload = {name: "Non-sensitive sample founder context" for name in QuickstartInput.model_fields}
-    output = QuickstartOutput.from_raw(QuickstartInput(**payload), [
-        {"name": name, "rating": "GREEN", "reason": "Supported by test evidence"}
-        for name in get_args(ParameterRating.model_fields["name"].annotation)
-    ], {}, [])
-    monkeypatch.setattr("quickstart_agent.main.run_quickstart_eval_async", AsyncMock(return_value=output))
+    payload = {
+        name: "Non-sensitive sample founder context" for name in QuickstartInput.model_fields
+    }
+    output = QuickstartOutput.from_raw(
+        QuickstartInput(**payload),
+        [
+            {"name": name, "rating": "GREEN", "reason": "Supported by test evidence"}
+            for name in get_args(ParameterRating.model_fields["name"].annotation)
+        ],
+        {},
+        [],
+    )
+    monkeypatch.setattr(
+        "quickstart_agent.main.run_quickstart_eval_async", AsyncMock(return_value=output)
+    )
     response = await stack.client.post("/api/v1/quickstart/evaluate", headers=headers, json=payload)
     assert response.status_code == 200, response.text
     assert response.json()["data"]["green_count"] == 10
     assert len(response.json()["data"]["parameters"]) == 10
-    bad = await stack.client.post("/api/v1/quickstart/evaluate", headers=headers, json={**payload, "problem": "   "})
+    bad = await stack.client.post(
+        "/api/v1/quickstart/evaluate", headers=headers, json={**payload, "problem": "   "}
+    )
     assert bad.status_code == 422
 
 
 async def test_pmf_delivery_retry_idempotency_and_ownership(stack):
     """Drive PMF through real Kafka and Mongo; provider output is deterministic."""
     from core.config import settings
-    from models.session import Session, DiscoveryOutput, DFVOutput
+    from models.session import DFVOutput, DiscoveryOutput, Session
     from repositories.session_repo import session_repo
     from state_machine.states import SessionStatus
     from workers.combined_agent_worker import CombinedAgentWorker
@@ -295,8 +447,13 @@ async def test_pmf_delivery_retry_idempotency_and_ownership(stack):
     session.dfv = DFVOutput(status="done", output={"final_decision": {"status": "GO"}})
     await session.save()
     key = str(uuid.uuid4())
-    job, result = await consume_one("userSession.pmf", lambda: stack.client.post(
-        f"/api/v1/sessions/{session_id}/trigger/pmf", headers={**headers, "Idempotency-Key": key}))
+    job, result = await consume_one(
+        "userSession.pmf",
+        lambda: stack.client.post(
+            f"/api/v1/sessions/{session_id}/trigger/pmf",
+            headers={**headers, "Idempotency-Key": key},
+        ),
+    )
     assert job["payload"]["discovery_summary"]["output"]["report"] == "Interview guide"
     assert job["payload"]["tipsc_summary"]["ready_for_dfv"] is True
     assert job["payload"]["dfv_summary"]["output"]["final_decision"]["status"] == "GO"
@@ -304,25 +461,42 @@ async def test_pmf_delivery_retry_idempotency_and_ownership(stack):
     other, _ = await login(stack, "PES2UG22CS002")
     denied = await stack.client.post(f"/api/v1/sessions/{session_id}/trigger/pmf", headers=other)
     assert denied.status_code == 404, denied.text
-    replay = await stack.client.post(f"/api/v1/sessions/{session_id}/trigger/pmf",
-        headers={**headers, "Idempotency-Key": key})
+    replay = await stack.client.post(
+        f"/api/v1/sessions/{session_id}/trigger/pmf", headers={**headers, "Idempotency-Key": key}
+    )
     assert replay.json()["data"]["correlation_id"] == job["correlation_id"]
     # Timeouts make the run retryable without losing upstream reports.
-    assert await session_repo.update_flow_failure(session_id, SessionStatus.PMF_FAILED,
+    assert await session_repo.update_flow_failure(
+        session_id,
+        SessionStatus.PMF_FAILED,
         {"flow": "pmf", "error_code": "PMF_TIMEOUT", "error_message": "Timed out"},
-        correlation_id=job["correlation_id"])
+        correlation_id=job["correlation_id"],
+    )
     doc = await wait_status(stack, session_id, headers, "pmf_failed")
     assert doc["failure_metadata"]["error_code"] == "PMF_TIMEOUT"
-    next_job, _ = await consume_one("userSession.pmf", lambda: stack.client.post(
-        f"/api/v1/sessions/{session_id}/trigger/pmf", headers=headers))
+    next_job, _ = await consume_one(
+        "userSession.pmf",
+        lambda: stack.client.post(f"/api/v1/sessions/{session_id}/trigger/pmf", headers=headers),
+    )
     assert next_job["correlation_id"] != job["correlation_id"]
-    stale = await stack.client.post(f"/internal/sessions/{session_id}/output", json={
-        "flow": "pmf", "correlation_id": job["correlation_id"], "output": {"status": "done", "output": {"verdict": "Old"}},
-        "duration_seconds": 1, "worker_id": "test"}, headers={"X-Worker-Secret": settings.WORKER_INTERNAL_SECRET})
+    stale = await stack.client.post(
+        f"/internal/sessions/{session_id}/output",
+        json={
+            "flow": "pmf",
+            "correlation_id": job["correlation_id"],
+            "output": {"status": "done", "output": {"verdict": "Old"}},
+            "duration_seconds": 1,
+            "worker_id": "test",
+        },
+        headers={"X-Worker-Secret": settings.WORKER_INTERNAL_SECRET},
+    )
     assert stale.status_code == 409, stale.text
     worker = CombinedAgentWorker()
-    worker.http_client = httpx.AsyncClient(transport=httpx.ASGITransport(app=stack.app), base_url="http://test",
-        headers={"X-Worker-Secret": settings.WORKER_INTERNAL_SECRET})
+    worker.http_client = httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=stack.app),
+        base_url="http://test",
+        headers={"X-Worker-Secret": settings.WORKER_INTERNAL_SECRET},
+    )
     worker._run_agent = AsyncMock(return_value={"pmf_score": None, "verdict": "Evidence needed"})
     try:
         await worker._handle_pmf(next_job)
@@ -335,8 +509,12 @@ async def test_pmf_delivery_retry_idempotency_and_ownership(stack):
     assert doc["discovery"]["output"]["report"] == "Interview guide"
     assert doc["failure_metadata"] is None
     # A late timeout cannot overwrite a successful PMF run.
-    assert not await session_repo.update_flow_failure(session_id, SessionStatus.PMF_FAILED,
-        {"flow": "pmf"}, correlation_id=next_job["correlation_id"])
+    assert not await session_repo.update_flow_failure(
+        session_id,
+        SessionStatus.PMF_FAILED,
+        {"flow": "pmf"},
+        correlation_id=next_job["correlation_id"],
+    )
     response = await stack.client.delete(f"/api/v1/sessions/{session_id}", headers=headers)
     assert response.status_code == 200, response.text
 
@@ -344,33 +522,61 @@ async def test_pmf_delivery_retry_idempotency_and_ownership(stack):
 async def test_concurrent_first_login_creates_one_user_and_workspace(stack, monkeypatch):
     from models.user import User
     from models.workspace import Workspace
-    monkeypatch.setattr("services.auth_service.pes_auth_client.validate_credentials", AsyncMock(return_value={
-        "srn": "PES2UG22CS999", "name": "Concurrent Student", "role": "student", "mentor_team_ids": []}))
-    replies = await asyncio.gather(*[stack.client.post("/api/v1/auth/login",
-        json={"srn": "PES2UG22CS999", "password": "test-only"}) for _ in range(2)])
+
+    monkeypatch.setattr(
+        "services.auth_service.pes_auth_client.validate_credentials",
+        AsyncMock(
+            return_value={
+                "srn": "PES2UG22CS999",
+                "name": "Concurrent Student",
+                "role": "student",
+                "mentor_team_ids": [],
+            }
+        ),
+    )
+    replies = await asyncio.gather(
+        *[
+            stack.client.post(
+                "/api/v1/auth/login", json={"srn": "PES2UG22CS999", "password": "test-only"}
+            )
+            for _ in range(2)
+        ]
+    )
     assert [reply.status_code for reply in replies] == [200, 200], [reply.text for reply in replies]
     assert await User.find_all().count() == 1
     assert await Workspace.find_all().count() == 1
 
 
 async def test_offline_local_llm_does_not_create_session_or_fake_quickstart(stack, monkeypatch):
+    from core.config import settings
     from models.session import Session
     from models.workspace import Workspace
-    from core.config import settings
+
     headers, _ = await login(stack)
     monkeypatch.setattr(settings, "LM_STUDIO_URL", "http://127.0.0.1:1234/v1")
+
     def unavailable(*_args, **_kwargs):
         raise RuntimeError("local model offline")
+
     monkeypatch.setattr("core.llm_provider.check_model_server", unavailable)
-    response = await stack.client.post("/api/v1/sessions", json=INTAKE,
-        headers={**headers, "Idempotency-Key": str(uuid.uuid4())})
+    response = await stack.client.post(
+        "/api/v1/sessions", json=INTAKE, headers={**headers, "Idempotency-Key": str(uuid.uuid4())}
+    )
     assert response.status_code == 503, response.text
     assert response.json()["error"]["code"] == "LOCAL_LLM_UNAVAILABLE"
     assert await Session.find_all().count() == 0
     assert await Workspace.find_all().count() == 1  # only the real login's workspace
     from quickstart_agent.models import QuickstartInput
-    monkeypatch.setattr("quickstart_agent.main.run_quickstart_eval_async", AsyncMock(side_effect=ValueError("invalid provider output")))
-    response = await stack.client.post("/api/v1/quickstart/evaluate", json={name: "Test context" for name in QuickstartInput.model_fields}, headers=headers)
+
+    monkeypatch.setattr(
+        "quickstart_agent.main.run_quickstart_eval_async",
+        AsyncMock(side_effect=ValueError("invalid provider output")),
+    )
+    response = await stack.client.post(
+        "/api/v1/quickstart/evaluate",
+        json={name: "Test context" for name in QuickstartInput.model_fields},
+        headers=headers,
+    )
     assert response.status_code == 502, response.text
     assert "data" not in response.json()
     assert await Session.find_all().count() == 0
@@ -378,27 +584,57 @@ async def test_offline_local_llm_does_not_create_session_or_fake_quickstart(stac
 
 async def test_legacy_indexes_upgrade_without_deleting_records(monkeypatch):
     from core.config import settings
-    from motor.motor_asyncio import AsyncIOMotorClient
     from database.mongodb import connect_db, disconnect_db
     from models.session import Session
+    from motor.motor_asyncio import AsyncIOMotorClient
     from pymongo.errors import DuplicateKeyError
     from state_machine.states import SessionStatus
+
     name = "agis_test_legacy_" + uuid.uuid4().hex
     monkeypatch.setattr(settings, "MONGODB_DB_NAME", name)
     client = AsyncIOMotorClient(settings.MONGODB_URI)
     try:
         collection = client[name]["sessions"]
-        old_states = [state.value for state in SessionStatus if state != SessionStatus.ARCHIVED and not state.value.startswith("pmf_")]
+        old_states = [
+            state.value
+            for state in SessionStatus
+            if state != SessionStatus.ARCHIVED and not state.value.startswith("pmf_")
+        ]
         for field in ["student_id", "workspace_id"]:
-            await collection.create_index([(field, 1)], name=f"uq_active_{field}", unique=True,
-                partialFilterExpression={field: {"$type": "string"}, "status": {"$in": old_states}})
-        legacy = await collection.insert_one({"student_id": "legacy-owner", "problem_statement": "Preserve this founder input", "idea": "Existing idea", "status": "tipsc_completed", "version": 0, "idempotency_key": "legacy-request"})
+            await collection.create_index(
+                [(field, 1)],
+                name=f"uq_active_{field}",
+                unique=True,
+                partialFilterExpression={field: {"$type": "string"}, "status": {"$in": old_states}},
+            )
+        legacy = await collection.insert_one(
+            {
+                "student_id": "legacy-owner",
+                "problem_statement": "Preserve this founder input",
+                "idea": "Existing idea",
+                "status": "tipsc_completed",
+                "version": 0,
+                "idempotency_key": "legacy-request",
+            }
+        )
         await connect_db()
         preserved = await collection.find_one({"_id": legacy.inserted_id})
         assert preserved["problem_statement"] == "Preserve this founder input"
-        first = await Session(student_id="real-owner", problem_statement="A real input", idea="A real idea", status=SessionStatus.PMF_COMPLETED, idempotency_key="first-legacy-request").insert()
+        first = await Session(
+            student_id="real-owner",
+            problem_statement="A real input",
+            idea="A real idea",
+            status=SessionStatus.PMF_COMPLETED,
+            idempotency_key="first-legacy-request",
+        ).insert()
         with pytest.raises(DuplicateKeyError):
-            await Session(student_id="real-owner", problem_statement="Duplicate", idea="Duplicate", status=SessionStatus.PMF_FAILED, idempotency_key="second-legacy-request").insert()
+            await Session(
+                student_id="real-owner",
+                problem_statement="Duplicate",
+                idea="Duplicate",
+                status=SessionStatus.PMF_FAILED,
+                idempotency_key="second-legacy-request",
+            ).insert()
         assert await Session.find_all().count() == 2
         assert await Session.get(first.id) is not None
         indexes = await collection.index_information()
@@ -412,11 +648,17 @@ async def test_legacy_indexes_upgrade_without_deleting_records(monkeypatch):
 
 async def test_failed_authentication_creates_no_user_or_workspace(stack, monkeypatch):
     from exceptions.base import InvalidCredentialsError
+    from models.session import Session
     from models.user import User
     from models.workspace import Workspace
-    from models.session import Session
-    monkeypatch.setattr("services.auth_service.pes_auth_client.validate_credentials", AsyncMock(side_effect=InvalidCredentialsError()))
-    response = await stack.client.post("/api/v1/auth/login", json={"srn": "PES2UG22CS998", "password": "test-only"})
+
+    monkeypatch.setattr(
+        "services.auth_service.pes_auth_client.validate_credentials",
+        AsyncMock(side_effect=InvalidCredentialsError()),
+    )
+    response = await stack.client.post(
+        "/api/v1/auth/login", json={"srn": "PES2UG22CS998", "password": "test-only"}
+    )
     assert response.status_code == 401, response.text
     assert await User.find_all().count() == 0
     assert await Workspace.find_all().count() == 0
@@ -425,8 +667,115 @@ async def test_failed_authentication_creates_no_user_or_workspace(stack, monkeyp
 
 async def test_simultaneous_different_requests_cannot_create_phantom_sessions(stack):
     from models.session import Session
+
     headers, _ = await login(stack)
-    replies = await asyncio.gather(*[stack.client.post("/api/v1/sessions", json=INTAKE,
-        headers={**headers, "Idempotency-Key": str(uuid.uuid4())}) for _ in range(2)])
-    assert sorted(reply.status_code for reply in replies) == [201, 409], [reply.text for reply in replies]
+    replies = await asyncio.gather(
+        *[
+            stack.client.post(
+                "/api/v1/sessions",
+                json=INTAKE,
+                headers={**headers, "Idempotency-Key": str(uuid.uuid4())},
+            )
+            for _ in range(2)
+        ]
+    )
+    assert sorted(reply.status_code for reply in replies) == [201, 409], [
+        reply.text for reply in replies
+    ]
     assert await Session.find_all().count() == 1
+
+
+async def test_admin_team_integrity_and_live_mentor_revocation(stack):
+    from models.team import Team
+    from models.user import User
+    from services.workspace_service import workspace_service
+
+    admin, _ = await login(stack, "ADMIN", "admin")
+    mentor_headers, mentor_data = await login(stack, "MENTOR@EXAMPLE.TEST", "mentor")
+    mentor_id = mentor_data["user"]["user_id"]
+    await User(srn="STUDENT", name="Student", role="student").insert()
+    payload = {"name": "First team", "mentor_id": mentor_id, "members": [" student "]}
+    created = await stack.client.post("/api/v1/admin/teams", headers=admin, json=payload)
+    assert created.status_code == 200, created.text
+    team_id = created.json()["team"]["id"]
+    # The mentor's token predates assignment; authorization resolves current teams.
+    response = await stack.client.get("/api/v1/mentor/teams", headers=mentor_headers)
+    assert response.status_code == 200, response.text
+    assert response.json()["data"][0]["members"][0]["srn"] == "STUDENT"
+    duplicate = await stack.client.post("/api/v1/admin/teams", headers=admin, json=payload)
+    assert duplicate.status_code == 409
+    await User(srn="CONCURRENT", name="Concurrent Student", role="student").insert()
+    concurrent = await asyncio.gather(
+        *[
+            stack.client.post(
+                "/api/v1/admin/teams",
+                headers=admin,
+                json={**payload, "name": f"Concurrent {index}", "members": ["CONCURRENT"]},
+            )
+            for index in range(2)
+        ]
+    )
+    assert sorted(response.status_code for response in concurrent) == [200, 409]
+    bad = await stack.client.put(
+        f"/api/v1/admin/teams/{team_id}", headers=admin, json={**payload, "members": ["UNKNOWN"]}
+    )
+    assert bad.status_code == 422
+    assert (await User.find_one(User.srn == "STUDENT")).team_id == team_id
+    assert (
+        await stack.client.delete("/api/v1/admin/teams/invalid", headers=admin)
+    ).status_code == 422
+    raw, workspace = await workspace_service.create_magic_link_workspace(
+        "Mentor workspace", "admin", mentor_id=mentor_id
+    )
+    access = await workspace_service.redeem_magic_link(raw)
+    deleted = await stack.client.delete(f"/api/v1/admin/mentors/{mentor_id}", headers=admin)
+    assert deleted.status_code == 200, deleted.text
+    assert (await Team.get(team_id)).mentor_id == ""
+    assert (
+        await stack.client.get("/api/v1/mentor/teams", headers=mentor_headers)
+    ).status_code == 401
+    assert (
+        await stack.client.get(
+            "/api/v1/auth/me", headers={"Authorization": "Bearer " + access.access_token}
+        )
+    ).status_code == 401
+
+
+async def test_seed_round_trip_preserves_identity_and_credentials(stack, tmp_path, monkeypatch):
+    import json
+
+    from bson import ObjectId
+    from core.config import settings
+    from core.sync import dump_seed_data
+    from models.team import Team
+    from models.user import User
+
+    from backend.scripts.sync_db import sync
+
+    _, data = await login(stack)
+    user_id = data["user"]["user_id"]
+    user = await User.get(user_id)
+    original_hash = user.password_hash
+    team = Team(team_name="Seed team", mentor_id="", members=[user.srn])
+    await team.insert()
+    await user.set({User.team_id: str(team.id)})
+    export_path = tmp_path / "accounts.json"
+    monkeypatch.setattr(settings, "AGIS_EXPORT_PATH", export_path)
+    await dump_seed_data()
+    exported = json.loads(export_path.read_text())
+    assert "password_hash" not in exported["users"][0]
+    await sync(export_path, apply=True)
+    await sync(export_path, apply=True)
+    assert await User.count() == 1
+    assert (await User.get(user_id)).password_hash == original_hash
+    assert (await User.get(user_id)).team_id == str(team.id)
+    # Partial metadata does not erase team membership or passwords.
+    partial = {"users": [{"id": user_id, "srn": user.srn, "name": "Renamed", "role": "student"}]}
+    export_path.write_text(json.dumps(partial))
+    await sync(export_path, apply=True)
+    assert (await User.get(user_id)).team_id == str(team.id)
+    partial["users"][0]["id"] = str(ObjectId())
+    export_path.write_text(json.dumps(partial))
+    with pytest.raises(ValueError, match="different user ID"):
+        await sync(export_path, apply=True)
+    assert await User.count() == 1

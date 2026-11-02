@@ -1,17 +1,22 @@
 """Fail on new/changed advisories; print every explicitly documented upstream exception."""
+
 import json
-from pathlib import Path
 import subprocess
 import sys
 from datetime import date
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 exceptions = json.loads((ROOT / "docs/dependency-advisories.json").read_text(encoding="utf-8"))
-result = subprocess.run([sys.executable, "-m", "pip_audit", "--format", "json", "--progress-spinner", "off"], capture_output=True, text=True)
+result = subprocess.run(
+    [sys.executable, "-m", "pip_audit", "--format", "json", "--progress-spinner", "off"],
+    capture_output=True,
+    text=True,
+)
 try:
     report = json.loads(result.stdout)
-except json.JSONDecodeError:
-    raise SystemExit(result.stderr or "Dependency audit did not return a report")
+except json.JSONDecodeError as exc:
+    raise SystemExit(result.stderr or "Dependency audit did not return a report") from exc
 failed = False
 for dependency in report["dependencies"]:
     if dependency.get("skip_reason"):
@@ -20,8 +25,15 @@ for dependency in report["dependencies"]:
     for vulnerability in dependency.get("vulns", []):
         key = vulnerability["id"]
         known = exceptions.get(key)
-        if known and known["package"] == dependency["name"] and known["version"] == dependency["version"] and date.today() < date.fromisoformat(known["review_by"]):
-            print(f"KNOWN UPSTREAM RISK: {dependency['name']} {dependency['version']} {key}: {known['reason']}")
+        if (
+            known
+            and known["package"] == dependency["name"]
+            and known["version"] == dependency["version"]
+            and date.today() < date.fromisoformat(known["review_by"])
+        ):
+            print(
+                f"KNOWN UPSTREAM RISK: {dependency['name']} {dependency['version']} {key}: {known['reason']}"
+            )
         else:
             print(f"UNREVIEWED ADVISORY: {dependency['name']} {dependency['version']} {key}")
             failed = True

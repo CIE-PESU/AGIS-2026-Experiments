@@ -16,11 +16,11 @@ Usage:
 """
 
 import asyncio
-import json
 import sys
 from pathlib import Path
-from motor.motor_asyncio import AsyncIOMotorClient
+
 from aiokafka import AIOKafkaProducer
+from motor.motor_asyncio import AsyncIOMotorClient
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
 from models.schema import DFVJobMessage, DFVJobPayload
@@ -89,11 +89,15 @@ async def main():
     print(f"[Test] completed_at AFTER duplicate:  {completed_at_after}")
 
     if completed_at_before == completed_at_after:
-        print("[Test] PASS — completed_at unchanged. Idempotency check worked, "
-              "job was NOT reprocessed.")
+        print(
+            "[Test] PASS — completed_at unchanged. Idempotency check worked, "
+            "job was NOT reprocessed."
+        )
     else:
-        print("[Test] FAIL — completed_at changed. The job was reprocessed! "
-              "Idempotency check did not work.")
+        print(
+            "[Test] FAIL — completed_at changed. The job was reprocessed! "
+            "Idempotency check did not work."
+        )
 
     mongo_client.close()
 

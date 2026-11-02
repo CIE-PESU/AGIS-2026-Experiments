@@ -12,7 +12,7 @@ from pydantic import Field
 class Team(Document):
     team_name: str
     mentor_id: str  # user_id of the assigned mentor
-    members: list[str] = Field(default_factory=list)  # list of user_ids
+    members: list[str] = Field(default_factory=list)  # normalized student SRNs
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     class Settings:

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { ChevronDown, Loader2, AlertCircle } from "lucide-react";
-import { type StageStatus, type Traffic } from "@/data/session";
+import { type Traffic } from "@/data/session";
 import { StatusBadge, TrafficDot } from "@/components/shared/StatusBadge";
 import { getSession } from "@/services/authSessions";
 import { deriveCanonicalStageAccess } from "@/utils/sessionStatus";
@@ -40,7 +40,6 @@ export function DetailedProgressView({ student }: { student: StudentDetail }) {
     async function loadDetail() {
       setLoading(true);
       try {
-        console.log("[DetailedProgressView] Loading sessionId:", student.sessionId);
         const data = await getSession(student.sessionId!);
         if (active) {
           setSessionData(data);
@@ -124,7 +123,6 @@ export function DetailedProgressView({ student }: { student: StudentDetail }) {
   const access = deriveCanonicalStageAccess(sessionData || student);
 
   // Parse DFV inputs and decision
-  const hasDfv = !!sessionData?.dfv || access.dfv === "completed" || access.dfv === "GO" || access.dfv === "NO-GO";
   let dfvStatus = "Pending";
   let dfvInputs = null;
 

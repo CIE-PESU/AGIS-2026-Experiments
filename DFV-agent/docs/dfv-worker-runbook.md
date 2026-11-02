@@ -1,6 +1,6 @@
 # Combined worker operations
 
-The active worker is `backend/workers/combined_agent_worker.py`, which consumes `userSession.dfv` and `userSession.discovery`. It launches one cancellable agent subprocess at a time and posts callbacks to `/internal/sessions/{id}/output` or `/failure` with `X-Worker-Secret`.
+The active worker is `backend/workers/combined_agent_worker.py`, which consumes `userSession.dfv`, `userSession.discovery`, and `userSession.pmf`. It launches one cancellable agent subprocess at a time and posts callbacks to `/internal/sessions/{id}/output` or `/failure` with `X-Worker-Secret`.
 
 Run from the repository root:
 

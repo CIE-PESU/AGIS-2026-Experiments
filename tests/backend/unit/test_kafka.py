@@ -11,10 +11,8 @@ Note: Actual Kafka publish is NOT tested here (no broker in unit tests).
 The integration smoke test (Vijay's Day 2 B-13 script) covers end-to-end publish.
 """
 
-import pytest
-
 from exceptions.base import AppException, KafkaPublishError
-from kafka.payloads import TIPSCEventPayload, DFVEventPayload, DiscoveryEventPayload
+from kafka.payloads import DFVEventPayload, DiscoveryEventPayload, TIPSCEventPayload
 from kafka.producer import KafkaProducerClient, kafka_producer
 
 

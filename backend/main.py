@@ -10,7 +10,7 @@ Wires together:
   - Rate limiting middleware
   - Global exception handlers
   - API v1 router (all feature routes under /api/v1)
-  - Health routes at root level (/health, /ready, /live)
+  - Health routes under /api/v1 (/health, /ready, /live)
   - Internal worker routes (not on public v1 prefix)
 
 Architecture rule: This file only wires things together.
@@ -19,6 +19,7 @@ No business logic, no database calls, no service imports here.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import logging.config
 import os
@@ -176,6 +177,7 @@ def create_app() -> FastAPI:
         openapi_url="/openapi.json",
         lifespan=lifespan,
     )
+    app.state.team_mutation_lock = asyncio.Lock()
 
     # ── Exception handlers ─────────────────────────────────────────────────────
     from exceptions.handlers import register_exception_handlers

@@ -1,16 +1,15 @@
 from pipeline import (
-    run_preeval,
-    run_validation,
-    run_regulatory,
-    run_ethics,
-    run_tipsc,
-    run_followup,
     build_compliance_context,
+    run_ethics,
+    run_followup,
+    run_preeval,
+    run_regulatory,
+    run_tipsc,
+    run_validation,
 )
 
 
 class PipelineStages:
-
     def __init__(
         self,
         llm,
@@ -27,14 +26,13 @@ class PipelineStages:
         self.tipsc_rubric = tipsc_rubric
         self.ethics_rubric = ethics_rubric
 
-
     def execute_preeval(self, preeval_input):
         return run_preeval(
             self.llm,
             self.preeval_skill,
             preeval_input,
         )
-    
+
     def execute_validation(self, preeval):
         return run_validation(
             self.llm,
@@ -42,7 +40,7 @@ class PipelineStages:
             self.agents_cfg,
             self.task_cfg,
         )
-    
+
     def execute_regulatory(self, preeval):
         return run_regulatory(
             self.llm,
@@ -66,7 +64,7 @@ class PipelineStages:
             validation_context,
             regulatory_context,
         )
-    
+
     def execute_tipsc(
         self,
         preeval,
@@ -84,7 +82,7 @@ class PipelineStages:
             compliance_context,
             followup_context,
         )
-    
+
     def execute_compliance_context(
         self,
         ethics,
@@ -94,7 +92,7 @@ class PipelineStages:
             ethics,
             regulatory,
         )
-    
+
     def execute_followup(self, tipsc_output, followup_context, compliance_context):
         return run_followup(
             self.llm,
@@ -105,7 +103,9 @@ class PipelineStages:
             compliance_context=compliance_context,
         )
 
-    def execute_tipsc_reeval(self, preeval, validation_context, compliance_context, followup_context):
+    def execute_tipsc_reeval(
+        self, preeval, validation_context, compliance_context, followup_context
+    ):
         return run_tipsc(
             self.llm,
             preeval,

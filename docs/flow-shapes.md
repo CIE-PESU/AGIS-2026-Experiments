@@ -44,4 +44,8 @@ The Kafka envelope contains `userSession_id`, `idea_name`, `correlation_id`, `re
 
 The API and Kafka use the same `DiscoveryJobPayload`: `target_customer_segment` (segment/role/customer_type objects), `problem_statement`, `problem_consequence`, `current_alternatives`, `key_assumptions`, `what_we_already_know`, `biggest_uncertainty`, `customer_type`, and `proposed_solution_context` (`purpose`, `summary`). List fields are JSON arrays. The worker wraps the generated report as `discovery.output.report` with status and timing metadata. Accepted Discovery output moves the session to `completed`.
 
+## Product-Market Fit
+
+`POST /sessions/{id}/trigger/pmf` uses the saved founder intake and TIPSC, DFV, and Discovery outputs; no additional request body is required. The worker consumes `userSession.pmf` and stores its callback in `pmf`. Missing customer measurements remain unknown. A failed or completed PMF run can be rerun without discarding earlier stages.
+
 Transport envelopes are described in [API specification](api-spec.md). Never duplicate worker payload definitions in frontend or agent code without validating against these schemas.

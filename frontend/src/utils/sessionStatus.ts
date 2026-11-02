@@ -121,3 +121,34 @@ export function deriveCanonicalStageAccess(doc: any | null): SessionStageAccess 
     dfvDecision
   };
 }
+
+/** Map backend session status to UI stage unlock state — single canonical source of truth */
+export function deriveStageAccess(doc: any | null) {
+  const access = deriveCanonicalStageAccess(doc);
+  const toStageStatus = (s: string): StageStatus => {
+    if (s === "failed") return "failed";
+    if (s === "GO") return "completed";
+    if (s === "NO-GO") return "failed";
+    return s as StageStatus;
+  };
+  return {
+    tipsc: toStageStatus(access.tipsc),
+    dfv: toStageStatus(access.dfv),
+    discovery: toStageStatus(access.discovery),
+    pmf: toStageStatus(access.pmf),
+    quickstart: toStageStatus(access.quickstart)
+  };
+}
+
+export function isFlowRunning(status: SessionStatus | null) {
+  if (!status) return false;
+  return (
+    status.endsWith("_running") ||
+    status === "queued" ||
+    status === "pre_eval" ||
+    status === "tipsc_reevaluation" ||
+    status === "dfv_waiting" ||
+    status === "discovery_waiting" ||
+    status === "pmf_waiting"
+  );
+}

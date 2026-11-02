@@ -1,8 +1,8 @@
 """Test script for AsyncPipelineExecutor with local MongoDB.
- 
+
 Run with: python tests/tipsc/manual_async_pipeline.py
 Requires: MongoDB running on 127.0.0.1:27017, LM Studio running.
- 
+
 The executor no longer polls for answers — it parks at WAITING_FOR_FOUNDER
 and resumes via resume_after_followup().  This script mirrors that contract:
 after each park it reads the question from MongoDB, takes input from stdin,
@@ -12,13 +12,13 @@ FastAPI /followup endpoint will make in production.
 
 import asyncio
 import importlib.util
-import json
 import os
 import sys
 import uuid
 from pathlib import Path
 
 from dotenv import load_dotenv
+
 load_dotenv()
 os.environ["OTEL_SDK_DISABLED"] = "true"
 os.environ["CREWAI_DISABLE_TELEMETRY"] = "true"
@@ -34,20 +34,23 @@ assert spec is not None and spec.loader is not None
 tipsc_main = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(tipsc_main)
 load_yaml, load_text, load_llm = tipsc_main.load_yaml, tipsc_main.load_text, tipsc_main.load_llm
-from engine.stages import PipelineStages
-from engine.async_pipeline_executor import AsyncPipelineExecutor, MAX_FOLLOWUP_TURNS
+from engine.async_pipeline_executor import MAX_FOLLOWUP_TURNS, AsyncPipelineExecutor
 from engine.db import SessionStore
+from engine.stages import PipelineStages
 from engine.state_machine import PipelineState
 
+
 def _print_tipsc(tipsc: dict):
-    score_icon = lambda v: "🟢" if v == "GREEN" else ("🟡" if v == "YELLOW" else "🔴")
+    def score_icon(v):
+        return "🟢" if v == "GREEN" else ("🟡" if v == "YELLOW" else "🔴")
+
     s = tipsc.get("tips_rag_scores", {})
     print(f"  {score_icon(s.get('T'))} T: {s.get('T')}  {s.get('T_reason', '')}")
     print(f"  {score_icon(s.get('I'))} I: {s.get('I')}  {s.get('I_reason', '')}")
     print(f"  {score_icon(s.get('P'))} P: {s.get('P')}  {s.get('P_reason', '')}")
     print(f"  {score_icon(s.get('S'))} S: {s.get('S')}  {s.get('S_reason', '')}")
     print(f"  Readiness: {tipsc.get('overall_readiness')}  |  DFV: {tipsc.get('ready_for_dfv')}")
- 
+
 
 async def main():
     agents_cfg = load_yaml("config/agents.yaml")
@@ -102,31 +105,29 @@ async def main():
     # Each resume() call either parks the next question or marks TIPSC_COMPLETE.
     doc = await db.get_session(session_id)
     while doc and doc.get("state") == PipelineState.WAITING_FOR_FOUNDER:
-        turn     = doc.get("followup_turn", 1)
+        turn = doc.get("followup_turn", 1)
         question = doc.get("pending_question", "")
- 
+
         print("\n" + "=" * 60)
         print(f"FOLLOW-UP QUESTION  ({turn}/{MAX_FOLLOWUP_TURNS})")
         print("=" * 60)
         print(question)
- 
+
         answer = input("\n> ").strip()
         if not answer:
             answer = "(no answer provided)"
- 
+
         print("\nResuming pipeline with new answer...\n")
- 
+
         # This is exactly what POST /userSession/{id}/followup triggers.
         await executor.resume_after_followup(session_id, answer)
- 
+
         doc = await db.get_session(session_id)
- 
+
         # Show updated TIPSC scores after each reeval.
         if doc and doc.get("tipsc"):
             print("\nUpdated TIPSC scores:")
             _print_tipsc(doc["tipsc"])
- 
-
 
     doc = await db.get_session(session_id)
     if doc:
@@ -138,17 +139,17 @@ async def main():
         print(f"  Student ID: {doc.get('student_id')}")
 
         stages_done = [
-            ("Pre-Eval",   "preeval"),
+            ("Pre-Eval", "preeval"),
             ("Validation", "validation"),
             ("Regulatory", "regulatory"),
-            ("Ethics",     "ethics"),
+            ("Ethics", "ethics"),
         ]
 
         for label, key in stages_done:
             print(f"  {label}: {'✅' if doc.get(key) else '—'}")
 
         if doc.get("tipsc"):
-            print(f"  TIPSC: ✅")
+            print("  TIPSC: ✅")
             _print_tipsc(doc["tipsc"])
 
         history = doc.get("followup_history", [])
@@ -157,13 +158,11 @@ async def main():
             for i, ex in enumerate(history, 1):
                 print(f"    Q{i}: {ex['question']}")
                 print(f"    A{i}: {ex['answer']}")
- 
-         
-        
+
         if doc.get("state") == PipelineState.FAILED:
             print(f"\n  ❌ Rejection: {doc.get('rejection_reason') or doc.get('error')}")
 
-        print(f"\n  Full document written to MongoDB collection 'agis.sessions'")
+        print("\n  Full document written to MongoDB collection 'agis.sessions'")
     else:
         print("\n  No document found in MongoDB.")
 

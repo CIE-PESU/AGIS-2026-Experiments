@@ -8,7 +8,7 @@ Responsibilities:
   - Handle refresh token rotation
   - Handle logout (revoke refresh token)
 
-This service is the ONLY place that issues tokens.
+This service issues account tokens; workspace_service issues magic-link access tokens.
 Route handlers call this — they never touch jwt.py or pes_client.py directly.
 """
 

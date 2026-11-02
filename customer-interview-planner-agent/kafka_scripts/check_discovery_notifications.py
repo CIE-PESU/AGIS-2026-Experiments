@@ -8,6 +8,7 @@ Usage:
 
 import asyncio
 import json
+
 from aiokafka import AIOKafkaConsumer
 
 KAFKA_BOOTSTRAP_SERVERS = "127.0.0.1:9092"
@@ -30,11 +31,11 @@ async def main():
         while True:
             try:
                 batch = await asyncio.wait_for(consumer.getmany(timeout_ms=1000), timeout=5)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 break
             if not batch:
                 break
-            for tp, messages in batch.items():
+            for messages in batch.values():
                 for msg in messages:
                     if msg.value.get("flow") == "discovery":
                         found.append(msg.value)

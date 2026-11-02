@@ -8,7 +8,6 @@ import { TrafficDot } from "@/components/shared/StatusBadge";
 import { DFV_CONTEXT_MIN } from "@/constants";
 import { getSession, triggerDfv } from "@/services/authSessions";
 import { useAuth } from "@/context/AuthContext";
-import type { DFVResult } from "@/data/session";
 import { toast } from "sonner";
 
 export function DFVFlow() {

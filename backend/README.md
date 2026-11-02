@@ -7,3 +7,5 @@ The active application is `backend/main.py`; from `backend/`, use `uv run --proj
 Create an initial administrator with `uv run python scripts/bootstrap_admin.py`. The password is prompted and stored as a salted scrypt hash. There are no built-in passwords and no development authentication bypass.
 
 Do not share Fernet keys or commit account exports. `backend/scripts/seed_data.json` is an empty fixture. Optional sanitized exports require an explicit private `AGIS_EXPORT_PATH` outside the repository.
+
+Metadata inspection/import/export commands and their validation rules are documented in the [maintenance guide](../docs/workflow_and_running_guide.md#account-metadata-maintenance). Use the admin API for team and mentor edits. Tests live under root `tests/`.

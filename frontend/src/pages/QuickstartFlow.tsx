@@ -59,7 +59,7 @@ const GROUP_COLORS: Record<GroupKey, string> = {
 };
 
 export function QuickstartFlow() {
-  const { user, session, sessionId, addEvent, archiveSession } = useAuth();
+  const { user, session, addEvent } = useAuth();
   const [initialState] = useState(() => loadQuickstartState(user?.userId));
   const [loadedUserId, setLoadedUserId] = useState(user?.userId ?? null);
   const [local, setLocal] = useState<Record<string, string>>(initialState.answers);

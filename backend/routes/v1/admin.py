@@ -1,9 +1,12 @@
 # app/api/v1/admin.py
+import asyncio
 from datetime import datetime
+from functools import wraps
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
-from pydantic import BaseModel, ConfigDict, Field
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pymongo.errors import DuplicateKeyError
 
 from core.security import hash_password
 from core.sync import dump_seed_data
@@ -18,6 +21,31 @@ from services import admin_service
 from services.mentor_service import sync_mentor_teams
 from services.workspace_service import workspace_service
 from state_machine.states import SessionStatus
+from utils.object_id import validate_object_id
+
+
+def serialize_team_mutation(function):
+    """Serialize membership edits in the supported single-API deployment."""
+
+    @wraps(function)
+    async def wrapped(*args, **kwargs):
+        async with kwargs["request"].app.state.team_mutation_lock:
+            return await function(*args, **kwargs)
+
+    return wrapped
+
+
+async def validate_team_references(req: "TeamCreateRequest", team_id: str | None = None) -> None:
+    if req.mentor_id:
+        validate_object_id(req.mentor_id, "mentor_id")
+        mentor = await User.get(req.mentor_id)
+        if mentor is None or mentor.role != "mentor":
+            raise HTTPException(422, "mentor_id must identify a mentor")
+    students = await User.find({"srn": {"$in": req.members}, "role": "student"}).to_list()
+    if len(students) != len(req.members):
+        raise HTTPException(422, "Every team member must identify an existing student SRN")
+    if any(student.team_id and student.team_id != team_id for student in students):
+        raise HTTPException(409, "A student is already assigned to another team")
 
 
 async def sync_student_session_teams(student_srns: list[str], new_team_id: str | None):
@@ -51,12 +79,17 @@ class TeamCreateRequest(BaseModel):
     mentor_id: str | None = None
     members: list[str] = Field(default_factory=list)
 
+    @field_validator("members")
+    @classmethod
+    def normalized_members(cls, values: list[str]) -> list[str]:
+        values = [value.strip().upper() for value in values]
+        if any(not value for value in values) or len(values) != len(set(values)):
+            raise ValueError("Team members must be distinct, nonblank student SRNs")
+        return values
 
-class TeamUpdateRequest(BaseModel):
-    model_config = ConfigDict(str_strip_whitespace=True)
-    name: str = Field(min_length=1, max_length=200)
-    mentor_id: str | None = None
-    members: list[str] = Field(default_factory=list)
+
+class TeamUpdateRequest(TeamCreateRequest):
+    pass
 
 
 # Remove the global admin lock so mentors can access read-only routes
@@ -81,9 +114,12 @@ async def create_mentor(req: MentorCreateRequest, background_tasks: BackgroundTa
     if existing:
         raise HTTPException(409, "Mentor already exists")
 
-    enc_pw = hash_password(req.password) if req.password and req.password.strip() else None
+    enc_pw = await asyncio.to_thread(hash_password, req.password) if req.password else None
     new_mentor = User(srn=srn, name=clean_name, email=email, role="mentor", password_hash=enc_pw)
-    await new_mentor.insert()
+    try:
+        await new_mentor.insert()
+    except DuplicateKeyError as exc:
+        raise HTTPException(409, "Mentor already exists") from exc
 
     background_tasks.add_task(dump_seed_data)
 
@@ -111,23 +147,38 @@ async def list_mentors():
 async def update_mentor(
     mentor_id: str, req: MentorUpdateRequest, background_tasks: BackgroundTasks
 ):
+    validate_object_id(mentor_id, "mentor_id")
     mentor = await User.get(mentor_id)
-    if not mentor:
+    if not mentor or mentor.role != "mentor":
         raise HTTPException(404, "Mentor not found")
     mentor.name = req.name.strip()
     if req.email and req.email.strip():
         mentor.email = req.email.strip()
         mentor.srn = mentor.email.upper()
-    await mentor.save()
+    try:
+        await mentor.save()
+    except DuplicateKeyError as exc:
+        raise HTTPException(409, "That email already belongs to another user") from exc
     background_tasks.add_task(dump_seed_data)
     return {"message": "Mentor updated successfully"}
 
 
 @router.delete("/mentors/{mentor_id}", dependencies=[Depends(require_admin())])
-async def delete_mentor(mentor_id: str, background_tasks: BackgroundTasks):
+@serialize_team_mutation
+async def delete_mentor(mentor_id: str, background_tasks: BackgroundTasks, request: Request):
+    validate_object_id(mentor_id, "mentor_id")
     mentor = await User.get(mentor_id)
-    if not mentor:
+    if not mentor or mentor.role != "mentor":
         raise HTTPException(404, "Mentor not found")
+    from models.refresh_token import RefreshToken
+    from repositories.workspace_repo import workspace_repo
+
+    for workspace in await workspace_repo.find_active_workspaces(mentor_id=mentor_id):
+        await workspace_service.revoke_workspace(workspace.workspace_id, background_tasks)
+    await Team.find({"mentor_id": {"$in": [mentor_id, mentor.srn]}}).update(
+        {"$set": {"mentor_id": ""}}
+    )
+    await RefreshToken.find({"user_id": mentor_id}).update({"$set": {"revoked": True}})
     await mentor.delete()
     background_tasks.add_task(dump_seed_data)
     return {"message": "Mentor deleted"}
@@ -152,12 +203,21 @@ async def list_students(current_user: Annotated[CurrentUser, Depends(require_men
         if active_session:
             s_dict["session_id"] = str(active_session.id)
             s_dict["status"] = active_session.status
+            s_dict["last_active"] = active_session.updated_at.isoformat()
+            s_dict["discovery_completed"] = active_session.discovery is not None
             if active_session.tipsc:
                 s_dict["tips"] = active_session.tipsc.tips_rag_scores.model_dump()
+                s_dict["tipsc"] = {"ready_for_dfv": active_session.tipsc.ready_for_dfv}
             else:
                 s_dict["tips"] = {}
             if active_session.dfv:
-                s_dict["dfv"] = active_session.dfv.status
+                output = active_session.dfv.output or {}
+                s_dict["dfv"] = (
+                    output.get("decision")
+                    or output.get("final_decision", {}).get("status")
+                    or active_session.dfv.status
+                )
+                s_dict["dfv_raw"] = {"output": output}
             else:
                 s_dict["dfv"] = "Pending"
         else:
@@ -185,8 +245,10 @@ async def list_teams(current_user: Annotated[CurrentUser, Depends(require_mentor
 
 
 @router.post("/teams", dependencies=[Depends(require_admin())])
-async def create_team(req: TeamCreateRequest, background_tasks: BackgroundTasks):
+@serialize_team_mutation
+async def create_team(req: TeamCreateRequest, background_tasks: BackgroundTasks, request: Request):
     """Admin: Create a new team and update student references."""
+    await validate_team_references(req)
     team = Team(team_name=req.name, mentor_id=req.mentor_id or "", members=req.members)
     await team.insert()
     # Update students' team_id and their active sessions
@@ -196,23 +258,31 @@ async def create_team(req: TeamCreateRequest, background_tasks: BackgroundTasks)
     if req.mentor_id:
         await sync_mentor_teams(req.mentor_id)
     background_tasks.add_task(dump_seed_data)
-    return {"message": "Team created", "team": team.model_dump()}
+    return {"message": "Team created", "team": team.model_dump(mode="json")}
 
 
 @router.put("/teams/{team_id}", dependencies=[Depends(require_admin())])
-async def update_team(team_id: str, req: TeamUpdateRequest, background_tasks: BackgroundTasks):
+@serialize_team_mutation
+async def update_team(
+    team_id: str, req: TeamUpdateRequest, background_tasks: BackgroundTasks, request: Request
+):
     """Admin: Update an existing team."""
+    validate_object_id(team_id, "team_id")
     team = await Team.get(team_id)
     if not team:
         raise HTTPException(404, "Team not found")
+    await validate_team_references(req, team_id)
 
     old_mentor_id = team.mentor_id
     old_members = team.members or []
 
     # Clear old members' team_id and sessions
     if old_members:
-        await User.find({"srn": {"$in": old_members}}).update({"$set": {"team_id": None}})
-        await sync_student_session_teams(old_members, None)
+        removed = [srn for srn in old_members if srn not in req.members]
+        await User.find({"srn": {"$in": removed}, "team_id": team_id}).update(
+            {"$set": {"team_id": None}}
+        )
+        await sync_student_session_teams(removed, None)
 
     team.team_name = req.name
     team.mentor_id = req.mentor_id or ""
@@ -234,14 +304,18 @@ async def update_team(team_id: str, req: TeamUpdateRequest, background_tasks: Ba
 
 
 @router.delete("/teams/{team_id}", dependencies=[Depends(require_admin())])
-async def delete_team(team_id: str, background_tasks: BackgroundTasks):
+@serialize_team_mutation
+async def delete_team(team_id: str, background_tasks: BackgroundTasks, request: Request):
+    validate_object_id(team_id, "team_id")
     team = await Team.get(team_id)
     if not team:
         raise HTTPException(404, "Team not found")
 
     old_mentor_id = team.mentor_id
     if team.members:
-        await User.find({"srn": {"$in": team.members}}).update({"$set": {"team_id": None}})
+        await User.find({"srn": {"$in": team.members}, "team_id": team_id}).update(
+            {"$set": {"team_id": None}}
+        )
         await sync_student_session_teams(team.members, None)
 
     await team.delete()

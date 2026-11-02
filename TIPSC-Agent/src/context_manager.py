@@ -1,6 +1,3 @@
-from typing import List, Dict
-
-
 class FollowUpContextManager:
     """
     Responsible for managing the follow-up conversation
@@ -8,7 +5,7 @@ class FollowUpContextManager:
     """
 
     def __init__(self):
-        self.history: List[Dict[str, str]] = []
+        self.history: list[dict[str, str]] = []
 
     def add_exchange(self, question: str, answer: str):
         self.history.append(
@@ -25,13 +22,12 @@ class FollowUpContextManager:
         sections = []
 
         for i, exchange in enumerate(self.history, start=1):
-
             sections.append(
-f"""Question {i}
-{exchange['question']}
+                f"""Question {i}
+{exchange["question"]}
 
 Founder Answer
-{exchange['answer']}
+{exchange["answer"]}
 """
             )
 

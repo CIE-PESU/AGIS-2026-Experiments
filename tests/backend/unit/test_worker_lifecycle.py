@@ -1,23 +1,30 @@
 """Failed startup/shutdown must not leave duplicate consumers or background jobs."""
+
 import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
-
 from workers import combined_agent_worker as module
 
 
 async def test_startup_retry_closes_failed_consumer_first(monkeypatch):
     consumers = []
+
     def create(*_args, **_kwargs):
         if len(consumers) == 1:
             consumers[0].stop.assert_awaited_once()
-        consumer = SimpleNamespace(start=AsyncMock(side_effect=RuntimeError("broker offline") if not consumers else None), stop=AsyncMock())
+        consumer = SimpleNamespace(
+            start=AsyncMock(side_effect=RuntimeError("broker offline") if not consumers else None),
+            stop=AsyncMock(),
+        )
         consumers.append(consumer)
         return consumer
+
     monkeypatch.setattr(module, "AIOKafkaConsumer", create)
-    monkeypatch.setattr(module, "AIOKafkaProducer", lambda **_: SimpleNamespace(start=AsyncMock(), stop=AsyncMock()))
+    monkeypatch.setattr(
+        module, "AIOKafkaProducer", lambda **_: SimpleNamespace(start=AsyncMock(), stop=AsyncMock())
+    )
     monkeypatch.setattr(module.asyncio, "sleep", AsyncMock())
     monkeypatch.setenv("WORKER_HEALTH_PORT", "0")
     worker = module.CombinedAgentWorker()
@@ -36,14 +43,17 @@ async def test_consumer_failure_cancels_sibling_jobs_before_cleanup(monkeypatch,
     worker.start = AsyncMock()
     worker.stop = AsyncMock()
     stopped = []
+
     async def fail():
         await asyncio.sleep(0)
         raise RuntimeError("consumer failed")
+
     async def wait_for_cancel():
         try:
             await asyncio.Event().wait()
         finally:
             stopped.append(True)
+
     worker._consume_dfv = fail
     worker._consume_discovery = wait_for_cancel
     worker._consume_pmf = wait_for_cancel

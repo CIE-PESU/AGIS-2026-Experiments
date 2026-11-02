@@ -26,17 +26,15 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from engine.dispatcher import WorkerDispatcher
 from engine.state_machine import (
     PipelineContext,
     PipelineState,
 )
-from tipsc_utils.followup_context import FollowUpContext
 from tipsc_models import PreEvalOutput
-
+from tipsc_utils.followup_context import FollowUpContext
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +43,6 @@ MAX_FOLLOWUP_TURNS = 3
 
 
 class AsyncPipelineExecutor:
-
     def __init__(self, stages, db):
         self.stages = stages
         self.dispatcher = WorkerDispatcher(stages)
@@ -91,25 +88,16 @@ class AsyncPipelineExecutor:
         """
 
         try:
-
-            session = await self.db.get_session(
-                session_id
-            )
+            session = await self.db.get_session(session_id)
 
             if session is None:
-
-                raise ValueError(
-                    f"Session not found: {session_id}"
-                )
+                raise ValueError(f"Session not found: {session_id}")
 
             student_id = session.get("student_id")
             team_id = session.get("team_id")
 
             logger.info(
-                "Starting TIPSC pipeline | "
-                "session_id=%s | "
-                "student_id=%s | "
-                "team_id=%s",
+                "Starting TIPSC pipeline | session_id=%s | student_id=%s | team_id=%s",
                 session_id,
                 student_id,
                 team_id,
@@ -118,16 +106,10 @@ class AsyncPipelineExecutor:
             await self._update(
                 session_id,
                 {
-                    "status": (
-                        PipelineState
-                        .PRE_EVAL
-                        .value
-                    ),
+                    "status": (PipelineState.PRE_EVAL.value),
                     "error": None,
                     "rejection_reason": None,
-                    "preeval_input": (
-                        preeval_input.copy()
-                    ),
+                    "preeval_input": (preeval_input.copy()),
                     "pending_question": None,
                     "pending_answer": None,
                     "followup_turn": 0,
@@ -141,7 +123,6 @@ class AsyncPipelineExecutor:
             )
 
         except Exception as exc:
-
             logger.exception(
                 "Pipeline failed for session %s",
                 session_id,
@@ -151,10 +132,7 @@ class AsyncPipelineExecutor:
                 "session_id": session_id,
                 "input": preeval_input,
                 "error": str(exc),
-                "timestamp": (
-                    datetime.now(timezone.utc)
-                    .isoformat()
-                ),
+                "timestamp": (datetime.now(UTC).isoformat()),
             }
 
             logger.error(
@@ -168,11 +146,7 @@ class AsyncPipelineExecutor:
             await self._update(
                 session_id,
                 {
-                    "status": (
-                        PipelineState
-                        .TIPSC_FAILED
-                        .value
-                    ),
+                    "status": (PipelineState.TIPSC_FAILED.value),
                     "error": str(exc),
                 },
             )
@@ -186,19 +160,12 @@ class AsyncPipelineExecutor:
         Execute the initial TIPSC pipeline.
         """
 
-        context = PipelineContext(
-            state=PipelineState.PRE_EVAL
-        )
+        context = PipelineContext(state=PipelineState.PRE_EVAL)
 
-        session = await self.db.get_session(
-            session_id
-        )
+        session = await self.db.get_session(session_id)
 
         if session is None:
-
-            raise ValueError(
-                f"Session not found: {session_id}"
-            )
+            raise ValueError(f"Session not found: {session_id}")
 
         # ──────────────────────────────────────────────────────────────────
         # PRE-EVALUATION
@@ -212,26 +179,16 @@ class AsyncPipelineExecutor:
         await self._update(
             session_id,
             {
-                "status": (
-                    PipelineState
-                    .PRE_EVAL
-                    .value
-                ),
+                "status": (PipelineState.PRE_EVAL.value),
             },
         )
 
-        context.preeval = (
-            await self.dispatcher.dispatch_preeval(
-                preeval_input
-            )
-        )
+        context.preeval = await self.dispatcher.dispatch_preeval(preeval_input)
 
         await self._update(
             session_id,
             {
-                "preeval": (
-                    context.preeval.model_dump()
-                ),
+                "preeval": (context.preeval.model_dump()),
             },
         )
 
@@ -242,11 +199,7 @@ class AsyncPipelineExecutor:
         await self._update(
             session_id,
             {
-                "status": (
-                    PipelineState
-                    .VALIDATION_RUNNING
-                    .value
-                ),
+                "status": (PipelineState.VALIDATION_RUNNING.value),
             },
         )
 
@@ -254,40 +207,20 @@ class AsyncPipelineExecutor:
             context.validation,
             context.regulatory,
         ) = await asyncio.gather(
-            self.dispatcher.dispatch_validation(
-                context.preeval
-            ),
-            self.dispatcher.dispatch_regulatory(
-                context.preeval
-            ),
+            self.dispatcher.dispatch_validation(context.preeval),
+            self.dispatcher.dispatch_regulatory(context.preeval),
         )
 
-        validation_context = (
-            context.validation.model_dump_json(
-                indent=2
-            )
-        )
+        validation_context = context.validation.model_dump_json(indent=2)
 
-        regulatory_context = (
-            context.regulatory.model_dump_json(
-                indent=2
-            )
-        )
+        regulatory_context = context.regulatory.model_dump_json(indent=2)
 
         await self._update(
             session_id,
             {
-                "validation": (
-                    context.validation.model_dump()
-                ),
-                "regulatory": (
-                    context.regulatory.model_dump()
-                ),
-                "status": (
-                    PipelineState
-                    .ETHICS_RUNNING
-                    .value
-                ),
+                "validation": (context.validation.model_dump()),
+                "regulatory": (context.regulatory.model_dump()),
+                "status": (PipelineState.ETHICS_RUNNING.value),
             },
         )
 
@@ -295,28 +228,22 @@ class AsyncPipelineExecutor:
         # ETHICS GATE
         # ──────────────────────────────────────────────────────────────────
 
-        context.ethics = (
-            await self.dispatcher.dispatch_ethics(
-                context.preeval,
-                validation_context,
-                regulatory_context,
-            )
+        context.ethics = await self.dispatcher.dispatch_ethics(
+            context.preeval,
+            validation_context,
+            regulatory_context,
         )
 
         await self._update(
             session_id,
             {
-                "ethics": (
-                    context.ethics.model_dump()
-                ),
+                "ethics": (context.ethics.model_dump()),
             },
         )
 
         if not context.ethics.ethics_pass:
-
             logger.warning(
-                "TIPSC ethics gate rejected session | "
-                "session_id=%s | reason=%s",
+                "TIPSC ethics gate rejected session | session_id=%s | reason=%s",
                 session_id,
                 context.ethics.rejection_reason,
             )
@@ -324,15 +251,8 @@ class AsyncPipelineExecutor:
             await self._update(
                 session_id,
                 {
-                    "status": (
-                        PipelineState
-                        .TIPSC_FAILED
-                        .value
-                    ),
-                    "rejection_reason": (
-                        context.ethics
-                        .rejection_reason
-                    ),
+                    "status": (PipelineState.TIPSC_FAILED.value),
+                    "rejection_reason": (context.ethics.rejection_reason),
                     "error": None,
                 },
             )
@@ -343,19 +263,15 @@ class AsyncPipelineExecutor:
         # COMPLIANCE CONTEXT
         # ──────────────────────────────────────────────────────────────────
 
-        context.compliance_context = (
-            self.stages.execute_compliance_context(
-                context.ethics,
-                context.regulatory,
-            )
+        context.compliance_context = self.stages.execute_compliance_context(
+            context.ethics,
+            context.regulatory,
         )
 
         await self._update(
             session_id,
             {
-                "compliance_context": (
-                    context.compliance_context
-                ),
+                "compliance_context": (context.compliance_context),
             },
         )
 
@@ -366,30 +282,20 @@ class AsyncPipelineExecutor:
         await self._update(
             session_id,
             {
-                "status": (
-                    PipelineState
-                    .TIPSC_RUNNING
-                    .value
-                ),
+                "status": (PipelineState.TIPSC_RUNNING.value),
             },
         )
 
-        context.tipsc = (
-            await self.dispatcher.dispatch_tipsc(
-                context.preeval,
-                validation_context,
-                context.compliance_context,
-            )
+        context.tipsc = await self.dispatcher.dispatch_tipsc(
+            context.preeval,
+            validation_context,
+            context.compliance_context,
         )
 
         tipsc_dump = self._build_tipsc_dump(
             tipsc=context.tipsc,
-            compliance_context=(
-                context.compliance_context
-            ),
-            compliance_flag=(
-                context.ethics.compliance_flag
-            ),
+            compliance_context=(context.compliance_context),
+            compliance_flag=(context.ethics.compliance_flag),
             followups_asked=0,
         )
 
@@ -405,7 +311,6 @@ class AsyncPipelineExecutor:
         # ──────────────────────────────────────────────────────────────────
 
         if not context.tipsc.needs_followup:
-
             await self._complete_tipsc(
                 session_id=session_id,
                 tipsc_dump=tipsc_dump,
@@ -419,9 +324,7 @@ class AsyncPipelineExecutor:
             session_id=session_id,
             tipsc=context.tipsc,
             followup_history=[],
-            compliance_context=(
-                context.compliance_context
-            ),
+            compliance_context=(context.compliance_context),
             turn=1,
         )
 
@@ -442,7 +345,6 @@ class AsyncPipelineExecutor:
         """
 
         try:
-
             await self._resume_internal(
                 session_id=session_id,
                 answer=answer,
@@ -450,7 +352,6 @@ class AsyncPipelineExecutor:
             )
 
         except Exception as exc:
-
             logger.exception(
                 "Follow-up resume failed for session %s",
                 session_id,
@@ -459,11 +360,7 @@ class AsyncPipelineExecutor:
             await self._update(
                 session_id,
                 {
-                    "status": (
-                        PipelineState
-                        .TIPSC_FAILED
-                        .value
-                    ),
+                    "status": (PipelineState.TIPSC_FAILED.value),
                     "error": str(exc),
                 },
             )
@@ -482,23 +379,18 @@ class AsyncPipelineExecutor:
         # LOAD SESSION
         # ──────────────────────────────────────────────────────────────────
 
-        session = await self.db.get_session(
-            session_id
-        )
+        session = await self.db.get_session(session_id)
 
         if session is None:
-
-            raise ValueError(
-                f"Session {session_id} not found in MongoDB"
-            )
+            raise ValueError(f"Session {session_id} not found in MongoDB")
 
         current_status = session.get("status")
 
-        if (
-            current_status
-            != (PipelineState.TIPSC_REEVALUATION.value if claimed else PipelineState.WAITING_FOR_FOUNDER.value)
+        if current_status != (
+            PipelineState.TIPSC_REEVALUATION.value
+            if claimed
+            else PipelineState.WAITING_FOR_FOUNDER.value
         ):
-
             raise ValueError(
                 f"Session {session_id} is not waiting "
                 f"for founder input "
@@ -512,37 +404,19 @@ class AsyncPipelineExecutor:
         preeval_data = session.get("preeval")
 
         if not preeval_data:
+            raise ValueError(f"Session {session_id} has no persisted preeval output")
 
-            raise ValueError(
-                f"Session {session_id} has no "
-                "persisted preeval output"
-            )
-
-        validation_data = session.get(
-            "validation"
-        )
+        validation_data = session.get("validation")
 
         if not validation_data:
+            raise ValueError(f"Session {session_id} has no persisted validation output")
 
-            raise ValueError(
-                f"Session {session_id} has no "
-                "persisted validation output"
-            )
-
-        pending_question = session.get(
-            "pending_question"
-        )
+        pending_question = session.get("pending_question")
 
         if not pending_question:
+            raise ValueError(f"Session {session_id} has no pending follow-up question")
 
-            raise ValueError(
-                f"Session {session_id} has no "
-                "pending follow-up question"
-            )
-
-        preeval = PreEvalOutput.model_validate(
-            preeval_data
-        )
+        preeval = PreEvalOutput.model_validate(preeval_data)
 
         validation_context = json.dumps(
             validation_data,
@@ -555,16 +429,10 @@ class AsyncPipelineExecutor:
             "",
         )
 
-        turn = int(
-            session.get("followup_turn", 1)
-            or 1
-        )
+        turn = int(session.get("followup_turn", 1) or 1)
 
         if turn < 1 or turn > MAX_FOLLOWUP_TURNS:
-
-            raise ValueError(
-                f"Invalid follow-up turn: {turn}"
-            )
+            raise ValueError(f"Invalid follow-up turn: {turn}")
 
         followup_history = list(
             session.get(
@@ -580,20 +448,13 @@ class AsyncPipelineExecutor:
         clean_answer = answer.strip()
 
         if not clean_answer:
-
-            raise ValueError(
-                "Follow-up answer cannot be empty."
-            )
+            raise ValueError("Follow-up answer cannot be empty.")
 
         await self._update(
             session_id,
             {
                 "pending_answer": clean_answer,
-                "status": (
-                    PipelineState
-                    .TIPSC_REEVALUATION
-                    .value
-                ),
+                "status": (PipelineState.TIPSC_REEVALUATION.value),
             },
         )
 
@@ -601,10 +462,7 @@ class AsyncPipelineExecutor:
             "question": pending_question,
             "answer": clean_answer,
             "turn": turn,
-            "answered_at": (
-                datetime.now(timezone.utc)
-                .isoformat()
-            ),
+            "answered_at": (datetime.now(UTC).isoformat()),
         }
 
         followup_history.append(exchange)
@@ -616,7 +474,6 @@ class AsyncPipelineExecutor:
         conversation = FollowUpContext()
 
         for history_item in followup_history:
-
             conversation.add(
                 history_item["question"],
                 history_item["answer"],
@@ -634,8 +491,7 @@ class AsyncPipelineExecutor:
         )
 
         logger.info(
-            "TIPSC reevaluation started | "
-            "session_id=%s | turn=%s",
+            "TIPSC reevaluation started | session_id=%s | turn=%s",
             session_id,
             turn,
         )
@@ -644,38 +500,25 @@ class AsyncPipelineExecutor:
         # TIPSC RE-EVALUATION
         # ──────────────────────────────────────────────────────────────────
 
-        tipsc = (
-            await self.dispatcher
-            .dispatch_tipsc_reeval(
-                preeval,
-                validation_context=(
-                    validation_context
-                ),
-                compliance_context=(
-                    compliance_context
-                ),
-                followup_context=(
-                    followup_context
-                ),
-            )
+        tipsc = await self.dispatcher.dispatch_tipsc_reeval(
+            preeval,
+            validation_context=(validation_context),
+            compliance_context=(compliance_context),
+            followup_context=(followup_context),
         )
 
         ethics = session.get("ethics") or {}
 
         tipsc_dump = self._build_tipsc_dump(
             tipsc=tipsc,
-            compliance_context=(
-                compliance_context
-            ),
+            compliance_context=(compliance_context),
             compliance_flag=bool(
                 ethics.get(
                     "compliance_flag",
                     False,
                 )
             ),
-            followups_asked=len(
-                followup_history
-            ),
+            followups_asked=len(followup_history),
         )
 
         await self._update(
@@ -689,18 +532,12 @@ class AsyncPipelineExecutor:
         # NEXT FOLLOW-UP DECISION
         # ──────────────────────────────────────────────────────────────────
 
-        if (
-            tipsc.needs_followup
-            and turn < MAX_FOLLOWUP_TURNS
-        ):
-
+        if tipsc.needs_followup and turn < MAX_FOLLOWUP_TURNS:
             await self._generate_and_park_question(
                 session_id=session_id,
                 tipsc=tipsc,
                 followup_history=followup_history,
-                compliance_context=(
-                    compliance_context
-                ),
+                compliance_context=(compliance_context),
                 turn=turn + 1,
             )
 
@@ -710,9 +547,7 @@ class AsyncPipelineExecutor:
         await self._complete_tipsc(
             session_id=session_id,
             tipsc_dump=tipsc_dump,
-            followups_asked=len(
-                followup_history
-            ),
+            followups_asked=len(followup_history),
         )
 
     # ──────────────────────────────────────────────────────────────────────
@@ -732,15 +567,11 @@ class AsyncPipelineExecutor:
         """
 
         if turn > MAX_FOLLOWUP_TURNS:
-
-            raise ValueError(
-                "Follow-up turn exceeds maximum."
-            )
+            raise ValueError("Follow-up turn exceeds maximum.")
 
         conversation = FollowUpContext()
 
         for exchange in followup_history:
-
             conversation.add(
                 exchange["question"],
                 exchange["answer"],
@@ -748,63 +579,36 @@ class AsyncPipelineExecutor:
 
         followup_context = conversation.build()
 
-        followup = (
-            await self.dispatcher.dispatch_followup(
-                tipsc,
-                followup_context=(
-                    followup_context
-                ),
-                compliance_context=(
-                    compliance_context
-                ),
-            )
+        followup = await self.dispatcher.dispatch_followup(
+            tipsc,
+            followup_context=(followup_context),
+            compliance_context=(compliance_context),
         )
 
         # Agent says no question is required.
-        if (
-            not followup.needs_followup
-            or not followup.questions
-        ):
+        if not followup.needs_followup or not followup.questions:
+            session = await self.db.get_session(session_id)
 
-            session = await self.db.get_session(
-                session_id
-            )
-
-            tipsc_dump = (
-                session.get("tipsc", {})
-                if session
-                else {}
-            )
+            tipsc_dump = session.get("tipsc", {}) if session else {}
 
             await self._complete_tipsc(
                 session_id=session_id,
                 tipsc_dump=tipsc_dump,
-                followups_asked=len(
-                    followup_history
-                ),
+                followups_asked=len(followup_history),
             )
 
             return
 
         # Ask one question per turn.
-        question = str(
-            followup.questions[0]
-        ).strip()
+        question = str(followup.questions[0]).strip()
 
         if not question:
-
-            raise ValueError(
-                "Follow-up agent generated an empty question."
-            )
+            raise ValueError("Follow-up agent generated an empty question.")
 
         await self._update(
             session_id,
             {
-                "status": (
-                    PipelineState
-                    .WAITING_FOR_FOUNDER
-                    .value
-                ),
+                "status": (PipelineState.WAITING_FOR_FOUNDER.value),
                 "pending_question": question,
                 "pending_answer": None,
                 "followup_turn": turn,
@@ -814,9 +618,7 @@ class AsyncPipelineExecutor:
         )
 
         logger.info(
-            "Session %s parked at "
-            "WAITING_FOR_FOUNDER "
-            "(turn %s/%s) | question=%s",
+            "Session %s parked at WAITING_FOR_FOUNDER (turn %s/%s) | question=%s",
             session_id,
             turn,
             MAX_FOLLOWUP_TURNS,
@@ -840,19 +642,11 @@ class AsyncPipelineExecutor:
 
         tipsc_dump = tipsc.model_dump()
 
-        tipsc_dump["reasoning"] = (
-            compliance_context[:500]
-            if compliance_context
-            else ""
-        )
+        tipsc_dump["reasoning"] = compliance_context[:500] if compliance_context else ""
 
-        tipsc_dump["compliance_flag"] = (
-            compliance_flag
-        )
+        tipsc_dump["compliance_flag"] = compliance_flag
 
-        tipsc_dump["followups_asked"] = (
-            followups_asked
-        )
+        tipsc_dump["followups_asked"] = followups_asked
 
         tipsc_dump["completed_at"] = None
 
@@ -872,17 +666,11 @@ class AsyncPipelineExecutor:
         Finalize TIPSC and clear transient follow-up state.
         """
 
-        final_tipsc = dict(
-            tipsc_dump
-        )
+        final_tipsc = dict(tipsc_dump)
 
-        final_tipsc["followups_asked"] = (
-            followups_asked
-        )
+        final_tipsc["followups_asked"] = followups_asked
 
-        final_tipsc["completed_at"] = (
-            datetime.now(timezone.utc)
-        )
+        final_tipsc["completed_at"] = datetime.now(UTC)
 
         # The follow-up lifecycle has ended.
         final_tipsc["needs_followup"] = False
@@ -890,11 +678,7 @@ class AsyncPipelineExecutor:
         await self._update(
             session_id,
             {
-                "status": (
-                    PipelineState
-                    .TIPSC_COMPLETED
-                    .value
-                ),
+                "status": (PipelineState.TIPSC_COMPLETED.value),
                 "tipsc": final_tipsc,
                 "pending_question": None,
                 "pending_answer": None,
@@ -904,13 +688,8 @@ class AsyncPipelineExecutor:
         )
 
         logger.info(
-            "TIPSC completed | "
-            "session_id=%s | "
-            "followups_asked=%s | "
-            "ready_for_dfv=%s",
+            "TIPSC completed | session_id=%s | followups_asked=%s | ready_for_dfv=%s",
             session_id,
             followups_asked,
-            final_tipsc.get(
-                "ready_for_dfv"
-            ),
+            final_tipsc.get("ready_for_dfv"),
         )

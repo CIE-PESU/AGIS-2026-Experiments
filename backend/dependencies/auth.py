@@ -6,8 +6,8 @@ Two core dependencies:
   2. require_role(roles)    — Factory that returns a dependency enforcing role membership.
 
 CurrentUser is a simple Pydantic model carrying the decoded JWT claims. It is NOT
-fetched from MongoDB on every request — the JWT is the source of truth for basic
-identity. MongoDB is only hit when the full user document is explicitly needed.
+a persistence document. JWTs carry basic identity; mentor requests resolve current
+account/team assignments and workspace requests check revocation in MongoDB.
 """
 
 from __future__ import annotations
@@ -54,9 +54,22 @@ async def get_current_user(
 
     role = payload.get("role", "")
     workspace_id = payload.get("workspace_id")
+    mentor_team_ids = payload.get("mentor_team_ids", [])
 
     if role not in {UserRole.STUDENT, UserRole.MENTOR, UserRole.ADMIN, UserRole.MENTOR_WORKSPACE}:
         raise TokenInvalidError("Invalid account role.")
+    if role == UserRole.MENTOR:
+        from bson import ObjectId
+
+        from models.user import User
+        from services.mentor_service import sync_mentor_teams
+
+        if not ObjectId.is_valid(payload["sub"]):
+            raise TokenInvalidError("Invalid mentor identity.")
+        mentor = await User.get(payload["sub"])
+        if mentor is None or mentor.role != UserRole.MENTOR:
+            raise TokenInvalidError("Mentor account is no longer active.")
+        mentor_team_ids = await sync_mentor_teams(payload["sub"])
     if role == UserRole.MENTOR_WORKSPACE:
         if not workspace_id:
             raise TokenInvalidError("Workspace identity is missing.")
@@ -72,7 +85,7 @@ async def get_current_user(
         name=payload.get("name", "Unknown"),
         team_id=payload.get("team_id"),
         workspace_id=workspace_id,
-        mentor_team_ids=payload.get("mentor_team_ids", []),
+        mentor_team_ids=mentor_team_ids,
     )
 
 

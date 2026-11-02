@@ -1,17 +1,17 @@
-import pytest
-from unittest.mock import AsyncMock, MagicMock
-from fastapi import BackgroundTasks
+from unittest.mock import AsyncMock
 
-from exceptions.session import (
-    SessionNotFoundError,
-    InvalidStateTransitionError,
-)
+import pytest
 from exceptions.base import (
     CorrelationIDMismatchError,
     InvalidOutputSchemaError,
 )
+from exceptions.session import (
+    InvalidStateTransitionError,
+)
+from fastapi import BackgroundTasks
 from models.session import SessionStatus
 from services.worker_service import WorkerService
+
 
 class FakeSessionSnapshot:
     def __init__(self, **kwargs):
@@ -21,6 +21,7 @@ class FakeSessionSnapshot:
         self.version = 1
         for k, v in kwargs.items():
             setattr(self, k, v)
+
 
 class FakeSessionRepo:
     def __init__(self, session=None):
@@ -34,18 +35,27 @@ class FakeSessionRepo:
         return None
 
     async def update_flow_output(self, session_id, flow, output, new_status, expected_version):
-        self.update_flow_output_called_with = (session_id, flow, output, new_status, expected_version)
+        self.update_flow_output_called_with = (
+            session_id,
+            flow,
+            output,
+            new_status,
+            expected_version,
+        )
         if self.session:
             self.session.status = new_status
             self.session.version += 1
         return True
 
-    async def update_flow_failure(self, session_id, new_status, failure_metadata, expected_version=None, correlation_id=None):
+    async def update_flow_failure(
+        self, session_id, new_status, failure_metadata, expected_version=None, correlation_id=None
+    ):
         self.update_flow_failure_called_with = (session_id, new_status, failure_metadata)
         if self.session:
             self.session.status = new_status
             self.session.version += 1
         return True
+
 
 @pytest.fixture
 def worker_service(monkeypatch):
@@ -54,6 +64,7 @@ def worker_service(monkeypatch):
     monkeypatch.setattr("services.worker_service.session_repo", repo)
     monkeypatch.setattr("services.worker_service.audit_service", AsyncMock())
     return service, repo
+
 
 @pytest.mark.asyncio
 async def test_accept_flow_output_empty_returns_invalid_schema(worker_service):
@@ -72,6 +83,7 @@ async def test_accept_flow_output_empty_returns_invalid_schema(worker_service):
         )
     assert "Output cannot be empty" in str(exc_info.value.message)
 
+
 @pytest.mark.asyncio
 async def test_accept_flow_output_wrong_correlation_id(worker_service):
     service, repo = worker_service
@@ -87,6 +99,7 @@ async def test_accept_flow_output_wrong_correlation_id(worker_service):
             worker_id="worker_1",
             background_tasks=bg_tasks,
         )
+
 
 @pytest.mark.asyncio
 async def test_accept_flow_output_terminal_session(worker_service):
@@ -105,6 +118,7 @@ async def test_accept_flow_output_terminal_session(worker_service):
             background_tasks=bg_tasks,
         )
 
+
 @pytest.mark.asyncio
 async def test_valid_tipsc_output_writes_and_sets_status(worker_service):
     service, repo = worker_service
@@ -115,7 +129,7 @@ async def test_valid_tipsc_output_writes_and_sets_status(worker_service):
         "total_score": 5,
         "ready_for_dfv": True,
         "compliance_flag": False,
-        "reasoning": "Looks good"
+        "reasoning": "Looks good",
     }
 
     res = await service.accept_flow_output(
@@ -132,6 +146,7 @@ async def test_valid_tipsc_output_writes_and_sets_status(worker_service):
     assert repo.update_flow_output_called_with[1] == "tipsc"
     assert repo.update_flow_output_called_with[3] == SessionStatus.TIPSC_COMPLETED
 
+
 @pytest.mark.asyncio
 async def test_valid_dfv_output_writes_and_sets_status(worker_service):
     service, repo = worker_service
@@ -143,7 +158,7 @@ async def test_valid_dfv_output_writes_and_sets_status(worker_service):
         "feasibility": {"score": 5, "report": "ok"},
         "viability": {"score": 5, "report": "ok"},
         "overall_decision": "GO",
-        "summary": "good"
+        "summary": "good",
     }
 
     valid_dfv = {"status": "done", "output": {"final_decision": {"status": "GO"}, **valid_dfv}}
@@ -162,6 +177,7 @@ async def test_valid_dfv_output_writes_and_sets_status(worker_service):
     assert repo.update_flow_output_called_with[1] == "dfv"
     assert repo.update_flow_output_called_with[3] == SessionStatus.DFV_COMPLETED
 
+
 @pytest.mark.asyncio
 async def test_valid_discovery_output_writes_and_sets_status(worker_service):
     service, repo = worker_service
@@ -171,7 +187,7 @@ async def test_valid_discovery_output_writes_and_sets_status(worker_service):
     valid_discovery = {
         "interview_plan": {
             "target_segment": "Students",
-            "hypothesis_to_validate": "They need this."
+            "hypothesis_to_validate": "They need this.",
         }
     }
 
@@ -190,6 +206,7 @@ async def test_valid_discovery_output_writes_and_sets_status(worker_service):
     assert res["status"] == "success"
     assert repo.update_flow_output_called_with[1] == "discovery"
     assert repo.update_flow_output_called_with[3] == SessionStatus.COMPLETED
+
 
 @pytest.mark.asyncio
 async def test_accept_flow_failure(worker_service):
@@ -211,19 +228,24 @@ async def test_accept_flow_failure(worker_service):
     assert repo.update_flow_failure_called_with[2]["error_code"] == "TIMEOUT"
 
 
-@pytest.mark.parametrize("flow,output", [
-    ("dfv", {"overall_decision": "GO"}),
-    ("dfv", {"status": "done", "output": {}}),
-    ("dfv", {"status": "done", "output": {"final_decision": {"status": "UNKNOWN"}}}),
-    ("dfv", {"status": "done", "output": {"final_decision": "GO"}}),
-    ("discovery", {"status": "done", "output": {"report": "  "}}),
-    ("discovery", {"status": "done", "output": {"report": None}}),
-    ("pmf", {"status": "done", "output": {"pmf_score": 100}}),
-])
+@pytest.mark.parametrize(
+    "flow,output",
+    [
+        ("dfv", {"overall_decision": "GO"}),
+        ("dfv", {"status": "done", "output": {}}),
+        ("dfv", {"status": "done", "output": {"final_decision": {"status": "UNKNOWN"}}}),
+        ("dfv", {"status": "done", "output": {"final_decision": "GO"}}),
+        ("discovery", {"status": "done", "output": {"report": "  "}}),
+        ("discovery", {"status": "done", "output": {"report": None}}),
+        ("pmf", {"status": "done", "output": {"pmf_score": 100}}),
+    ],
+)
 async def test_invalid_agent_data_is_never_saved_as_success(worker_service, flow, output):
     service, repo = worker_service
     repo.session.status = SessionStatus(f"{flow}_running")
     with pytest.raises(InvalidOutputSchemaError):
-        await service.accept_flow_output("ses_1", flow, "corr_1", output, 1, "test-worker", BackgroundTasks())
+        await service.accept_flow_output(
+            "ses_1", flow, "corr_1", output, 1, "test-worker", BackgroundTasks()
+        )
     assert repo.update_flow_output_called_with is None
     assert repo.session.status == SessionStatus(f"{flow}_running")
