@@ -476,6 +476,7 @@ pytube==15.0.0
     # via crewai-tools
 pywin32==312 ; sys_platform == 'win32'
     # via
+    #   agis-platform
     #   mcp
     #   portalocker
 pyyaml==6.0.3

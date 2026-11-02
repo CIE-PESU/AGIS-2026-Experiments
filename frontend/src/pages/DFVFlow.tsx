@@ -8,7 +8,7 @@ import { TrafficDot } from "@/components/shared/StatusBadge";
 import { DFV_CONTEXT_MIN } from "@/constants";
 import { getSession, triggerDfv } from "@/services/authSessions";
 import { useAuth } from "@/context/AuthContext";
-import type { DFVResult } from "@/data/mockData";
+import type { DFVResult } from "@/data/session";
 import { toast } from "sonner";
 
 export function DFVFlow() {
@@ -139,7 +139,7 @@ export function DFVFlow() {
                   <Loader2 className="h-4 w-4 animate-spin" />
                 </div>
                 <div className="h-3 overflow-hidden rounded-full bg-muted">
-                  <div className="h-full w-2/3 animate-pulse rounded-full bg-secondary" />
+                  <div className="h-full w-full animate-pulse rounded-full bg-secondary/50" />
                 </div>
               </div>
             ))}
@@ -159,7 +159,7 @@ export function DFVFlow() {
               <p className="mt-2 text-sm">{execSummary}</p>
             </div>
 
-            {/* Support both dimensions (mock) and hypotheses/metrics (real backend) */}
+            {/* Support both legacy dimensions and current hypotheses/metrics */}
             {result.dimensions ? (
               <div className="mt-6 grid gap-4 md:grid-cols-3">
                 {Object.entries(result.dimensions).map(([key, val]: [string, any]) => (

@@ -225,6 +225,8 @@ async def test_real_application_startup_and_readiness(monkeypatch):
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
             ready = await client.get("/api/v1/ready")
             assert ready.status_code == 200, ready.text
+            for collection in ["users", "sessions", "workspaces"]:
+                assert await get_client()[settings.MONGODB_DB_NAME][collection].count_documents({}) == 0
             health = await client.get("/api/v1/health")
             assert health.json()["services"]["kafka_producer"] == "connected"
         info = await get_client()[settings.MONGODB_DB_NAME]["refresh_tokens"].index_information()
@@ -337,3 +339,94 @@ async def test_pmf_delivery_retry_idempotency_and_ownership(stack):
         {"flow": "pmf"}, correlation_id=next_job["correlation_id"])
     response = await stack.client.delete(f"/api/v1/sessions/{session_id}", headers=headers)
     assert response.status_code == 200, response.text
+
+
+async def test_concurrent_first_login_creates_one_user_and_workspace(stack, monkeypatch):
+    from models.user import User
+    from models.workspace import Workspace
+    monkeypatch.setattr("services.auth_service.pes_auth_client.validate_credentials", AsyncMock(return_value={
+        "srn": "PES2UG22CS999", "name": "Concurrent Student", "role": "student", "mentor_team_ids": []}))
+    replies = await asyncio.gather(*[stack.client.post("/api/v1/auth/login",
+        json={"srn": "PES2UG22CS999", "password": "test-only"}) for _ in range(2)])
+    assert [reply.status_code for reply in replies] == [200, 200], [reply.text for reply in replies]
+    assert await User.find_all().count() == 1
+    assert await Workspace.find_all().count() == 1
+
+
+async def test_offline_local_llm_does_not_create_session_or_fake_quickstart(stack, monkeypatch):
+    from models.session import Session
+    from models.workspace import Workspace
+    from core.config import settings
+    headers, _ = await login(stack)
+    monkeypatch.setattr(settings, "LM_STUDIO_URL", "http://127.0.0.1:1234/v1")
+    def unavailable(*_args, **_kwargs):
+        raise RuntimeError("local model offline")
+    monkeypatch.setattr("core.llm_provider.check_model_server", unavailable)
+    response = await stack.client.post("/api/v1/sessions", json=INTAKE,
+        headers={**headers, "Idempotency-Key": str(uuid.uuid4())})
+    assert response.status_code == 503, response.text
+    assert response.json()["error"]["code"] == "LOCAL_LLM_UNAVAILABLE"
+    assert await Session.find_all().count() == 0
+    assert await Workspace.find_all().count() == 1  # only the real login's workspace
+    from quickstart_agent.models import QuickstartInput
+    monkeypatch.setattr("quickstart_agent.main.run_quickstart_eval_async", AsyncMock(side_effect=ValueError("invalid provider output")))
+    response = await stack.client.post("/api/v1/quickstart/evaluate", json={name: "Test context" for name in QuickstartInput.model_fields}, headers=headers)
+    assert response.status_code == 502, response.text
+    assert "data" not in response.json()
+    assert await Session.find_all().count() == 0
+
+
+async def test_legacy_indexes_upgrade_without_deleting_records(monkeypatch):
+    from core.config import settings
+    from motor.motor_asyncio import AsyncIOMotorClient
+    from database.mongodb import connect_db, disconnect_db
+    from models.session import Session
+    from pymongo.errors import DuplicateKeyError
+    from state_machine.states import SessionStatus
+    name = "agis_test_legacy_" + uuid.uuid4().hex
+    monkeypatch.setattr(settings, "MONGODB_DB_NAME", name)
+    client = AsyncIOMotorClient(settings.MONGODB_URI)
+    try:
+        collection = client[name]["sessions"]
+        old_states = [state.value for state in SessionStatus if state != SessionStatus.ARCHIVED and not state.value.startswith("pmf_")]
+        for field in ["student_id", "workspace_id"]:
+            await collection.create_index([(field, 1)], name=f"uq_active_{field}", unique=True,
+                partialFilterExpression={field: {"$type": "string"}, "status": {"$in": old_states}})
+        legacy = await collection.insert_one({"student_id": "legacy-owner", "problem_statement": "Preserve this founder input", "idea": "Existing idea", "status": "tipsc_completed", "version": 0, "idempotency_key": "legacy-request"})
+        await connect_db()
+        preserved = await collection.find_one({"_id": legacy.inserted_id})
+        assert preserved["problem_statement"] == "Preserve this founder input"
+        first = await Session(student_id="real-owner", problem_statement="A real input", idea="A real idea", status=SessionStatus.PMF_COMPLETED, idempotency_key="first-legacy-request").insert()
+        with pytest.raises(DuplicateKeyError):
+            await Session(student_id="real-owner", problem_statement="Duplicate", idea="Duplicate", status=SessionStatus.PMF_FAILED, idempotency_key="second-legacy-request").insert()
+        assert await Session.find_all().count() == 2
+        assert await Session.get(first.id) is not None
+        indexes = await collection.index_information()
+        assert "uq_active_student_id" in indexes
+        assert indexes["uq_active_student_id_v2"]["partialFilterExpression"]["archived_at"] is None
+    finally:
+        await disconnect_db()
+        await client.drop_database(name)
+        client.close()
+
+
+async def test_failed_authentication_creates_no_user_or_workspace(stack, monkeypatch):
+    from exceptions.base import InvalidCredentialsError
+    from models.user import User
+    from models.workspace import Workspace
+    from models.session import Session
+    monkeypatch.setattr("services.auth_service.pes_auth_client.validate_credentials", AsyncMock(side_effect=InvalidCredentialsError()))
+    response = await stack.client.post("/api/v1/auth/login", json={"srn": "PES2UG22CS998", "password": "test-only"})
+    assert response.status_code == 401, response.text
+    assert await User.find_all().count() == 0
+    assert await Workspace.find_all().count() == 0
+    assert await Session.find_all().count() == 0
+
+
+async def test_simultaneous_different_requests_cannot_create_phantom_sessions(stack):
+    from models.session import Session
+    headers, _ = await login(stack)
+    replies = await asyncio.gather(*[stack.client.post("/api/v1/sessions", json=INTAKE,
+        headers={**headers, "Idempotency-Key": str(uuid.uuid4())}) for _ in range(2)])
+    assert sorted(reply.status_code for reply in replies) == [201, 409], [reply.text for reply in replies]
+    assert await Session.find_all().count() == 1

@@ -58,7 +58,7 @@ export function useSessionPolling(
 }
 
 import { deriveCanonicalStageAccess } from "@/utils/sessionStatus";
-import type { StageStatus } from "@/data/mockData";
+import type { StageStatus } from "@/data/session";
 
 /** Map backend session status to UI stage unlock state — single canonical source of truth */
 export function deriveStageAccess(doc: any | null) {

@@ -17,6 +17,7 @@ class QuickstartInput(BaseModel):
 
 
 class ParameterRating(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
     name: Literal[
         "harm_vector",
         "legal_risk",
@@ -30,7 +31,7 @@ class ParameterRating(BaseModel):
         "viability",
     ]
     rating: Literal["GREEN", "YELLOW", "RED"]
-    reason: str
+    reason: str = Field(min_length=1)
 
 
 class QuickstartOutput(BaseModel):

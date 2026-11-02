@@ -18,7 +18,10 @@ def main():
         output = _parse_agent_output(_load_dfv_agent()(inputs))
     elif flow == "discovery":
         result = _load_discovery_agent()(inputs)
-        output = {"report": getattr(result, "raw", str(result))}
+        report = getattr(result, "raw", result)
+        if not isinstance(report, str) or not report.strip():
+            raise ValueError("Discovery returned no report; no result was created.")
+        output = {"report": report}
     elif flow == "pmf":
         sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "pmf-agent"))
         from pmf_analyzer import run_pmf_analysis
@@ -26,7 +29,7 @@ def main():
         output = run_pmf_analysis(inputs)
     else:
         raise ValueError("Unknown agent")
-    Path(result_path).write_text(json.dumps(output, default=str))
+    Path(result_path).write_text(json.dumps(output, default=str), encoding="utf-8")
 
 
 if __name__ == "__main__":

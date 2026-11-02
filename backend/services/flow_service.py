@@ -543,6 +543,11 @@ class FlowService:
             if decision != "NO-GO":
                 raise InvalidStateTransitionError(session.status, SessionStatus.DFV_WAITING)
 
+        if session.status not in {SessionStatus.DFV_WAITING, SessionStatus.DFV_RUNNING}:
+            from core.llm_provider import require_local_model
+
+            await require_local_model()
+
         correlation_id = _new_correlation_id()
         if record:
             record["response"] = {
@@ -664,6 +669,11 @@ class FlowService:
         if decision != "GO":
             raise InvalidStateTransitionError(session.status, SessionStatus.DISCOVERY_WAITING)
 
+        if session.status not in {SessionStatus.DISCOVERY_WAITING, SessionStatus.DISCOVERY_RUNNING}:
+            from core.llm_provider import require_local_model
+
+            await require_local_model()
+
         correlation_id = _new_correlation_id()
         if record:
             record["response"] = {
@@ -777,6 +787,11 @@ class FlowService:
         )
         if evidence.get("status") not in {"done", "completed"} or not evidence.get("output"):
             raise InvalidStateTransitionError(session.status, SessionStatus.PMF_WAITING)
+
+        if session.status not in {SessionStatus.PMF_WAITING, SessionStatus.PMF_RUNNING}:
+            from core.llm_provider import require_local_model
+
+            await require_local_model()
 
         correlation_id = _new_correlation_id()
         if record:

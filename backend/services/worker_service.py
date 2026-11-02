@@ -71,6 +71,52 @@ class WorkerService:
         if not output:
             raise InvalidOutputSchemaError("Output cannot be empty.")
 
+        if flow == "tipsc" and not (
+            isinstance(output.get("ready_for_dfv"), bool)
+            and (
+                output.get("overall_readiness") in {"STRONG", "MODERATE", "WEAK"}
+                or isinstance(output.get("reasoning"), str)
+                and output["reasoning"].strip()
+            )
+        ):
+            raise InvalidOutputSchemaError(
+                "TIPSC must contain an explicit assessment; an empty/default result cannot complete the flow."
+            )
+
+        if flow in {"dfv", "discovery", "pmf"}:
+            content = output.get("output")
+            if (
+                output.get("status") not in {"done", "completed"}
+                or not isinstance(content, dict)
+                or not content
+            ):
+                raise InvalidOutputSchemaError(
+                    "A completed worker result must contain a non-empty output object."
+                )
+            if flow == "dfv":
+                gate = content.get("final_decision")
+                decision = content.get("decision") or (
+                    gate.get("status") if isinstance(gate, dict) else None
+                )
+                if decision not in {"GO", "NO-GO"}:
+                    raise InvalidOutputSchemaError(
+                        "DFV must contain an explicit GO or NO-GO decision."
+                    )
+            if flow == "discovery":
+                report = content.get("report")
+                if not (
+                    (isinstance(report, str) and report.strip())
+                    or isinstance(content.get("interview_plan"), dict)
+                    and content["interview_plan"]
+                ):
+                    raise InvalidOutputSchemaError(
+                        "Discovery must contain a report or a non-empty interview plan."
+                    )
+            if flow == "pmf" and not (
+                isinstance(content.get("verdict"), str) and content["verdict"].strip()
+            ):
+                raise InvalidOutputSchemaError("PMF must contain an explicit verdict.")
+
         if flow == "tipsc":
             try:
                 parsed_output = TIPSCOutput(**output)
@@ -98,7 +144,7 @@ class WorkerService:
                 target_status = SessionStatus.PMF_COMPLETED
                 audit_event = AuditEvent.PMF_COMPLETED
             except ValidationError as e:
-                raise InvalidOutputSchemaError(f"Invalid Discovery output schema: {e}") from e
+                raise InvalidOutputSchemaError(f"Invalid PMF output schema: {e}") from e
         else:
             raise InvalidOutputSchemaError(f"Unknown flow: {flow}")
 

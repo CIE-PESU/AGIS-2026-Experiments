@@ -13,6 +13,7 @@ These endpoints are NOT rate-limited and require no auth.
 from __future__ import annotations
 
 import logging
+import os
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, status
@@ -86,6 +87,7 @@ async def readiness_probe() -> JSONResponse:
             status_code=status.HTTP_200_OK,
             content={
                 "ready": True,
+                "instance_id": os.getenv("AGIS_RUN_ID"),
                 "timestamp": datetime.now(UTC).isoformat(),
             },
         )

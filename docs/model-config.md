@@ -1,6 +1,6 @@
 # Model configuration
 
-The root `.env` supplies `OPENAI_MODEL_NAME`, `LM_STUDIO_URL` (an OpenAI-compatible `/v1` endpoint), and `OPENAI_API_KEY`. TIPSC, DFV, Discovery, and Quickstart read this shared configuration. Never commit keys. Exact CrewAI, tools, and LiteLLM versions are resolved together by the root lockfile; the LiteLLM dependency is explicit rather than CrewAI's optional pinned extra.
+The root `.env` supplies `OPENAI_MODEL_NAME`, `LM_STUDIO_URL` (an OpenAI-compatible `/v1` endpoint), and `OPENAI_API_KEY`. TIPSC, DFV, Discovery, Quickstart, and PMF read this shared configuration. Never commit keys. Exact CrewAI, tools, and LiteLLM versions are resolved together by the root lockfile; the LiteLLM dependency is explicit rather than CrewAI's optional pinned extra.
 
 The template uses NVIDIA NIM:
 
@@ -17,3 +17,5 @@ Search-enabled agents use `TAVILY_API_KEY` and/or `SERPER_API_KEY`. Configure bo
 `AGENT_TIMEOUT_SECONDS` limits the combined worker's agent subprocess. TIPSC uses stage-level validation/regulatory timeouts where configured and the timeout supervisor for abandoned pipeline work. Review provider limits and total pipeline duration before changing these values. A subprocess timeout stops the local process; it cannot guarantee a remote provider cancels billing for a request already accepted.
 
 Automated integration tests use controlled agent outputs and never call these providers. A live provider check must use non-sensitive sample input and be run separately from ordinary CI.
+
+For Windows setup and read-only/model capability checks, see [Windows and local LLM operation](windows-local-llm.md). `LLM_MAX_OUTPUT_TOKENS` supplies a shared completion budget; keep prompt plus completion tokens within the configured server context.

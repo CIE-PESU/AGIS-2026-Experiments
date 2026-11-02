@@ -64,6 +64,22 @@ class Workspace(Document):
         name = "workspaces"
         indexes = [
             IndexModel(
+                [("mentor_id", 1)],
+                unique=True,
+                name="uq_active_mentor_workspace",
+                partialFilterExpression={
+                    "mentor_id": {"$type": "string"},
+                    "status": "active",
+                    "type": "mentor",
+                },
+            ),
+            IndexModel(
+                [("name", 1)],
+                unique=True,
+                name="uq_active_mentor_workspace_name",
+                partialFilterExpression={"status": "active", "type": "mentor"},
+            ),
+            IndexModel(
                 [("token_hash", 1)],
                 unique=True,
                 name="uq_workspace_token",

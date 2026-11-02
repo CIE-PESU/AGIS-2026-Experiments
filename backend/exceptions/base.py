@@ -347,3 +347,13 @@ class PipelineUnavailableError(AppException):
 
     def __init__(self):
         super().__init__("TIPSC executor is not initialized. Retry after readiness recovers.")
+
+
+class LocalLLMUnavailableError(AppException):
+    http_status = 503
+    error_code = "LOCAL_LLM_UNAVAILABLE"
+
+    def __init__(self) -> None:
+        super().__init__(
+            "The configured local LLM or model is unavailable. Start it and verify its exact model id before retrying."
+        )

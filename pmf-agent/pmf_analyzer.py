@@ -69,7 +69,7 @@ def run_pmf_analysis(inputs: dict) -> dict:
     model = os.environ['OPENAI_MODEL_NAME']
     llm = LLM(
         model=model, base_url=os.environ['LM_STUDIO_URL'], api_key=os.environ['OPENAI_API_KEY'],
-        temperature=0.2, max_tokens=4000, timeout=float(os.getenv('CREWAI_TIMEOUT_SECONDS', '600')),
+        temperature=0.2, max_tokens=int(os.getenv("LLM_MAX_OUTPUT_TOKENS", "4096")), timeout=float(os.getenv('CREWAI_TIMEOUT_SECONDS', '600')),
         extra_body=({'chat_template_kwargs': {'enable_thinking': False}}
                     if model.endswith('nemotron-3.5-lightning-30b-a3b') else {}),
     )

@@ -1,11 +1,11 @@
-import { preEvaluationQuestions, type DFVResult, type JTBDResult, type TIPSCResult } from "@/data/mockData";
+import { preEvaluationQuestions, type DFVResult, type JTBDResult, type TIPSCResult } from "@/data/session";
 import type { SessionDocument } from "@/types/api";
 
 const light = { green: "🟢", yellow: "🟡", red: "🔴", GREEN: "🟢", YELLOW: "🟡", RED: "🔴" } as const;
 
 function statusIcon(status?: string | null) {
-  if (!status) return "🟢";
-  return light[status as keyof typeof light] || "🟢";
+  if (!status) return "⚪";
+  return light[status as keyof typeof light] || "⚪";
 }
 
 function fmtDate(value?: string | null) {
@@ -31,7 +31,7 @@ export type ExportInput = {
  * Ethics, TIPSC, DFV, Discovery). Whenever the richer `sessionDoc` from the
  * backend is available it is used as the source of truth (it carries fields
  * the simplified `results` objects drop); `results`/`formData` are used as a
- * fallback so the export still works for locally-mocked sessions.
+ * fallback so the export still works for legacy structured reports.
  */
 export function generateMarkdown(input: ExportInput): string;
 // Back-compat overload for older call sites passing (results, formData) directly.

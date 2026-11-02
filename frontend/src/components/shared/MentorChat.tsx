@@ -1,32 +1,32 @@
 import { useEffect, useState } from "react";
 import { MessageSquare } from "lucide-react";
-import { mockMentorMessages } from "@/data/mockData";
 import { getSessionComments } from "@/services/authSessions";
-import { USE_MOCK_FLOWS } from "@/constants";
 import type { MentorComment } from "@/types/api";
 
 export function MentorChat({ sessionId }: { sessionId: string | null }) {
   const [comments, setComments] = useState<MentorComment[]>([]);
 
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(Boolean(sessionId));
+  const [loadedSessionId, setLoadedSessionId] = useState<string | null>(null);
+
   useEffect(() => {
-    if (!sessionId) {
-      setComments([]);
-      return;
-    }
+    setComments([]);
+    setLoadedSessionId(sessionId);
+    setError(null);
+    setLoading(Boolean(sessionId));
+    if (!sessionId) return;
+    let active = true;
     getSessionComments(sessionId)
-      .then((res) => setComments(res || []))
+      .then((res) => {
+        if (!Array.isArray(res)) throw new Error("Invalid comments response");
+        if (active) setComments(res);
+      })
       .catch(() => {
-        if (USE_MOCK_FLOWS) {
-          setComments(
-            mockMentorMessages.map((message, index) => ({
-              comment_id: `mock_${index}`,
-              mentor_name: message.sender,
-              comment: message.message,
-              created_at: message.timestamp
-            }))
-          );
-        }
-      });
+        if (active) setError("Mentor comments could not be loaded. Refresh to retry.");
+      })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [sessionId]);
 
   if (!sessionId) {
@@ -37,6 +37,9 @@ export function MentorChat({ sessionId }: { sessionId: string | null }) {
       </div>
     );
   }
+
+  if (loading || loadedSessionId !== sessionId) return <p role="status" className="p-4 text-sm text-muted-foreground">Loading mentor comments…</p>;
+  if (error) return <p role="alert" className="rounded-lg border border-destructive/30 p-4 text-sm text-destructive">{error}</p>;
 
   if (comments.length === 0) {
     return (

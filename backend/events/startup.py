@@ -150,9 +150,10 @@ async def on_startup() -> None:
 
     except Exception as exc:
         logger.error(
-            "[startup] Index creation failed (non-fatal): %s",
+            "[startup] Required index creation failed: %s",
             exc,
         )
+        raise
 
     # ──────────────────────────────────────────────────────────────────────
     # 3. Kafka producer
@@ -222,6 +223,7 @@ async def on_startup() -> None:
                 api_key=settings.OPENAI_API_KEY,
                 temperature=0.2,
                 timeout=settings.CREWAI_TIMEOUT_SECONDS,
+                max_tokens=settings.LLM_MAX_OUTPUT_TOKENS,
                 # Skip reasoning tokens for the speed-focused NVIDIA model.
                 extra_body=(
                     {"chat_template_kwargs": {"enable_thinking": False}}

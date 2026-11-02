@@ -344,28 +344,6 @@ class Session(Document):
         indexes = [
             IndexModel(
                 [("workspace_id", ASCENDING)],
-                name="uq_active_workspace_id",
-                unique=True,
-                partialFilterExpression={
-                    "workspace_id": {"$type": "string"},
-                    "status": {
-                        "$in": [s.value for s in SessionStatus if s != SessionStatus.ARCHIVED]
-                    },
-                },
-            ),
-            IndexModel(
-                [("student_id", ASCENDING)],
-                name="uq_active_student_id",
-                unique=True,
-                partialFilterExpression={
-                    "student_id": {"$type": "string"},
-                    "status": {
-                        "$in": [s.value for s in SessionStatus if s != SessionStatus.ARCHIVED]
-                    },
-                },
-            ),
-            IndexModel(
-                [("workspace_id", ASCENDING)],
                 name="ix_sessions_workspace_id",
             ),
             IndexModel(
@@ -410,5 +388,26 @@ class Session(Document):
                 name="ix_sessions_idempotency_key",
                 unique=True,
                 sparse=True,
+            ),
+            # Beanie merges indexes by key pattern: keep uniqueness guards last.
+            IndexModel(
+                [("workspace_id", ASCENDING)],
+                name="uq_active_workspace_id_v2",
+                unique=True,
+                partialFilterExpression={
+                    "workspace_id": {"$type": "string"},
+                    # Stable across new pipeline states; archive() always timestamps archival.
+                    "archived_at": None,
+                },
+            ),
+            IndexModel(
+                [("student_id", ASCENDING)],
+                name="uq_active_student_id_v2",
+                unique=True,
+                partialFilterExpression={
+                    "student_id": {"$type": "string"},
+                    # Stable across new pipeline states; archive() always timestamps archival.
+                    "archived_at": None,
+                },
             ),
         ]

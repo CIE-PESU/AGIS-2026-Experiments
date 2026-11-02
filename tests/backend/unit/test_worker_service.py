@@ -146,6 +146,8 @@ async def test_valid_dfv_output_writes_and_sets_status(worker_service):
         "summary": "good"
     }
 
+    valid_dfv = {"status": "done", "output": {"final_decision": {"status": "GO"}, **valid_dfv}}
+
     res = await service.accept_flow_output(
         session_id="ses_1",
         flow="dfv",
@@ -172,6 +174,8 @@ async def test_valid_discovery_output_writes_and_sets_status(worker_service):
             "hypothesis_to_validate": "They need this."
         }
     }
+
+    valid_discovery = {"status": "done", "output": valid_discovery}
 
     res = await service.accept_flow_output(
         session_id="ses_1",
@@ -205,3 +209,21 @@ async def test_accept_flow_failure(worker_service):
     assert res["status"] == "success"
     assert repo.update_flow_failure_called_with[1] == SessionStatus.TIPSC_FAILED
     assert repo.update_flow_failure_called_with[2]["error_code"] == "TIMEOUT"
+
+
+@pytest.mark.parametrize("flow,output", [
+    ("dfv", {"overall_decision": "GO"}),
+    ("dfv", {"status": "done", "output": {}}),
+    ("dfv", {"status": "done", "output": {"final_decision": {"status": "UNKNOWN"}}}),
+    ("dfv", {"status": "done", "output": {"final_decision": "GO"}}),
+    ("discovery", {"status": "done", "output": {"report": "  "}}),
+    ("discovery", {"status": "done", "output": {"report": None}}),
+    ("pmf", {"status": "done", "output": {"pmf_score": 100}}),
+])
+async def test_invalid_agent_data_is_never_saved_as_success(worker_service, flow, output):
+    service, repo = worker_service
+    repo.session.status = SessionStatus(f"{flow}_running")
+    with pytest.raises(InvalidOutputSchemaError):
+        await service.accept_flow_output("ses_1", flow, "corr_1", output, 1, "test-worker", BackgroundTasks())
+    assert repo.update_flow_output_called_with is None
+    assert repo.session.status == SessionStatus(f"{flow}_running")

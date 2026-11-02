@@ -76,6 +76,8 @@ def load_llm() -> LLM:
         base_url=os.getenv("LM_STUDIO_URL"),
         api_key=os.getenv("OPENAI_API_KEY"),
         temperature=0.2,
+        timeout=float(os.getenv("CREWAI_TIMEOUT_SECONDS", "600")),
+        max_tokens=int(os.getenv("LLM_MAX_OUTPUT_TOKENS", "4096")),
         # Skip reasoning tokens for the speed-focused NVIDIA model.
         extra_body=(
             {"chat_template_kwargs": {"enable_thinking": False}}

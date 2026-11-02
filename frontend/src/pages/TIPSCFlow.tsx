@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { TrafficDot } from "@/components/shared/StatusBadge";
-import { preEvaluationQuestions } from "@/data/mockData";
+import { preEvaluationQuestions } from "@/data/session";
 import type { TIPSCResult } from "@/types/api";
 import { createSession, triggerTipsc, submitFollowup } from "@/services/authSessions";
 import { useAuth } from "@/context/AuthContext";

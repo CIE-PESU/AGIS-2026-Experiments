@@ -167,6 +167,11 @@ async def test_complete_student_journey_with_real_kafka_worker(browser_stack):
         await expect(page.get_by_text("Insufficient evidence", exact=True)).to_be_visible()
         await page.reload()
         await expect(page.get_by_text("Evidence needed", exact=True)).to_be_visible()
+        async def unavailable_comments(route):
+            await route.fulfill(status=503, json={"error": {"message": "Test comments outage"}})
+        await page.route("**/api/v1/sessions/*/comments", unavailable_comments)
+        await page.goto("http://127.0.0.1:15167/workspace")
+        await expect(page.get_by_role("alert").filter(has_text="Mentor comments could not be loaded")).to_be_visible()
         assert worker._run_agent.await_count == 3
         assert not errors, errors
     finally:

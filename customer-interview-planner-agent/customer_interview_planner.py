@@ -22,8 +22,8 @@ litellm.drop_params = True
 # LLM endpoint is configurable via .env — reuses the same LM_STUDIO_BASE_URL
 # and LM_STUDIO_MODEL variables as the DFV agent, so one .env controls both
 # flows. Falls back to your own local LM Studio if not set.
-LM_URL = os.getenv("LM_STUDIO_URL", "http://127.0.0.1:1234/v1")
-LM_MODEL = os.getenv("OPENAI_MODEL_NAME", "openai/bonsai-8b")
+LM_URL = os.environ["LM_STUDIO_URL"]
+LM_MODEL = os.environ["OPENAI_MODEL_NAME"]
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # We are using Bonsai8B as the Local LLM for this Agent (or whatever
@@ -39,7 +39,7 @@ reasoning_llm = LLM(
         if LM_MODEL.endswith("nemotron-3.5-lightning-30b-a3b")
         else {}
     ),
-    max_tokens=23000,
+    max_tokens=int(os.getenv("LLM_MAX_OUTPUT_TOKENS", "4096")),
     timeout=float(os.getenv("CREWAI_TIMEOUT_SECONDS", "600"))
 )
 
@@ -339,17 +339,15 @@ SAMPLE_DISCOVERY_INPUTS = {
 
 
 if __name__ == "__main__":
-    result = run_discovery_analysis(SAMPLE_DISCOVERY_INPUTS)
-
-    print("\n")
-    print("=" * 80)
-    print("Customer Discovery Plan")
-    print("=" * 80)
-
-    # No structured JSON output yet (per README's "Future Enhancements"),
-    # so this is currently free text. Same fallback pattern as the DFV
-    # agent: try JSON first, otherwise keep it as raw text.
-    try:
-        print(json.dumps(json.loads(result.raw), indent=2))
-    except Exception:
-        print(result.raw)
+    import argparse
+    parser = argparse.ArgumentParser(description="Customer Discovery CLI: real input or an explicitly requested demo.")
+    choice = parser.add_mutually_exclusive_group(required=True)
+    choice.add_argument("--input", type=Path, help="UTF-8 JSON founder input file")
+    choice.add_argument("--sample", action="store_true", help="Explicitly use demonstration inputs")
+    args = parser.parse_args()
+    inputs = SAMPLE_DISCOVERY_INPUTS if args.sample else json.loads(args.input.read_text(encoding="utf-8"))
+    if not isinstance(inputs, dict) or not inputs:
+        parser.error("A non-empty founder input object is required.")
+    if args.sample:
+        print("DEMONSTRATION ONLY: synthetic example inputs; not a real customer assessment.")
+    print(run_discovery_analysis(inputs).raw)

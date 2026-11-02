@@ -213,21 +213,21 @@ export function DiscoveryFlow() {
     const payload = discoveryInputs ? {
       target_customer_segment: [
         {
-          segment: discoveryInputs.targetCustomer || "Target Audience",
-          role: "Primary User",
-          customer_type: "B2C"
+          segment: discoveryInputs.targetCustomer || "",
+          role: "Not specified",
+          customer_type: "Not specified"
         }
       ],
       problem_statement: discoveryInputs.problem || "",
       problem_consequence: (discoveryInputs.importance || "").split("\n").map((s) => s.trim()).filter(Boolean),
-      current_alternatives: ["Manual workarounds", "Legacy solutions"],
+      current_alternatives: [],
       key_assumptions: (discoveryInputs.assumptions || "").split("\n").map((s) => s.trim()).filter(Boolean),
-      what_we_already_know: ["Initial problem definition from pre-evaluation"],
+      what_we_already_know: [],
       biggest_uncertainty: (discoveryInputs.learningObjectives || "").split("\n").map((s) => s.trim()).filter(Boolean),
-      customer_type: ["Primary User"],
+      customer_type: [],
       proposed_solution_context: {
         purpose: "Validate early-stage customer hypotheses",
-        summary: discoveryInputs.additionalNotes || "Customer discovery and JTBD interview planning"
+        summary: discoveryInputs.additionalNotes || sessionDoc?.idea || ""
       }
     } : sessionDoc!.discovery_inputs!;
 
@@ -266,7 +266,7 @@ export function DiscoveryFlow() {
     return;
   }
 
-  // Fallback: structured mock shape — build markdown from sections.
+  // Fallback: legacy structured report — build markdown from sections.
   const markdownContent = generateDiscoveryMarkdown(result);
   downloadMarkdown(markdownContent, `customer-discovery-plan-${Date.now()}.md`);
 };

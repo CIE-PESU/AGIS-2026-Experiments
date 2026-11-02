@@ -1,5 +1,6 @@
 
 from dataclasses import dataclass
+from typing import Literal
 import os
 import json
 from crewai import Agent, Task, Crew, Process, LLM
@@ -241,6 +242,7 @@ llm = LLM(
         else {}
     ),
     timeout=float(os.getenv("CREWAI_TIMEOUT_SECONDS", "600")),
+    max_tokens=int(os.getenv("LLM_MAX_OUTPUT_TOKENS", "4096")),
 )
 
 # Discover and activate local business framework guidelines from markdown packages
@@ -266,7 +268,7 @@ class TipsValidatedMetrics(BaseModel):
     solvability_constraint: str = Field(description="The technical or operational feasibility constraint showing the proposed solution can realistically be implemented given the resources, tools, or infrastructure described in the proposal.")
 
 class DecisionGate(BaseModel):
-    status: str = Field(description="The definitive operational verdict for this proposal. Must be strictly either 'GO' (all three DFV dimensions - Desirability, Feasibility, Viability - pass without a fatal flaw) or 'NO-GO' (at least one dimension reveals a fatal flaw requiring a major structural pivot).")
+    status: Literal["GO", "NO-GO"] = Field(description="The definitive operational verdict for this proposal. Must be strictly either 'GO' (all three DFV dimensions - Desirability, Feasibility, Viability - pass without a fatal flaw) or 'NO-GO' (at least one dimension reveals a fatal flaw requiring a major structural pivot).")
     justification: str = Field(description="A concise, evidence-based explanation of the single most critical factor (positive or negative) across the Desirability, Feasibility, and Viability reports that determined the GO or NO-GO status.")
 
 class DFAOutput(BaseModel):
@@ -616,11 +618,16 @@ def run_analysis(inputs: dict) -> AnalysisResult:
     return AnalysisResult(raw=raw_val, validated=validated)
 
 if __name__ == "__main__":
-    res = run_analysis(ggls)
-
-    print("\n--- FINAL DFA JSON OUTPUT WITH DECISION GATE ---\n")
-
-    try:
-        print(json.dumps(res.validated.model_dump(), indent=2))
-    except Exception:
-        print(res.raw)
+    import argparse
+    parser = argparse.ArgumentParser(description="Evaluate real DFV inputs, or an explicitly requested demo.")
+    choice = parser.add_mutually_exclusive_group(required=True)
+    choice.add_argument("--input", type=Path, help="UTF-8 JSON with desirability/feasibility/viability contexts")
+    choice.add_argument("--sample", action="store_true", help="Explicitly evaluate the synthetic example")
+    args = parser.parse_args()
+    inputs = ggls if args.sample else json.loads(args.input.read_text(encoding="utf-8"))
+    if not isinstance(inputs, dict) or not inputs:
+        parser.error("A non-empty founder input object is required.")
+    if args.sample:
+        print("DEMONSTRATION ONLY: synthetic example inputs; not validated customer evidence.")
+    res = run_analysis(inputs)
+    print(json.dumps(res.validated.model_dump(), indent=2))

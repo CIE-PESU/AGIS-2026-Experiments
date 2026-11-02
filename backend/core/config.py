@@ -69,6 +69,7 @@ class Settings(BaseSettings):
     WORKER_ID: str = "combined-agent-worker-1"
     AGENT_TIMEOUT_SECONDS: int = Field(default=1800, gt=0)
     CREWAI_TIMEOUT_SECONDS: int = Field(default=600, gt=0)
+    LLM_MAX_OUTPUT_TOKENS: int = Field(default=4096, gt=0)
     TAVILY_API_KEY: str
     # ── LLM / CrewAI ───────────────────────────────────────────────────────────
     OPENAI_MODEL_NAME: str

@@ -61,6 +61,7 @@ if BACKEND_ROOT not in sys.path:
 # =============================================================================
 
 from core.config import settings  # noqa: E402 — worker path/environment bootstrap precedes backend imports
+from core.processes import ProcessTree, child_options, instance_lock  # noqa: E402
 from kafka.topics import KafkaTopic  # noqa: E402 — worker path/environment bootstrap precedes backend imports
 from models.schema import (  # noqa: E402 — worker path/environment bootstrap precedes backend imports
     DFVJobMessage,
@@ -329,9 +330,12 @@ class CombinedAgentWorker:
                 print("DFV consumer started")
                 break
             except Exception as e:
+                if self.consumer_dfv is not None:
+                    await self.consumer_dfv.stop()
+                    self.consumer_dfv = None
                 if attempt == max_retries - 1:
                     raise
-                delay = base_delay * (2**attempt)
+                delay = min(base_delay * (2**attempt), 10)
                 logger.warning(
                     "DFV consumer failed to start (attempt %d/%d): %s. Retrying in %ds...",
                     attempt + 1,
@@ -352,9 +356,12 @@ class CombinedAgentWorker:
                 print("Discovery consumer started")
                 break
             except Exception as e:
+                if self.consumer_discovery is not None:
+                    await self.consumer_discovery.stop()
+                    self.consumer_discovery = None
                 if attempt == max_retries - 1:
                     raise
-                delay = base_delay * (2**attempt)
+                delay = min(base_delay * (2**attempt), 10)
                 logger.warning(
                     "Discovery consumer failed to start (attempt %d/%d): %s. Retrying in %ds...",
                     attempt + 1,
@@ -375,9 +382,12 @@ class CombinedAgentWorker:
                 print("PMF consumer started")
                 break
             except Exception as e:
+                if self.consumer_pmf is not None:
+                    await self.consumer_pmf.stop()
+                    self.consumer_pmf = None
                 if attempt == max_retries - 1:
                     raise
-                delay = base_delay * (2**attempt)
+                delay = min(base_delay * (2**attempt), 10)
                 logger.warning(
                     "PMF consumer failed to start (attempt %d/%d): %s. Retrying in %ds...",
                     attempt + 1,
@@ -414,7 +424,9 @@ class CombinedAgentWorker:
 
             async def health(reader, writer):
                 await reader.read(4096)
-                body = b'{"ready":true}'
+                body = json.dumps({"ready": True, "instance_id": os.getenv("AGIS_RUN_ID")}).encode(
+                    "utf-8"
+                )
                 writer.write(
                     b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: "
                     + str(len(body)).encode()
@@ -440,20 +452,18 @@ class CombinedAgentWorker:
         if self._health_server is not None:
             self._health_server.close()
             await self._health_server.wait_closed()
-        if self.consumer_dfv is not None:
-            await self.consumer_dfv.stop()
-
-        if self.consumer_discovery is not None:
-            await self.consumer_discovery.stop()
-
-        if self.consumer_pmf is not None:
-            await self.consumer_pmf.stop()
-
+        closers = [
+            consumer.stop()
+            for consumer in [self.consumer_dfv, self.consumer_discovery, self.consumer_pmf]
+            if consumer is not None
+        ]
         if self.producer is not None:
-            await self.producer.stop()
-
+            closers.append(self.producer.stop())
         if self.http_client is not None:
-            await self.http_client.aclose()
+            closers.append(self.http_client.aclose())
+        for error in await asyncio.gather(*closers, return_exceptions=True):
+            if isinstance(error, BaseException):
+                logger.error("Worker resource cleanup failed: %s", type(error).__name__)
 
         logger.info("Combined Agent Worker stopped")
 
@@ -610,9 +620,12 @@ class CombinedAgentWorker:
                     stdin=asyncio.subprocess.PIPE,
                     stdout=asyncio.subprocess.DEVNULL,
                     stderr=None,
-                    start_new_session=os.name != "nt",
+                    env={**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"},
+                    **child_options(),
                 )
+                tree = None
                 try:
+                    tree = ProcessTree(process.pid)
                     await asyncio.wait_for(
                         process.communicate(json.dumps(inputs).encode()),
                         settings.AGENT_TIMEOUT_SECONDS,
@@ -621,16 +634,13 @@ class CombinedAgentWorker:
                         raise RuntimeError(
                             "Agent subprocess failed; inspect configured provider and input"
                         )
-                    return json.loads(result_path.read_text())
+                    return json.loads(result_path.read_text(encoding="utf-8"))
                 finally:
-                    if process.returncode is None:
-                        if os.name == "nt":
-                            process.kill()
-                        else:
-                            import signal
-
-                            os.killpg(process.pid, signal.SIGKILL)
-                        await process.wait()
+                    if tree is not None:
+                        tree.terminate(force=True)
+                    elif process.returncode is None:
+                        process.kill()
+                    await process.wait()
 
     # =========================================================================
     # DFV
@@ -984,17 +994,21 @@ class CombinedAgentWorker:
     # =========================================================================
 
     async def run(self) -> None:
-
-        try:
-            await self.start()
-            await asyncio.gather(
-                self._consume_dfv(),
-                self._consume_discovery(),
-                self._consume_pmf(),
-            )
-
-        finally:
-            await self.stop()
+        with instance_lock("combined-worker"):
+            tasks = []
+            try:
+                await self.start()
+                tasks = [
+                    asyncio.create_task(consume())
+                    for consume in [self._consume_dfv, self._consume_discovery, self._consume_pmf]
+                ]
+                await asyncio.gather(*tasks)
+            finally:
+                for task in tasks:
+                    task.cancel()
+                if tasks:
+                    await asyncio.gather(*tasks, return_exceptions=True)
+                await self.stop()
 
 
 # =============================================================================
@@ -1003,12 +1017,23 @@ class CombinedAgentWorker:
 
 
 async def main() -> None:
-    print("MAIN STARTED")
+    import signal
 
     worker = CombinedAgentWorker()
+    loop = asyncio.get_running_loop()
+    current = asyncio.current_task()
 
-    print("RUNNING WORKER")
-    await worker.run()
+    def stop(*_):
+        if current is not None:
+            loop.call_soon_threadsafe(current.cancel)
+
+    previous = signal.signal(signal.SIGTERM, stop)
+    try:
+        await worker.run()
+    except asyncio.CancelledError:
+        logger.info("Worker stopped; owned agent processes and consumers were cleaned up.")
+    finally:
+        signal.signal(signal.SIGTERM, previous)
 
 
 if __name__ == "__main__":

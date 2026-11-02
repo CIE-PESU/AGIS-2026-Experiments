@@ -1,4 +1,4 @@
-import type { TIPSCResult, DFVResult, JTBDResult, Traffic } from "@/data/mockData";
+import type { TIPSCResult, DFVResult, JTBDResult, Traffic } from "@/data/session";
 
 export function mapTipscOutput(backend: any): TIPSCResult | null {
   if (!backend) return null;

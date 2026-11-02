@@ -93,6 +93,7 @@ llm = LLM(
         else {}
     ),
     timeout=float(os.getenv("CREWAI_TIMEOUT_SECONDS", "600")),
+    max_tokens=int(os.getenv("LLM_MAX_OUTPUT_TOKENS", "4096")),
 )
 
 
@@ -360,8 +361,8 @@ def read_stdin_input() -> QuickstartInput | None:
         else:
             data = json.loads(content)
         return QuickstartInput(**data)
-    except Exception:
-        return None
+    except Exception as exc:
+        raise ValueError("Piped Quickstart input was invalid; evaluation was not started.") from exc
 
 
 def main():
@@ -378,8 +379,8 @@ def main():
         if choice == "1":
             print("\n🚀 Launching full pipeline...")
             print("   Run this from project root:")
-            print("   cd TIPSC-Agent && uv run python -m src.main")
-            print("\n   Or via backend API: POST /api/v1/sessions/{id}/start-flow")
+            print("   uv run python dev.py")
+            print("\n   Or via backend API: POST /api/v1/sessions (authenticated founder intake)")
             return
 
         input_data = ask_7_questions()
@@ -404,7 +405,7 @@ def main():
     proceed = input("Proceed to full pipeline (TIPSC → DFV)? [y/N]: ").strip().lower()
     if proceed == "y":
         print("\n🚀 Run full pipeline:")
-        print("   cd ../TIPSC-Agent && uv run python -m src.main")
+        print("   uv run python dev.py")
     else:
         print("\n✅ Quickstart evaluation complete.")
 

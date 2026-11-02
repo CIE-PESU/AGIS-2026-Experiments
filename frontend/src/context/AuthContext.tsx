@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { clearTokens, getAccessToken, getRefreshToken } from "@/services/apiClient";
 import { login as apiLogin, logout as apiLogout, getActiveSession, getCurrentUser } from "@/services/authSessions";
 import { deriveStageAccess } from "@/hooks/useSessionPolling";
-import type { DFVResult, JTBDResult, StageStatus, TIPSCResult } from "@/data/mockData";
+import type { DFVResult, JTBDResult, StageStatus, TIPSCResult } from "@/data/session";
 import type { Role, SessionDocument, SessionStatus } from "@/types/api";
 import { mapTipscOutput, mapDfvOutput, mapDiscoveryOutput } from "@/utils/mapSessionResults";
 

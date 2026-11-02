@@ -24,7 +24,8 @@ dependencies = [
   "python-multipart>=0.0.32,<1",
   "ulid-py==1.1.0",
   "pyyaml>=6.0,<7",
-  "filelock>=4.2.6,<5"
+  "filelock>=4.2.6,<5",
+  "pywin32>=312; sys_platform == 'win32'"
 ]
 
 [dependency-groups]

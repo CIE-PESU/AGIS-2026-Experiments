@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { ChevronDown, Loader2, AlertCircle } from "lucide-react";
-import { type StageStatus, type Traffic } from "@/data/mockData";
+import { type StageStatus, type Traffic } from "@/data/session";
 import { StatusBadge, TrafficDot } from "@/components/shared/StatusBadge";
 import { getSession } from "@/services/authSessions";
 import { deriveCanonicalStageAccess } from "@/utils/sessionStatus";

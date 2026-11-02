@@ -1,5 +1,5 @@
 import type { SessionStatus } from "@/types/api";
-import type { StageStatus } from "@/data/mockData";
+import type { StageStatus } from "@/data/session";
 
 export type SessionStageState = StageStatus | "failed" | "GO" | "NO-GO";
 

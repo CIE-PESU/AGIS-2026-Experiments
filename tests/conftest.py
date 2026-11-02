@@ -23,6 +23,7 @@ for key, value in {
     "PES_AUTH_URL": "http://invalid.test/auth",
     "TAVILY_API_KEY": "test-only", "OPENAI_API_KEY": "test-only",
     "OPENAI_MODEL_NAME": "openai/test-model", "LM_STUDIO_URL": "http://invalid.test/v1",
+    "CREWAI_DISABLE_TELEMETRY": "true", "CREWAI_TRACING_ENABLED": "false", "OTEL_SDK_DISABLED": "true",
     "DEBUG": "false", "FERNET_KEY": "", "ENVIRONMENT": "test", "JWT_EXPIRY_MINUTES": "15",
 }.items():
     os.environ[key] = value

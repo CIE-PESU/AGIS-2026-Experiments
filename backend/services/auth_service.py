@@ -260,7 +260,9 @@ class AuthService:
         pes_data: dict,
         team_id: str | None = None,
     ) -> User:
-        srn = pes_data.get("srn", "").upper()
+        srn = str(pes_data.get("srn") or "").strip().upper()
+        if not srn:
+            raise InvalidCredentialsError("Authenticated profile has no student identifier.")
         existing = await User.find_one(User.srn == srn)
 
         if existing:
@@ -286,7 +288,15 @@ class AuthService:
             mentor_team_ids=pes_data.get("mentor_team_ids", []),
         )
 
-        await user.insert()
+        from pymongo.errors import DuplicateKeyError
+
+        try:
+            await user.insert()
+        except DuplicateKeyError:
+            winner = await User.find_one(User.srn == srn)
+            if winner is None:
+                raise
+            return winner
         logger.info(
             "New user created from PES Auth: srn=%s role=%s",
             srn,

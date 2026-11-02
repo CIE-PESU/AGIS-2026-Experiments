@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
-const source = readFileSync(new URL('../src/hooks/useSessionPolling.ts', import.meta.url), 'utf8')
+const source = readFileSync(new URL('../src/hooks/useSessionPolling.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
   .split('import { deriveCanonicalStageAccess }')[0]
   .replace(/^import .*;\n/gm, '')
   .replace('export function useSessionPolling', 'function useSessionPolling');

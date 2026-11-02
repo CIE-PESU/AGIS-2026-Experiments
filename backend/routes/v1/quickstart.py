@@ -83,4 +83,10 @@ async def evaluate_quickstart(
         )
     except TimeoutError as exc:
         raise HTTPException(504, "Quickstart evaluation timed out. Please retry.") from exc
+    except Exception as exc:
+        logger.error("Quickstart did not produce a validated result: %s", type(exc).__name__)
+        raise HTTPException(
+            502,
+            "The AI provider did not return a valid evaluation. Check its availability and model configuration; no new result was created.",
+        ) from exc
     return success_response(data=result, request=request)

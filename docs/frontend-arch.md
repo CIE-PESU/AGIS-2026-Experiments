@@ -15,3 +15,5 @@ Vite proxies `/api/v1` to `VITE_BACKEND_URL` in development. Configure `VITE_API
 Run `npm test`, `npm run build`, and `npm audit` from `frontend/`. Real-browser authentication journeys run through the Python Playwright integration suite with an isolated MongoDB/Kafka stack. Mock agent outputs keep automated tests deterministic and free of paid model calls.
 
 Brand images are bundled in `frontend/public/branding/`, preserving the original assets while removing dependence on external image hosts.
+
+Production mock datasets and their API simulator were removed. `data/session.ts` contains shared types and real intake-question labels. Comment outages show an error instead of fabricated messages, and uncollected Discovery facts remain unspecified.

@@ -47,7 +47,7 @@ async def dump_seed_data():
 
     seed_file.parent.mkdir(parents=True, exist_ok=True)
     tmp_file = seed_file.with_suffix(f".{uuid.uuid4().hex}.tmp")
-    with tmp_file.open("x") as f:
+    with tmp_file.open("x", encoding="utf-8") as f:
         tmp_file.chmod(0o600)
         json.dump(data, f, indent=2, default=str)
 

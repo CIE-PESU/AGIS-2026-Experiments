@@ -40,3 +40,5 @@ For real MongoDB/Kafka and browser tests, see the [running guide](docs/workflow_
 - [Roles and permissions](docs/rbac.md)
 - [Model configuration](docs/model-config.md)
 - [Known upstream dependency risks and migration notes](docs/dependency-security.md)
+
+For native Windows and local-model setup, process ownership, and data-integrity safeguards, see [Windows and local LLM operation](docs/windows-local-llm.md).

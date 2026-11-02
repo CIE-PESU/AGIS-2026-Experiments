@@ -140,6 +140,10 @@ class SessionService:
 
             raise ActiveSessionExistsError()
 
+        from core.llm_provider import require_local_model
+
+        await require_local_model()
+
         # ── 3. Build founder PreEval input ────────────────────────────────
 
         preeval_input = {

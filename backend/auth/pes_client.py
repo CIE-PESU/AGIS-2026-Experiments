@@ -13,8 +13,6 @@ from exceptions.base import InvalidCredentialsError, PESAuthUnavailableError
 
 logger = logging.getLogger(__name__)
 
-# The mock admins and mock fernet key have been moved.
-
 
 class PESAuthClient:
     def __init__(self) -> None:
@@ -88,7 +86,10 @@ class PESAuthClient:
             )
             raise PESAuthUnavailableError("PES Auth API returned an invalid response.") from exc
 
-        if not data.get("status"):
+        if not isinstance(data, dict):
+            raise PESAuthUnavailableError("PES Auth API returned an invalid response object.")
+
+        if data.get("status") is not True:
             logger.info(
                 "PES Auth login unsuccessful for SRN=%s",
                 srn,
@@ -104,7 +105,9 @@ class PESAuthClient:
             )
             raise PESAuthUnavailableError("PES Auth response did not contain profile information.")
 
-        profile_srn = profile.get("srn") or srn
+        profile_srn = str(profile.get("srn") or srn).strip()
+        if profile_srn.upper() != srn.strip().upper():
+            raise PESAuthUnavailableError("PES Auth returned a profile for a different account.")
 
         normalized_user: dict = {
             "srn": profile_srn.upper(),

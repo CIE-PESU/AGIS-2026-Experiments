@@ -6,7 +6,7 @@ import sys
 from datetime import date
 
 ROOT = Path(__file__).resolve().parents[1]
-exceptions = json.loads((ROOT / "docs/dependency-advisories.json").read_text())
+exceptions = json.loads((ROOT / "docs/dependency-advisories.json").read_text(encoding="utf-8"))
 result = subprocess.run([sys.executable, "-m", "pip_audit", "--format", "json", "--progress-spinner", "off"], capture_output=True, text=True)
 try:
     report = json.loads(result.stdout)

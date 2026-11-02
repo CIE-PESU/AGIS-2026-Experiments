@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 
-const source = readFileSync(new URL('../src/utils/quickstartState.ts', import.meta.url), 'utf8')
+const source = readFileSync(new URL('../src/utils/quickstartState.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
   .replace(/^import type .*;\n/gm, '');
 const { loadQuickstartState, saveQuickstartState, clearQuickstartState } = await import(
   'data:text/javascript;base64,' + Buffer.from(stripTypeScriptTypes(source)).toString('base64')

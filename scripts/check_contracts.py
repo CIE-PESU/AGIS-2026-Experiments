@@ -15,12 +15,12 @@ errors = validate(str(ROOT / "docs/api-spec-generated.json"))
 if errors:
     raise SystemExit("\n".join(errors))
 from state_machine.states import SessionStatus  # noqa: E402
-source = (ROOT / "frontend/src/types/api.ts").read_text()
+source = (ROOT / "frontend/src/types/api.ts").read_text(encoding="utf-8")
 for state in SessionStatus:
     if f'"{state.value}"' not in source:
         raise SystemExit(f"Frontend session status missing: {state.value}")
 print("Mounted routes and frontend statuses match backend contracts")
 
 from models.session import Session
-if json.loads((ROOT / "docs/schema.json").read_text()) != Session.model_json_schema(mode="serialization"):
+if json.loads((ROOT / "docs/schema.json").read_text(encoding="utf-8")) != Session.model_json_schema(mode="serialization"):
     raise SystemExit("Persisted session schema is stale")

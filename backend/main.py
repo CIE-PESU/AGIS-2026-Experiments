@@ -61,6 +61,7 @@ logging.config.dictConfig(
                 "class": "logging.FileHandler",
                 "formatter": "default",
                 "filename": "backend.log",
+                "encoding": "utf-8",
             },
         },
         "root": {
@@ -138,13 +139,16 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Async context manager for app startup and shutdown."""
+    from core.processes import instance_lock
+    from events.shutdown import on_shutdown
     from events.startup import on_startup
 
-    await on_startup()
-    yield
-    from events.shutdown import on_shutdown
-
-    await on_shutdown()
+    with instance_lock("api"):
+        try:
+            await on_startup()
+            yield
+        finally:
+            await on_shutdown()
 
 
 # ─────────────────────────────────────────────────────────────────────────────

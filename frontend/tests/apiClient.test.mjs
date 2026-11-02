@@ -2,7 +2,7 @@ import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
-const source = readFileSync(new URL('../src/services/apiClient.ts', import.meta.url), 'utf8')
+const source = readFileSync(new URL('../src/services/apiClient.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
   .replace('import { API_BASE_URL } from "@/constants";', 'const API_BASE_URL = "/api/v1";');
 const client = await import('data:text/javascript;base64,' + Buffer.from(stripTypeScriptTypes(source)).toString('base64'));
 let calls;

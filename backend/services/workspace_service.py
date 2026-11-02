@@ -74,13 +74,22 @@ class WorkspaceService:
         raw_token = secrets.token_urlsafe(32)
         token_digest = hash_token(raw_token)
 
-        workspace = await workspace_repo.create(
-            name=clean_name,
-            type=WorkspaceType.MENTOR,
-            token_hash=token_digest,
-            created_by_admin_id=admin_id,
-            mentor_id=mentor_id,
-        )
+        from pymongo.errors import DuplicateKeyError
+
+        from exceptions.base import ConcurrentFlowUpdateError
+
+        try:
+            workspace = await workspace_repo.create(
+                name=clean_name,
+                type=WorkspaceType.MENTOR,
+                token_hash=token_digest,
+                created_by_admin_id=admin_id,
+                mentor_id=mentor_id,
+            )
+        except DuplicateKeyError as exc:
+            raise ConcurrentFlowUpdateError(
+                "A workspace was issued concurrently. Reload the workspace list before retrying."
+            ) from exc
 
         magic_url = f"{base_url.rstrip('/')}/workspace/{raw_token}"
 

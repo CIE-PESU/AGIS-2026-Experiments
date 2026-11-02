@@ -60,7 +60,7 @@ export function useSessionStream(
 }
 
 import { deriveCanonicalStageAccess } from "@/utils/sessionStatus";
-import type { StageStatus } from "@/data/mockData";
+import type { StageStatus } from "@/data/session";
 
 /** Map backend session status to UI stage unlock state */
 export function deriveStageAccess(doc: any | null) {

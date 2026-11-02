@@ -112,3 +112,5 @@ Stop local infrastructure with `docker compose -f backend/docker-compose.yml dow
 After a successful Discovery run, open the Product-Market Fit card in the workspace. The existing combined worker also consumes `userSession.pmf`; no separate worker command is needed. PMF receives the founder intake and TIPSC/DFV/Discovery reports. A failed run can be retried, and a completed run can be rerun. Earlier reports remain saved. Survey and retention metrics are marked unmeasured until actual customer evidence is supplied.
 
 See [merge verification](merge-quickstart-pmf.md) for the combined branch checks and remaining upstream dependency findings.
+
+Native Windows instructions and local-model capability checks: [Windows and local LLM operation](windows-local-llm.md). Runtime mock-data fallbacks have been removed; standalone examples require an explicit `--sample` flag.

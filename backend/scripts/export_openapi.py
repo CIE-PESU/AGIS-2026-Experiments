@@ -23,18 +23,18 @@ def main():
     )
     schema_path = ROOT / "docs/schema.json"
     if args.check:
-        if not schema_path.exists() or schema_path.read_text() != session_schema:
+        if not schema_path.exists() or schema_path.read_text(encoding="utf-8") != session_schema:
             raise SystemExit("Session schema is stale; regenerate OpenAPI")
     else:
-        schema_path.write_text(session_schema)
+        schema_path.write_text(session_schema, encoding="utf-8")
     output = json.dumps(schema, indent=2, sort_keys=True) + "\n"
     if args.check:
-        if not args.output.exists() or args.output.read_text() != output:
+        if not args.output.exists() or args.output.read_text(encoding="utf-8") != output:
             raise SystemExit(
                 "OpenAPI is stale; run uv run python backend/scripts/export_openapi.py"
             )
     else:
-        args.output.write_text(output)
+        args.output.write_text(output, encoding="utf-8")
     print("OpenAPI contract is current")
 
 

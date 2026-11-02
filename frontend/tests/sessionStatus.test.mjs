@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
-const source = readFileSync(new URL('../src/utils/sessionStatus.ts', import.meta.url), 'utf8').replace(/^import type .*;\n/gm, '');
+const source = readFileSync(new URL('../src/utils/sessionStatus.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n').replace(/^import type .*;\n/gm, '');
 const { deriveCanonicalStageAccess: derive } = await import('data:text/javascript;base64,' + Buffer.from(stripTypeScriptTypes(source)).toString('base64'));
 
 test('PMF stage preserves earlier results and Quickstart access across retries', () => {
