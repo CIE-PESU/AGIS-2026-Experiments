@@ -1,4 +1,5 @@
 import asyncio
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -12,7 +13,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie
 from models.user import User
 
-async def sync():
+async def sync(replace_staff=False):
     seed_file = Path(__file__).parent / "seed_data.json"
     if not seed_file.exists():
         print(f"Error: {seed_file} not found.")
@@ -25,8 +26,8 @@ async def sync():
         print(f"Error parsing {seed_file}: {e}")
         sys.exit(1)
 
-    print(f"Connecting to MongoDB at {settings.MONGODB_URI}...")
-    client = AsyncIOMotorClient(settings.MONGODB_URI)
+    print("Connecting to configured MongoDB...")
+    client = AsyncIOMotorClient(settings.MONGODB_URI, serverSelectionTimeoutMS=5000)
     print(f"Found {len(data.get('users', []))} users and {len(data.get('teams', []))} teams in seed_data.json. Syncing...")
     
     from models.team import Team
@@ -39,26 +40,49 @@ async def sync():
             continue
             
         user = await User.find_one(User.srn == srn)
+        is_staff = item.get("role") in ("admin", "mentor")
+        # Rename seeded staff in place so their team references remain valid.
+        if not user and replace_staff and is_staff and item.get("id"):
+            candidate = await User.get(item["id"])
+            if candidate and candidate.role in ("admin", "mentor"):
+                user = candidate
         if not user:
+            from bson import ObjectId
             user = User(
+                id=ObjectId(item["id"]) if is_staff and item.get("id") else None,
                 srn=srn,
                 name=item.get("name", srn),
                 email=item.get("email"),
                 role=item.get("role", "student"),
                 encrypted_password=item.get("encrypted_password"),
-                team_id=item.get("team_id")
+                team_id=item.get("team_id"),
+                mentor_team_ids=item.get("mentor_team_ids", [])
             )
             await user.insert()
             print(f"  [Inserted User] {srn}")
         else:
+            user.srn = srn
             user.name = item.get("name", user.name)
             user.email = item.get("email", user.email)
             user.role = item.get("role", user.role)
             user.team_id = item.get("team_id")
+            user.mentor_team_ids = item.get("mentor_team_ids", [])
             if "encrypted_password" in item:
                 user.encrypted_password = item["encrypted_password"]
             await user.save()
             print(f"  [Updated User]  {srn}")
+
+    if replace_staff:
+        staff_srns = [u["srn"] for u in data.get("users", [])
+                      if u.get("role") in ("admin", "mentor")]
+        await User.find({"role": {"$in": ["admin", "mentor"]},
+                         "srn": {"$nin": staff_srns}}).delete()
+        mentors = await User.find(User.role == "mentor").to_list()
+        mentor_refs = [ref for u in mentors for ref in (str(u.id), u.srn)]
+        await Team.find({"mentor_id": {"$nin": mentor_refs}}).update(
+            {"$set": {"mentor_id": ""}}
+        )
+        print("Removed staff absent from seed and cleared stale mentor assignments.")
 
     # Sync Teams (overwrite by ID or name)
     from bson import ObjectId
@@ -91,6 +115,11 @@ async def sync():
             print(f"  [Updated Team]  {team.team_name}")
             
     print("Sync complete.")
+    client.close()
 
 if __name__ == "__main__":
-    asyncio.run(sync())
+    parser = argparse.ArgumentParser(description="Synchronize seeded users and teams.")
+    parser.add_argument("--replace-staff", action="store_true",
+                        help="Remove admins and mentors not present in the seed file.")
+    args = parser.parse_args()
+    asyncio.run(sync(replace_staff=args.replace_staff))
