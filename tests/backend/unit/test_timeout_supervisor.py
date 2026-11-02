@@ -19,7 +19,7 @@ async def test_recovers_dfv_and_discovery_with_naive_mongodb_timestamps():
     old = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=1)
     dfv = SimpleNamespace(version=0, id="dfv-id", flow_started_at=old, updated_at=old, correlation_id="dfv-correlation")
     discovery = SimpleNamespace(version=0, id="discovery-id", flow_started_at=None, updated_at=old, correlation_id="discovery-correlation")
-    queries = [MagicMock(to_list=AsyncMock(return_value=[dfv])), MagicMock(to_list=AsyncMock(return_value=[discovery])), MagicMock(to_list=AsyncMock(return_value=[]))]
+    queries = [MagicMock(to_list=AsyncMock(return_value=[dfv])), MagicMock(to_list=AsyncMock(return_value=[discovery])), MagicMock(to_list=AsyncMock(return_value=[])), MagicMock(to_list=AsyncMock(return_value=[]))]
 
     with (
         patch("services.timeout_supervisor.Session.find", side_effect=queries),
@@ -28,5 +28,23 @@ async def test_recovers_dfv_and_discovery_with_naive_mongodb_timestamps():
     ):
         result = await TimeoutSupervisor().check_and_recover_stuck_sessions(timeout_seconds=1800)
 
-    assert result == {"dfv": 1, "discovery": 1}
+    assert result == {"dfv": 1, "discovery": 1, "pmf": 0}
     assert [call.kwargs["new_status"] for call in update.await_args_list] == [SessionStatus.DFV_FAILED, SessionStatus.DISCOVERY_FAILED]
+
+
+@pytest.mark.asyncio
+async def test_recovers_pmf_without_overwriting_a_concurrently_completed_run():
+    old = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=1)
+    pmf = SimpleNamespace(version=7, id="pmf-id", flow_started_at=old, updated_at=old, correlation_id="pmf-run")
+    queries = [MagicMock(to_list=AsyncMock(return_value=value)) for value in [[], [], [pmf], []]]
+    with (
+        patch("services.timeout_supervisor.Session.find", side_effect=queries),
+        patch("services.timeout_supervisor.session_repo.update_flow_failure", new_callable=AsyncMock, return_value=False) as update,
+        patch("services.timeout_supervisor.audit_service.log_event", new_callable=AsyncMock) as audit,
+    ):
+        result = await TimeoutSupervisor().check_and_recover_stuck_sessions()
+    assert result["pmf"] == 0
+    assert update.await_args.kwargs["new_status"] == SessionStatus.PMF_FAILED
+    assert update.await_args.kwargs["expected_version"] == 7
+    assert update.await_args.kwargs["correlation_id"] == "pmf-run"
+    audit.assert_not_awaited()

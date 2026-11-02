@@ -243,6 +243,8 @@ class SessionResponse(BaseModel):
     dfv: DFVOutputSchema | None = None
 
     discovery: DiscoveryOutputSchema | None = None
+    pmf: DiscoveryOutputSchema | None = None
+    failure_metadata: dict[str, Any] | None = None
 
     dfv_inputs: dict[str, str] | None = None
 
@@ -302,6 +304,14 @@ class SessionResponse(BaseModel):
                 DiscoveryOutputSchema.model_validate(session.discovery.model_dump())
                 if session.discovery
                 else None
+            ),
+            pmf=(
+                DiscoveryOutputSchema.model_validate(session.pmf.model_dump())
+                if session.pmf
+                else None
+            ),
+            failure_metadata=(
+                session.failure_metadata.model_dump() if session.failure_metadata else None
             ),
             dfv_inputs=session.dfv_inputs.model_dump() if session.dfv_inputs else None,
             discovery_inputs=session.discovery_inputs.model_dump()

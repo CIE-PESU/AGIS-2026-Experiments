@@ -9,6 +9,7 @@ const WorkspaceLayout = lazy(() => import("@/pages/WorkspaceLayout").then(m => (
 const StudentWorkspace = lazy(() => import("@/pages/StudentWorkspace").then(m => ({ default: m.StudentWorkspace })));
 const TIPSCFlow = lazy(() => import("@/pages/TIPSCFlow").then(m => ({ default: m.TIPSCFlow })));
 const DFVFlow = lazy(() => import("@/pages/DFVFlow").then(m => ({ default: m.DFVFlow })));
+const PMFFlow = lazy(() => import("@/pages/PMFFlow").then(m => ({ default: m.PMFFlow })));
 const DiscoveryFlow = lazy(() => import("@/pages/DiscoveryFlow").then(m => ({ default: m.DiscoveryFlow })));
 const MentorDashboard = lazy(() => import("@/pages/MentorDashboard").then(m => ({ default: m.MentorDashboard })));
 const MentorMagicLinkHandler = lazy(() => import("@/pages/MentorMagicLinkHandler").then(m => ({ default: m.MentorMagicLinkHandler })));
@@ -28,6 +29,7 @@ export default function App() {
             <Route path="tipsc" element={<TIPSCFlow />} />
             <Route path="dfv" element={<DFVFlow />} />
             <Route path="discovery" element={<DiscoveryFlow />} />
+            <Route path="pmf" element={<PMFFlow />} />
             <Route path="jtbd" element={<Navigate to="/workspace/discovery" replace />} />
           </Route>
           <Route path="/quickstart" element={<QuickstartFlow />} />

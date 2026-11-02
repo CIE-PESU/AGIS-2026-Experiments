@@ -7,8 +7,8 @@ import type { Role, SessionDocument, SessionStatus } from "@/types/api";
 import { mapTipscOutput, mapDfvOutput, mapDiscoveryOutput } from "@/utils/mapSessionResults";
 
 export type AppUser = { userId: string; srn: string; name: string; role: Role; teamId: string | null };
-export type SessionState = { tipsc: StageStatus; dfv: StageStatus; discovery: StageStatus; quickstart: StageStatus };
-export type SessionResults = { tips: TIPSCResult | null; dfv: DFVResult | null; discovery: JTBDResult | null };
+export type SessionState = { tipsc: StageStatus; dfv: StageStatus; discovery: StageStatus; pmf: StageStatus; quickstart: StageStatus };
+export type SessionResults = { tips: TIPSCResult | null; dfv: DFVResult | null; discovery: JTBDResult | null; pmf: Record<string, any> | null };
 export type TimelineEvent = { label: string; timestamp: string };
 export type FormDataMap = Record<string, string>;
 
@@ -36,8 +36,8 @@ type AuthContextValue = {
 
 };
 
-const defaultSession: SessionState = { tipsc: "available", dfv: "locked", discovery: "locked", quickstart: "available" };
-const defaultResults: SessionResults = { tips: null, dfv: null, discovery: null };
+const defaultSession: SessionState = { tipsc: "available", dfv: "locked", discovery: "locked", pmf: "locked", quickstart: "available" };
+const defaultResults: SessionResults = { tips: null, dfv: null, discovery: null, pmf: null };
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 const timestamp = () =>
@@ -215,7 +215,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setResults({
       tips: mapTipscOutput(doc.tipsc),
       dfv: mapDfvOutput(doc.dfv),
-      discovery: mapDiscoveryOutput(doc.discovery)
+      discovery: mapDiscoveryOutput(doc.discovery),
+      pmf: doc.pmf?.output ?? null
     });
   }, []);
 
@@ -224,7 +225,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (completed === "tipsc") return { ...current, tipsc: "completed", dfv: "available" };
       if (completed === "dfv") return { ...current, dfv: "completed", discovery: "available" };
       if (completed === "quickstart") return { ...current, quickstart: "completed", tipsc: "available" };
-      return { ...current, discovery: "completed" };
+      if (completed === "discovery") return { ...current, discovery: "completed", pmf: "available" };
+      return { ...current, pmf: "completed" };
     });
   }, []);
 

@@ -6,13 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { TrafficDot } from "@/components/shared/StatusBadge";
 import { DFV_CONTEXT_MIN } from "@/constants";
-import { triggerDfv } from "@/services/authSessions";
+import { getSession, triggerDfv } from "@/services/authSessions";
 import { useAuth } from "@/context/AuthContext";
 import type { DFVResult } from "@/data/mockData";
 import { toast } from "sonner";
 
 export function DFVFlow() {
-  const { session, sessionId, serverStatus, sessionDoc, results, formData, setFormData, addEvent } = useAuth();
+  const { session, sessionId, serverStatus, sessionDoc, setSessionFromServer, results, formData, setFormData, addEvent } = useAuth();
   
   const [phase, setPhase] = useState<"form" | "processing" | "results">(
     (serverStatus === "dfv_running" || serverStatus === "dfv_waiting") ? "processing" : results.dfv ? "results" : "form"
@@ -56,7 +56,7 @@ export function DFVFlow() {
   if (session.dfv === "locked") return <Navigate to="/workspace" replace />;
 
   async function run() {
-    if (submitting) return;
+    if (submitting || !sessionId) return;
     const payload = {
       desirability_context: inputs.desirability_context.trim(),
       feasibility_context: inputs.feasibility_context.trim(),
@@ -76,7 +76,8 @@ export function DFVFlow() {
     setPhase("processing");
     addEvent("DFV Triggered");
     try {
-      if (sessionId) await triggerDfv(sessionId, payload);
+      await triggerDfv(sessionId, payload);
+      setSessionFromServer(await getSession(sessionId));
     } catch {
       toast.error("Failed to start DFV analysis. Check backend connection.");
       setPhase("form");
@@ -99,7 +100,7 @@ export function DFVFlow() {
           <CardContent className="space-y-6 p-6">
             {serverStatus === "dfv_failed" && (
               <div className="rounded-lg bg-destructive/10 p-4 border border-destructive/20 text-destructive font-medium text-sm">
-                DFV Evaluation Failed. Please review your inputs below and click <b>Retry DFV Evaluation</b>.
+                {sessionDoc?.failure_metadata?.error_message || "DFV evaluation failed."} Review your inputs below and click <b>Retry DFV Evaluation</b>.
               </div>
             )}
             {serverStatus === "dfv_completed" && !passed && (
@@ -115,6 +116,7 @@ export function DFVFlow() {
                 <span className="mt-1 block text-sm text-muted-foreground">{prompt}</span>
                 <Textarea
                   className="mt-2"
+                  maxLength={3000}
                   value={inputs[key]}
                   onChange={(e) => setInputs({ ...inputs, [key]: e.target.value })}
                 />

@@ -73,6 +73,7 @@ export function deriveStageAccess(doc: any | null) {
     tipsc: toStageStatus(access.tipsc),
     dfv: toStageStatus(access.dfv),
     discovery: toStageStatus(access.discovery),
+    pmf: toStageStatus(access.pmf),
     quickstart: toStageStatus(access.quickstart)
   };
 }
@@ -85,6 +86,7 @@ export function isFlowRunning(status: SessionDocument["status"]) {
     status === "pre_eval" ||
     status === "tipsc_reevaluation" ||
     status === "dfv_waiting" ||
-    status === "discovery_waiting"
+    status === "discovery_waiting" ||
+    status === "pmf_waiting"
   );
 }

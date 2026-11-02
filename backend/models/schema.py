@@ -13,6 +13,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 from enum import Enum
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -102,7 +103,7 @@ class NotificationMessage(BaseModel):
 
     userSession_id: str
     correlation_id: str
-    flow: str  # "dfv" | "discovery" | "tipsc"
+    flow: Literal["dfv", "discovery", "pmf", "tipsc"]
     status: FlowStatus
     idea_name: str | None = None
     error: str | None = None
@@ -128,3 +129,23 @@ class DiscoveryDeadLetterMessage(BaseModel):
     original_message: DiscoveryJobMessage
     failure_reason: str
     failed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class PMFJobPayload(BaseModel):
+    tipsc_summary: dict | None = None
+    dfv_summary: dict | None = None
+    discovery_summary: dict | None = None
+    idea_name: str = ""
+    problem_statement: str = ""
+    proposed_solution: str = ""
+    customer_segment: str = ""
+
+
+class PMFJobMessage(BaseModel):
+    """Message published by backend on POST /sessions/{id}/trigger/pmf."""
+
+    userSession_id: str = Field(..., description="MongoDB _id string of the session")
+    correlation_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    retry_count: int = Field(default=0)
+    payload: PMFJobPayload
+    published_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

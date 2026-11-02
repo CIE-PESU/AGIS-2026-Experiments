@@ -347,6 +347,9 @@ class SessionRepository(BaseRepository[Session]):
             {
                 "$set": {
                     flow: output,
+                    "failure_metadata": None,
+                    "error": None,
+                    "flow_started_at": None,
                     "status": new_status.value,
                     "updated_at": utc_now(),
                 },
@@ -370,10 +373,12 @@ class SessionRepository(BaseRepository[Session]):
         statuses = {
             "dfv": ["dfv_waiting", "dfv_running"],
             "discovery": ["discovery_waiting", "discovery_running"],
+            "pmf": ["pmf_waiting", "pmf_running"],
             "tipsc": [
                 "queued",
                 "pre_eval",
                 "validation_running",
+                "regulatory_running",
                 "ethics_running",
                 "tipsc_running",
                 "tipsc_reevaluation",
@@ -610,6 +615,56 @@ class SessionRepository(BaseRepository[Session]):
                     "discovery_inputs": discovery_inputs,
                     "discovery": None,
                     "status": SessionStatus.DISCOVERY_WAITING.value,
+                    "flow_started_at": now,
+                    "updated_at": now,
+                },
+                "$inc": {"version": 1},
+            }
+        )
+        if result is None:
+            return False
+        matched = getattr(result, "matched_count", 0)
+        modified = getattr(result, "modified_count", 0)
+        return matched == 1 or modified == 1
+
+    async def atomic_start_pmf_flow(
+        self,
+        session_id: str,
+        correlation_id: str,
+        pmf_inputs: dict[str, Any],
+        request_record: dict | None = None,
+        expected_version: int | None = None,
+    ) -> bool:
+        """
+        Atomically start or retry PMF after successful customer discovery.
+        Preserve upstream evidence while clearing the previous PMF result and failure.
+
+        Returns True if CAS won (update modified/matched 1 document), False if CAS lost (already waiting/running or invalid state).
+        """
+        now = utc_now()
+        allowed_statuses = [
+            SessionStatus.COMPLETED.value,
+            SessionStatus.PMF_COMPLETED.value,
+            SessionStatus.PMF_FAILED.value,
+        ]
+        result = await Session.find_one(
+            Session.id == PydanticObjectId(session_id),
+            In("status", allowed_statuses),
+            *([{"version": expected_version}] if expected_version is not None else []),
+            {"discovery.status": {"$in": ["done", "completed"]}},
+        ).update(
+            {
+                "$set": {
+                    **(
+                        {f"flow_requests.{request_record['slot']}": request_record}
+                        if request_record
+                        else {}
+                    ),
+                    "correlation_id": correlation_id,
+                    "failure_metadata": None,
+                    "error": None,
+                    "pmf": None,
+                    "status": SessionStatus.PMF_WAITING.value,
                     "flow_started_at": now,
                     "updated_at": now,
                 },

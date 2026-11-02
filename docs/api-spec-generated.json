@@ -2796,6 +2796,67 @@
         ]
       }
     },
+    "/api/v1/sessions/{session_id}/trigger/pmf": {
+      "post": {
+        "operationId": "trigger_pmf_api_v1_sessions__session_id__trigger_pmf_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Trigger PMF evaluation",
+        "tags": [
+          "Flows"
+        ]
+      }
+    },
     "/api/v1/sessions/{session_id}/trigger/tipsc": {
       "post": {
         "operationId": "trigger_tipsc_api_v1_sessions__session_id__trigger_tipsc_post",

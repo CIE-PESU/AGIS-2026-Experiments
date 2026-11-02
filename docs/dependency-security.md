@@ -20,3 +20,7 @@ Tracked account seed data has been removed from the current tree and replaced wi
 New unique indexes enforce one active student workspace and one active session per owner. If an existing database contains duplicates, back it up and resolve ownership/archive conflicts before startup. Never delete existing records solely to make an index build succeed. Database backups and TLS/reverse-proxy deployment are operator responsibilities.
 
 The latest compatible Beanie/lazy-model and CrewAI-tools releases also emit upstream deprecation warnings. Tests do not suppress them; moving to Beanie 2 requires a separate Motor/PyMongo migration and compatibility validation. They are warnings rather than failing application checks.
+
+## 2 November 2026 merge verification
+
+A clean `uv sync --locked` environment reports 17 advisories: four for ChromaDB 1.5.9 and thirteen for Filelock 3.32.7. Ten Filelock findings are additional to the existing reviewed exceptions, so `scripts/audit_dependencies.py` currently fails as designed. No new exceptions were added. The audit lists no fixed ChromaDB version; the Filelock fixes require 4.0.9 or 4.2.1. A resolver dry run upgrading LiteLLM and Filelock still retains Filelock 3.32.7 under the compatible dependency constraints. Resolving this requires an upstream compatibility change or a separately validated dependency migration. The frontend audit reports zero vulnerabilities.

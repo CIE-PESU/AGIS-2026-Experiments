@@ -17,7 +17,7 @@ function fmtDate(value?: string | null) {
 export type TimelineEventLike = { label: string; timestamp: string };
 
 export type ExportInput = {
-  results: { tips: TIPSCResult | null; dfv: DFVResult | null; discovery: JTBDResult | null };
+  results: { tips: TIPSCResult | null; dfv: DFVResult | null; discovery: JTBDResult | null; pmf?: Record<string, any> | null };
   formData: Record<string, string>;
   sessionDoc?: SessionDocument | null;
   timeline?: TimelineEventLike[];
@@ -36,11 +36,11 @@ export type ExportInput = {
 export function generateMarkdown(input: ExportInput): string;
 // Back-compat overload for older call sites passing (results, formData) directly.
 export function generateMarkdown(
-  results: { tips: TIPSCResult | null; dfv: DFVResult | null; discovery: JTBDResult | null },
+  results: { tips: TIPSCResult | null; dfv: DFVResult | null; discovery: JTBDResult | null; pmf?: Record<string, any> | null },
   formData: Record<string, string>
 ): string;
 export function generateMarkdown(
-  arg1: ExportInput | { tips: TIPSCResult | null; dfv: DFVResult | null; discovery: JTBDResult | null },
+  arg1: ExportInput | { tips: TIPSCResult | null; dfv: DFVResult | null; discovery: JTBDResult | null; pmf?: Record<string, any> | null },
   arg2?: Record<string, string>
 ): string {
   const input: ExportInput =
@@ -392,6 +392,11 @@ export function generateMarkdown(
         ...disc.finalSummary.successfulInterviews.map((s: string) => `- ${s}`)
       );
     }
+  }
+
+  const pmf = sessionDoc?.pmf?.output ?? results.pmf;
+  if (pmf) {
+    lines.push("", "## Product-Market Fit Analysis", "", "```json", JSON.stringify(pmf, null, 2), "```");
   }
 
   // ── Activity timeline (session-level audit trail) ───────────────────────

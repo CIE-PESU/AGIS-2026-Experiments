@@ -14,7 +14,7 @@ from exceptions.session import (
     SessionNotFoundError,
 )
 from models.audit import AuditEvent
-from models.session import DFVOutput, DiscoveryOutput, TIPSCOutput
+from models.session import DFVOutput, DiscoveryOutput, PMFOutput, TIPSCOutput
 from repositories.session_repo import session_repo
 from services.audit_service import audit_service
 from state_machine.states import TERMINAL_STATES, SessionStatus
@@ -92,6 +92,13 @@ class WorkerService:
                 audit_event = AuditEvent.DISCOVERY_COMPLETED
             except ValidationError as e:
                 raise InvalidOutputSchemaError(f"Invalid Discovery output schema: {e}") from e
+        elif flow == "pmf":
+            try:
+                parsed_output = PMFOutput(**output)
+                target_status = SessionStatus.PMF_COMPLETED
+                audit_event = AuditEvent.PMF_COMPLETED
+            except ValidationError as e:
+                raise InvalidOutputSchemaError(f"Invalid Discovery output schema: {e}") from e
         else:
             raise InvalidOutputSchemaError(f"Unknown flow: {flow}")
 
@@ -145,6 +152,9 @@ class WorkerService:
         elif flow == "discovery":
             target_status = SessionStatus.DISCOVERY_FAILED
             audit_event = AuditEvent.DISCOVERY_FAILED
+        elif flow == "pmf":
+            target_status = SessionStatus.PMF_FAILED
+            audit_event = AuditEvent.PMF_FAILED
         else:
             raise ValueError(f"Unknown flow: {flow}")
 

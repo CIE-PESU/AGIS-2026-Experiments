@@ -10,7 +10,7 @@ The active FastAPI application is `backend/main.py`. There is one backend implem
 - `repositories/` and `models/`: Beanie/Motor persistence with indexes, versions, and conditional updates.
 - `state_machine/`: backend session statuses and legal transitions.
 - `events/`: MongoDB/Kafka/TIPSC startup and graceful task/connection shutdown.
-- `workers/combined_agent_worker.py`: consumes DFV/Discovery jobs, runs isolated agents, persists delivery results, and invokes authenticated callbacks.
+- `workers/combined_agent_worker.py`: consumes DFV/Discovery/PMF jobs, runs isolated agents, persists delivery results, and invokes authenticated callbacks.
 - `TIPSC-Agent/src/engine/`: direct asynchronous TIPSC executor and task-local guarded session store.
 
 ## Request and execution flow
@@ -19,15 +19,17 @@ Session creation validates intake, scopes the idempotency key to the authenticat
 
 DFV requires TIPSC's `ready_for_dfv`. Discovery is blocked after a NO-GO DFV decision. These flows atomically store a correlation ID, start time, input, and optional idempotency record, then publish a validated Kafka job. The worker reports an output or failure through the internal API; the backend validates the schema, correlation ID, state transition, and version before writing.
 
+PMF is unlocked by successful Discovery (`completed`). `POST /api/v1/sessions/{id}/trigger/pmf` publishes `userSession.pmf` with founder inputs and all three upstream reports. PMF uses `pmf_waiting`, `pmf_running`, `pmf_completed`, and `pmf_failed`; failed/completed PMF runs can be retried/rerun without losing upstream results. It shares guarded persistence, timeout recovery, durable callbacks, and dead-letter handling with the other workers. Sean Ellis, NPS, and retention remain unmeasured when survey/cohort evidence is unavailable.
+
 Idempotency records are scoped to owner/session and flow. Reusing a key with a different body is a conflict. Replay responses retain the original run identity. Ownership checks precede all replay responses.
 
 ## Concurrency and failure semantics
 
 MongoDB updates for worker failure/timeout require the expected version and run ID; allowed active states are checked in the write predicate. Pipeline writes are scoped to the current task's correlation ID/version and cannot overwrite an archived, completed, or superseded run. Every accepted pipeline update increments the version.
 
-The timeout supervisor makes abandoned TIPSC, DFV, and Discovery work explicitly retryable. TIPSC is recoverable by retry after timeout, not by resuming a partially completed model call. Shutdown cancels and awaits registered pipeline tasks before disconnecting the database.
+The timeout supervisor makes abandoned TIPSC, DFV, Discovery, and PMF work explicitly retryable. TIPSC is recoverable by retry after timeout, not by resuming a partially completed model call. Shutdown cancels and awaits registered pipeline tasks before disconnecting the database.
 
-The worker serializes both agent types through one process slot. It terminates an agent process on timeout/cancellation. A SQLite mailbox stores the callback before HTTP; restart/redelivery reuses the saved result. Kafka offsets are committed only after callback acceptance or durable dead-letter publication. The worker retries transient callback failures and version conflicts. Missing/superseded runs are terminal. Persist the mailbox volume; cross-host mailbox sharing is not implemented.
+The worker serializes all three agent types through one process slot. It terminates an agent process on timeout/cancellation. A SQLite mailbox stores the callback before HTTP; restart/redelivery reuses the saved result. Kafka offsets are committed only after callback acceptance or durable dead-letter publication. The worker retries transient callback failures and version conflicts. Missing/superseded runs are terminal. Persist the mailbox volume; cross-host mailbox sharing is not implemented.
 
 ## Authentication and data isolation
 

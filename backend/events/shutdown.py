@@ -16,8 +16,6 @@ logger = logging.getLogger(__name__)
 
 
 async def on_shutdown() -> None:
-    from services.session_task_registry import stop_session_tasks
-    await stop_session_tasks()
     """
     FastAPI lifespan shutdown handler.
 

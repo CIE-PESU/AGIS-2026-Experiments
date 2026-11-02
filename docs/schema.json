@@ -316,6 +316,78 @@
       "title": "FollowupExchange",
       "type": "object"
     },
+    "PMFOutput": {
+      "properties": {
+        "completed_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Completed At"
+        },
+        "correlation_id": {
+          "default": "",
+          "title": "Correlation Id",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        },
+        "output": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output"
+        },
+        "retry_count": {
+          "default": 0,
+          "title": "Retry Count",
+          "type": "integer"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Started At"
+        },
+        "status": {
+          "default": "",
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "title": "PMFOutput",
+      "type": "object"
+    },
     "PydanticObjectId": {
       "example": "5eb7cf5a86d9755df3a6c593",
       "maxLength": 24,
@@ -329,6 +401,7 @@
         "queued",
         "pre_eval",
         "validation_running",
+        "regulatory_running",
         "ethics_running",
         "tipsc_running",
         "waiting_for_founder",
@@ -342,6 +415,10 @@
         "discovery_waiting",
         "discovery_running",
         "discovery_failed",
+        "pmf_waiting",
+        "pmf_running",
+        "pmf_completed",
+        "pmf_failed",
         "completed",
         "failed",
         "archived"
@@ -804,6 +881,17 @@
       ],
       "default": null,
       "title": "Pending Question"
+    },
+    "pmf": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PMFOutput"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "preeval": {
       "anyOf": [

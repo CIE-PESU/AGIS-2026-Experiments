@@ -117,7 +117,8 @@ def _patched_litellm_completion(*args, **kwargs):
             if attempt < max_retries - 1:
                 print(f"[litellm_patch] WARNING: Empty response (attempt {attempt + 1}/{max_retries}). Retrying...")
                 continue
-        return res
+        if attempt == max_retries - 1:
+            return res
     return res
 
 
@@ -171,7 +172,8 @@ async def _patched_litellm_acompletion(*args, **kwargs):
             if attempt < max_retries - 1:
                 print(f"[litellm_patch] WARNING: Empty async response (attempt {attempt + 1}/{max_retries}). Retrying...")
                 continue
-        return res
+        if attempt == max_retries - 1:
+            return res
     return res
 
 
@@ -429,7 +431,6 @@ def create_dfv_crew():
     )
     print(llm.model)
     print(llm.base_url)
-    print(llm.api_key)
     return Crew(
         agents=[desirability_agent, feasibility_agent, viability_agent, dfv_risk_decision_agent],
         tasks=[desirability_task, feasibility_task, viability_task, dfv_decision_task],

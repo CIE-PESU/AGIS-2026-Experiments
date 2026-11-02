@@ -1,6 +1,6 @@
 # AGIS entrepreneurship platform
 
-A React application and FastAPI backend for Quickstart evaluation, Ethics/TIPSC assessment, DFV analysis, and customer-discovery planning. MongoDB stores sessions; Kafka dispatches DFV and Discovery jobs. TIPSC runs asynchronously in the API process with guarded persistence and timeout recovery.
+A React application and FastAPI backend for Quickstart evaluation, Ethics/TIPSC assessment, DFV analysis, customer-discovery planning, and Product-Market Fit analysis. MongoDB stores sessions; Kafka dispatches DFV, Discovery, and PMF jobs. TIPSC runs asynchronously in the API process with guarded persistence and timeout recovery.
 
 ## Start locally
 

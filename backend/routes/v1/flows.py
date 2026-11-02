@@ -60,11 +60,13 @@ def _get_flow_service() -> FlowService:
             from models.schema import (
                 DFVJobMessage,
                 DiscoveryJobMessage,
+                PMFJobMessage,
             )
 
             topic_to_model = {
                 KafkaTopic.USER_SESSION_DFV: DFVJobMessage,
                 KafkaTopic.USER_SESSION_DISCOVERY: DiscoveryJobMessage,
+                KafkaTopic.USER_SESSION_PMF: PMFJobMessage,
             }
 
             validated_payload: BaseModel | dict
@@ -262,6 +264,40 @@ async def trigger_discovery(
         discovery_inputs=body.model_dump(),
         idempotency_key=idempotency_key,
         workspace_id=current_user.workspace_id,
+    )
+
+    return success_response(
+        data=result,
+        request=request,
+    )
+
+
+@router.post(
+    "/{session_id}/trigger/pmf",
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Trigger PMF evaluation",
+)
+async def trigger_pmf(
+    request: Request,
+    session_id: str,
+    current_user: Annotated[
+        CurrentUser,
+        Depends(require_role(UserRole.STUDENT, UserRole.MENTOR_WORKSPACE)),
+    ],
+    idempotency_key: Annotated[
+        str | None,
+        Header(alias="Idempotency-Key"),
+    ] = None,
+):
+    validate_object_id(session_id)
+
+    flow_service = _get_flow_service()
+
+    result = await flow_service.trigger_pmf(
+        session_id=session_id,
+        student_id=current_user.user_id if current_user.is_student else None,
+        workspace_id=current_user.workspace_id,
+        idempotency_key=idempotency_key,
     )
 
     return success_response(

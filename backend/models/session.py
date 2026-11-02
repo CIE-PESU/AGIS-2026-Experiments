@@ -189,6 +189,16 @@ class DFVOutput(BaseModel):
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+class PMFOutput(BaseModel):
+    correlation_id: str = ""
+    status: str = ""
+    output: dict[str, Any] | None = None
+    error: str | None = None
+    retry_count: int = 0
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+
+
 class DiscoveryOutput(BaseModel):
     correlation_id: str = ""
 
@@ -272,6 +282,7 @@ class Session(Document):
     dfv: DFVOutput | None = None
 
     discovery: DiscoveryOutput | None = None
+    pmf: PMFOutput | None = None
 
     # ── DFV founder context ────────────────────────────────────────────────
 

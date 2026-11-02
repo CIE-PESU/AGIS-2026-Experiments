@@ -111,3 +111,6 @@ Thumbs.db
 .local/
 playwright-report/
 test-results/
+
+# Local agent credentials and runtime readiness markers
+.crewai_storage/

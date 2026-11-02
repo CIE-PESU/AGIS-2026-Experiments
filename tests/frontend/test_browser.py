@@ -113,6 +113,8 @@ async def test_complete_student_journey_with_real_kafka_worker(browser_stack):
     worker.http_client = httpx.AsyncClient(transport=httpx.ASGITransport(app=stack.app), base_url="http://test",
         headers={"X-Worker-Secret": settings.WORKER_INTERNAL_SECRET})
     async def fake_agent(flow, inputs):
+        if flow == "pmf":
+            return {"pmf_score": None, "verdict": "Evidence needed", "executive_summary": "Gather customer measurements"}
         return {"final_decision": {"status": "GO", "justification": "Validated evidence"}} if flow == "dfv" else {"report": "# Interview guide\n\nAsk about the last time the problem occurred."}
     worker._run_agent = AsyncMock(side_effect=fake_agent)
     consumers, tasks = [], []
@@ -122,7 +124,7 @@ async def test_complete_student_journey_with_real_kafka_worker(browser_stack):
     errors = []
     page.on("pageerror", lambda error: errors.append(str(error)))
     try:
-        for flow in ["dfv", "discovery"]:
+        for flow in ["dfv", "discovery", "pmf"]:
             consumer = AIOKafkaConsumer("userSession." + flow, bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS,
                 group_id="browser-" + uuid.uuid4().hex, auto_offset_reset="latest", enable_auto_commit=False)
             await consumer.start()
@@ -139,7 +141,7 @@ async def test_complete_student_journey_with_real_kafka_worker(browser_stack):
         await page.goto("http://127.0.0.1:15167/workspace/tipsc")
         for label, field in [("Problem Statement", "problem_statement"), ("Customer Segment", "customer_segment"),
             ("Consequence", "consequence"), ("Assumptions", "assumptions"), ("Proposed Solution", "proposed_solution"),
-            ("Geography", "target_geography"), ("Sector", "industry_sector")]:
+            ("Geography", "target_geography"), ("Industry Sector", "industry_sector")]:
             value = INTAKE[field]
             await page.get_by_label(re.compile("^" + label)).fill("\n".join(value) if isinstance(value, list) else value)
         await page.get_by_role("button", name="Submit for TIPSC Evaluation").click()
@@ -158,7 +160,14 @@ async def test_complete_student_journey_with_real_kafka_worker(browser_stack):
         await page.get_by_role("button", name="Review My Thinking").click()
         await page.get_by_role("button", name="Trigger Discovery Planner").click()
         await expect(page.get_by_role("heading", name="Interview guide", exact=True)).to_be_visible()
-        assert worker._run_agent.await_count == 2
+        await page.goto("http://127.0.0.1:15167/workspace/pmf")
+        await expect(page.get_by_role("button", name="Run PMF Analysis", exact=True)).to_be_visible()
+        await page.get_by_role("button", name="Run PMF Analysis", exact=True).click()
+        await expect(page.get_by_text("Evidence needed", exact=True)).to_be_visible()
+        await expect(page.get_by_text("Insufficient evidence", exact=True)).to_be_visible()
+        await page.reload()
+        await expect(page.get_by_text("Evidence needed", exact=True)).to_be_visible()
+        assert worker._run_agent.await_count == 3
         assert not errors, errors
     finally:
         for task in tasks: task.cancel()

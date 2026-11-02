@@ -31,6 +31,8 @@ from models.schema import (
     DFVJobPayload,
     DiscoveryJobMessage,
     DiscoveryJobPayload,
+    PMFJobMessage,
+    PMFJobPayload,
 )
 from services.flow_exceptions import (
     DFVNotUnlockedError,
@@ -47,6 +49,7 @@ from state_machine.validator import validate_transition
 
 DFV_TOPIC = KafkaTopic.USER_SESSION_DFV
 DISCOVERY_TOPIC = KafkaTopic.USER_SESSION_DISCOVERY
+PMF_TOPIC = KafkaTopic.USER_SESSION_PMF
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -75,6 +78,8 @@ class SessionSnapshot:
     tipsc: dict[str, Any] | None = None
 
     dfv: dict[str, Any] | None = None
+
+    discovery: dict[str, Any] | None = None
 
     pending_question: str | None = None
 
@@ -121,6 +126,14 @@ class SessionRepoProtocol(Protocol):
         session_id: str,
         correlation_id: str,
         discovery_inputs: dict,
+        request_record: dict | None = None,
+        expected_version: int | None = None,
+    ) -> bool: ...
+    async def atomic_start_pmf_flow(
+        self,
+        session_id: str,
+        correlation_id: str,
+        pmf_inputs: dict,
         request_record: dict | None = None,
         expected_version: int | None = None,
     ) -> bool: ...
@@ -733,6 +746,129 @@ class FlowService:
             "session_id": str(session.id),
             "flow": "discovery",
             "status": SessionStatus.DISCOVERY_WAITING.value,
+            "correlation_id": correlation_id,
+            "triggered_at": _now_iso(),
+        }
+
+    async def trigger_pmf(
+        self,
+        session_id: str,
+        student_id: str | None = None,
+        pmf_inputs: dict | None = None,
+        workspace_id: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict:
+
+        pmf_inputs = pmf_inputs or {}
+        session = await self._load_session(
+            session_id,
+            student_id=student_id,
+            workspace_id=workspace_id,
+        )
+        record, replay = self._request_record(session, "pmf", idempotency_key, pmf_inputs)
+        if replay:
+            return replay
+
+        discovery = session.discovery
+        evidence = (
+            discovery
+            if isinstance(discovery, dict)
+            else (discovery.model_dump() if discovery else {})
+        )
+        if evidence.get("status") not in {"done", "completed"} or not evidence.get("output"):
+            raise InvalidStateTransitionError(session.status, SessionStatus.PMF_WAITING)
+
+        correlation_id = _new_correlation_id()
+        if record:
+            record["response"] = {
+                "session_id": str(session.id),
+                "flow": "pmf",
+                "status": "pmf_waiting",
+                "correlation_id": correlation_id,
+                "triggered_at": _now_iso(),
+            }
+
+        # Atomic CAS: Transition status to PMF_WAITING and set correlation_id in a single Mongo write.
+        cas_won = await self._session_repo.atomic_start_pmf_flow(
+            session_id=session_id,
+            correlation_id=correlation_id,
+            pmf_inputs=pmf_inputs,
+            expected_version=session.version,
+            **({"request_record": record} if record else {}),
+        )
+
+        if not cas_won:
+            # CAS lost — session is already in PMF_WAITING or PMF_RUNNING! Return active state safely.
+            current = await self._load_session(
+                session_id, student_id=student_id, workspace_id=workspace_id
+            )
+            _, replay = self._request_record(current, "pmf", idempotency_key, pmf_inputs)
+            if replay:
+                return replay
+            if current.status not in {
+                SessionStatus.PMF_WAITING,
+                SessionStatus.PMF_RUNNING,
+            }:
+                raise InvalidStateTransitionError(current.status, SessionStatus.PMF_WAITING)
+            return {
+                "session_id": str(current.id),
+                "flow": "pmf",
+                "status": current.status.value,
+                "correlation_id": current.correlation_id or correlation_id,
+                "triggered_at": _now_iso(),
+            }
+
+        def _dump(value):
+            return value.model_dump(mode="json") if hasattr(value, "model_dump") else value
+
+        payload = PMFJobMessage(
+            userSession_id=str(session.id),
+            correlation_id=correlation_id,
+            retry_count=0,
+            payload=PMFJobPayload(
+                idea_name=session.idea or "",
+                problem_statement=session.problem_statement or "",
+                proposed_solution=session.idea or "",
+                customer_segment=(session.preeval_input or {}).get("customer_segment", ""),
+                tipsc_summary=_dump(session.tipsc),
+                dfv_summary=_dump(session.dfv),
+                discovery_summary=_dump(session.discovery),
+            ),
+        )
+
+        try:
+            await self._publish_or_raise(
+                PMF_TOPIC,
+                payload.model_dump(),
+                "pmf",
+            )
+        except KafkaUnavailableError:
+            await self._session_repo.update_flow_failure(
+                session_id,
+                SessionStatus.PMF_FAILED,
+                {
+                    "flow": "pmf",
+                    "error_code": "KAFKA_UNAVAILABLE",
+                    "error_message": "Could not start Product-Market Fit analysis.",
+                },
+                correlation_id=correlation_id,
+            )
+            raise
+
+        await self._audit.log_event(
+            session_id=session_id,
+            event="PMF_TRIGGERED",
+            actor=student_id or (f"ws_{workspace_id}" if workspace_id else "system"),
+            actor_role="student" if student_id else "mentor_workspace",
+            metadata={
+                "correlation_id": correlation_id,
+            },
+        )
+
+        return {
+            "session_id": str(session.id),
+            "flow": "pmf",
+            "status": SessionStatus.PMF_WAITING.value,
             "correlation_id": correlation_id,
             "triggered_at": _now_iso(),
         }

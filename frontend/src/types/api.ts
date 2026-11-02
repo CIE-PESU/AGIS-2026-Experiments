@@ -19,6 +19,10 @@ export type SessionStatus =
 | "discovery_waiting"
 | "discovery_running"
 | "discovery_failed"
+| "pmf_waiting"
+| "pmf_running"
+| "pmf_completed"
+| "pmf_failed"
 | "completed"
 | "failed"
 | "archived";
@@ -257,6 +261,8 @@ compliance_context?: string | null;
 tipsc?: TIPSCResult | null;
 dfv?: DFVResult | null;
 discovery?: DiscoveryResult | null;
+pmf?: { status: string; output: Record<string, any> | null; error?: string | null } | null;
+failure_metadata?: { error_message?: string; error_code?: string; flow?: string } | null;
 
 pending_question?: string | null;
 followup_turn?: number;

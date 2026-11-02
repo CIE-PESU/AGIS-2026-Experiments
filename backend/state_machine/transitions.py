@@ -170,3 +170,29 @@ ALLOWED_TRANSITIONS: dict[
     ),
     SessionStatus.ARCHIVED: frozenset(),
 }
+
+# Discovery completion unlocks PMF; PMF can be retried or rerun independently.
+ALLOWED_TRANSITIONS[SessionStatus.COMPLETED] |= frozenset({SessionStatus.PMF_WAITING})
+ALLOWED_TRANSITIONS[SessionStatus.PMF_WAITING] = frozenset(
+    {
+        SessionStatus.PMF_RUNNING,
+        SessionStatus.PMF_COMPLETED,
+        SessionStatus.PMF_FAILED,
+        SessionStatus.FAILED,
+    }
+)
+ALLOWED_TRANSITIONS[SessionStatus.PMF_RUNNING] = frozenset(
+    {SessionStatus.PMF_COMPLETED, SessionStatus.PMF_FAILED, SessionStatus.FAILED}
+)
+ALLOWED_TRANSITIONS[SessionStatus.PMF_COMPLETED] = frozenset(
+    {SessionStatus.PMF_WAITING, SessionStatus.ARCHIVED}
+)
+ALLOWED_TRANSITIONS[SessionStatus.PMF_FAILED] = frozenset(
+    {SessionStatus.PMF_WAITING, SessionStatus.ARCHIVED}
+)
+ALLOWED_TRANSITIONS[SessionStatus.VALIDATION_RUNNING] |= frozenset(
+    {SessionStatus.REGULATORY_RUNNING}
+)
+ALLOWED_TRANSITIONS[SessionStatus.REGULATORY_RUNNING] = frozenset(
+    {SessionStatus.ETHICS_RUNNING, SessionStatus.TIPSC_FAILED, SessionStatus.FAILED}
+)

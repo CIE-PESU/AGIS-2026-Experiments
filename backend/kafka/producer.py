@@ -64,7 +64,7 @@ class KafkaProducerClient:
         except Exception:
             return False
 
-    async def publish(self, topic: str, payload: BaseModel) -> str:
+    async def publish(self, topic: str, payload: BaseModel | dict) -> str:
         """
         Serializes and publishes a message to a specific topic with strict exponential backoff.
         Guarantees event ordering inside Kafka by forcing the partition key to be the session_id.
@@ -73,17 +73,19 @@ class KafkaProducerClient:
             raise KafkaPublishError("Kafka producer is not initialized.")
 
         # Force messages under the same session to lock to the same partition sequentially
-        message_value = payload.model_dump(mode="json")
+        message_value = (
+            payload.model_dump(mode="json") if isinstance(payload, BaseModel) else payload
+        )
+        # Normalize datetime fields in legacy dictionary callers.
+        from pydantic_core import to_jsonable_python
+
+        message_value = to_jsonable_python(message_value)
 
         # Support both old and new Kafka schemas
-        partition_key = getattr(payload, "session_id", None) or getattr(
-            payload, "userSession_id", None
-        )
-
+        partition_key = message_value.get("session_id") or message_value.get("userSession_id")
         if partition_key is None:
             raise KafkaPublishError("Kafka payload has neither 'session_id' nor 'userSession_id'.")
-
-        correlation_id = getattr(payload, "correlation_id", "")
+        correlation_id = message_value.get("correlation_id", "")
         retries = 3
         backoff_delays = [0.1, 0.3, 0.9]  # 100ms, 300ms, 900ms backoffs
 

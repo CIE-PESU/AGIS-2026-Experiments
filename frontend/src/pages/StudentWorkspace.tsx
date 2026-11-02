@@ -60,7 +60,8 @@ export function StudentWorkspace() {
   const modules = [
     { key: "tipsc" as const, title: "TIPSC Evaluation", icon: Target, color: "text-secondary", path: "/workspace/tipsc", description: "Assess timely, importance, profitable, and solvable strength." },
     { key: "dfv" as const, title: "DFV Analysis", icon: TrendingUp, color: "text-primary", path: "/workspace/dfv", description: "Validate desirability, feasibility, and viability before moving ahead." },
-    { key: "discovery" as const, title: "Customer Discovery", icon: Users, color: "text-accent", path: "/workspace/discovery", description: "Generate customer jobs, interview plans, and discovery recommendations." }
+    { key: "discovery" as const, title: "Customer Discovery", icon: Users, color: "text-accent", path: "/workspace/discovery", description: "Generate customer jobs, interview plans, and discovery recommendations." },
+    { key: "pmf" as const, title: "Product-Market Fit", icon: TrendingUp, color: "text-primary", path: "/workspace/pmf", description: "Assess customer alignment, demand, value proposition, and evidence gaps." }
   ];
 
   const exportReport = () =>
@@ -104,7 +105,7 @@ return (
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-primary">Welcome, {titleName}</h1>
-          <p className="mt-1 text-muted-foreground">Move through TIPSC, DFV, and Customer Discovery in sequence.</p>
+          <p className="mt-1 text-muted-foreground">Move through TIPSC, DFV, Customer Discovery, and Product-Market Fit in sequence.</p>
           {serverStatus && <p className="mt-1 text-xs text-muted-foreground">Session status: {serverStatus.replace(/_/g, " ")}</p>}
         </div>
         <div className="flex gap-2">
@@ -138,12 +139,12 @@ return (
           </AlertDialog>}
         </div>
       </div>
-      <div className="mt-8 grid grid-cols-3 gap-2 rounded-lg bg-background p-2 shadow-sm">
-        {(["tipsc", "dfv", "discovery"] as const).map((key) => (
+      <div className="mt-8 grid grid-cols-4 gap-2 rounded-lg bg-background p-2 shadow-sm">
+        {(["tipsc", "dfv", "discovery", "pmf"] as const).map((key) => (
           <div key={key} className={`h-3 rounded-full ${session[key] === "completed" ? "bg-emerald-500" : session[key] === "locked" ? "bg-muted" : "bg-secondary"}`} />
         ))}
       </div>
-      <div className="mt-8 grid gap-6 md:grid-cols-3">
+      <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
         {modules.map(({ key, title, icon: Icon, color, path, description }) => {
           const status = session[key];
           const needsRevision = key === "dfv" && serverStatus === "dfv_completed" && results.dfv?.decision === "NO-GO";
@@ -169,7 +170,7 @@ return (
         })}
       </div>
       <div className="mt-8 rounded-lg border border-secondary/20 bg-secondary/10 p-4 text-sm font-semibold text-secondary">
-        Sequential Evaluation: TIPSC unlocks DFV, and DFV unlocks Customer Discovery.
+        Sequential Evaluation: TIPSC unlocks DFV, DFV unlocks Customer Discovery, and Customer Discovery unlocks Product-Market Fit.
       </div>
 
       {/* Team Progress Monitor — powered by live team session progress API */}

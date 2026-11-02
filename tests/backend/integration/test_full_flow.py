@@ -272,3 +272,68 @@ async def test_quickstart_uses_canonical_agent_contract(stack, monkeypatch):
     assert len(response.json()["data"]["parameters"]) == 10
     bad = await stack.client.post("/api/v1/quickstart/evaluate", headers=headers, json={**payload, "problem": "   "})
     assert bad.status_code == 422
+
+
+async def test_pmf_delivery_retry_idempotency_and_ownership(stack):
+    """Drive PMF through real Kafka and Mongo; provider output is deterministic."""
+    from core.config import settings
+    from models.session import Session, DiscoveryOutput, DFVOutput
+    from repositories.session_repo import session_repo
+    from state_machine.states import SessionStatus
+    from workers.combined_agent_worker import CombinedAgentWorker
+
+    headers, _ = await login(stack)
+    session_id = await create(stack, headers)
+    await wait_status(stack, session_id, headers, "tipsc_completed")
+    blocked = await stack.client.post(f"/api/v1/sessions/{session_id}/trigger/pmf", headers=headers)
+    assert blocked.status_code == 409, blocked.text
+    session = await Session.get(session_id)
+    session.status = SessionStatus.COMPLETED
+    session.discovery = DiscoveryOutput(status="done", output={"report": "Interview guide"})
+    session.dfv = DFVOutput(status="done", output={"final_decision": {"status": "GO"}})
+    await session.save()
+    key = str(uuid.uuid4())
+    job, result = await consume_one("userSession.pmf", lambda: stack.client.post(
+        f"/api/v1/sessions/{session_id}/trigger/pmf", headers={**headers, "Idempotency-Key": key}))
+    assert job["payload"]["discovery_summary"]["output"]["report"] == "Interview guide"
+    assert job["payload"]["tipsc_summary"]["ready_for_dfv"] is True
+    assert job["payload"]["dfv_summary"]["output"]["final_decision"]["status"] == "GO"
+    assert job["correlation_id"] == result["correlation_id"]
+    other, _ = await login(stack, "PES2UG22CS002")
+    denied = await stack.client.post(f"/api/v1/sessions/{session_id}/trigger/pmf", headers=other)
+    assert denied.status_code == 404, denied.text
+    replay = await stack.client.post(f"/api/v1/sessions/{session_id}/trigger/pmf",
+        headers={**headers, "Idempotency-Key": key})
+    assert replay.json()["data"]["correlation_id"] == job["correlation_id"]
+    # Timeouts make the run retryable without losing upstream reports.
+    assert await session_repo.update_flow_failure(session_id, SessionStatus.PMF_FAILED,
+        {"flow": "pmf", "error_code": "PMF_TIMEOUT", "error_message": "Timed out"},
+        correlation_id=job["correlation_id"])
+    doc = await wait_status(stack, session_id, headers, "pmf_failed")
+    assert doc["failure_metadata"]["error_code"] == "PMF_TIMEOUT"
+    next_job, _ = await consume_one("userSession.pmf", lambda: stack.client.post(
+        f"/api/v1/sessions/{session_id}/trigger/pmf", headers=headers))
+    assert next_job["correlation_id"] != job["correlation_id"]
+    stale = await stack.client.post(f"/internal/sessions/{session_id}/output", json={
+        "flow": "pmf", "correlation_id": job["correlation_id"], "output": {"status": "done", "output": {"verdict": "Old"}},
+        "duration_seconds": 1, "worker_id": "test"}, headers={"X-Worker-Secret": settings.WORKER_INTERNAL_SECRET})
+    assert stale.status_code == 409, stale.text
+    worker = CombinedAgentWorker()
+    worker.http_client = httpx.AsyncClient(transport=httpx.ASGITransport(app=stack.app), base_url="http://test",
+        headers={"X-Worker-Secret": settings.WORKER_INTERNAL_SECRET})
+    worker._run_agent = AsyncMock(return_value={"pmf_score": None, "verdict": "Evidence needed"})
+    try:
+        await worker._handle_pmf(next_job)
+        await worker._handle_pmf(next_job)  # replay durable callback, do not rerun provider
+        assert worker._run_agent.await_count == 1
+    finally:
+        await worker.http_client.aclose()
+    doc = await wait_status(stack, session_id, headers, "pmf_completed")
+    assert doc["pmf"]["output"]["verdict"] == "Evidence needed"
+    assert doc["discovery"]["output"]["report"] == "Interview guide"
+    assert doc["failure_metadata"] is None
+    # A late timeout cannot overwrite a successful PMF run.
+    assert not await session_repo.update_flow_failure(session_id, SessionStatus.PMF_FAILED,
+        {"flow": "pmf"}, correlation_id=next_job["correlation_id"])
+    response = await stack.client.delete(f"/api/v1/sessions/{session_id}", headers=headers)
+    assert response.status_code == 200, response.text

@@ -106,3 +106,9 @@ Stop local infrastructure with `docker compose -f backend/docker-compose.yml dow
 `uv run python scripts/provider_smoke.py` sends one short, non-sensitive prompt through the configured CrewAI provider (up to 32 output tokens). It may incur API usage and is intentionally excluded from CI. A successful reply proves basic endpoint/model/credential compatibility, not the quality or tool-calling behavior of an entire agent pipeline.
 
 `uv run python scripts/search_smoke.py` makes one neutral request each to Serper and Tavily using configured credentials. These checks consume provider credits and are excluded from CI.
+
+## Product-Market Fit after Discovery
+
+After a successful Discovery run, open the Product-Market Fit card in the workspace. The existing combined worker also consumes `userSession.pmf`; no separate worker command is needed. PMF receives the founder intake and TIPSC/DFV/Discovery reports. A failed run can be retried, and a completed run can be rerun. Earlier reports remain saved. Survey and retention metrics are marked unmeasured until actual customer evidence is supplied.
+
+See [merge verification](merge-quickstart-pmf.md) for the combined branch checks and remaining upstream dependency findings.

@@ -51,7 +51,7 @@ class TimeoutSupervisor:
         and transition them to DFV_FAILED / DISCOVERY_FAILED.
         """
         now = _utc_now()
-        recovered_counts = {"dfv": 0, "discovery": 0}
+        recovered_counts = {"dfv": 0, "discovery": 0, "pmf": 0}
 
         try:
             # 1. Recover stuck DFV sessions using flow_started_at (fallback to updated_at if flow_started_at is None)
@@ -145,11 +145,59 @@ class TimeoutSupervisor:
                         },
                     )
 
+            # 2. Recover stuck PMF sessions using flow_started_at (fallback to updated_at if flow_started_at is None)
+            stuck_pmf = await Session.find(
+                In(
+                    "status",
+                    [SessionStatus.PMF_WAITING.value, SessionStatus.PMF_RUNNING.value],
+                ),
+            ).to_list()
+
+            for session in stuck_pmf:
+                start_time = session.flow_started_at or session.updated_at
+                if not start_time or (now - _as_utc(start_time)) < timedelta(
+                    seconds=timeout_seconds
+                ):
+                    continue
+
+                session_id = str(session.id)
+                # Atomic CAS update for recovery: target ONLY if status is STILL PMF_WAITING/PMF_RUNNING
+                updated = await session_repo.update_flow_failure(
+                    session_id=session_id,
+                    new_status=SessionStatus.PMF_FAILED,
+                    expected_version=session.version,
+                    correlation_id=session.correlation_id,
+                    failure_metadata={
+                        "flow": "pmf",
+                        "error_code": "PMF_TIMEOUT",
+                        "error_message": f"PMF analysis timed out after {timeout_seconds // 60} minutes without worker response.",
+                        "retry_count": 0,
+                    },
+                )
+                if updated:
+                    recovered_counts["pmf"] += 1
+                    logger.warning(
+                        "Timeout supervisor recovered stuck PMF session | session_id=%s correlation_id=%s",
+                        session_id,
+                        session.correlation_id,
+                    )
+                    await audit_service.log_event(
+                        event="PMF_FAILED",
+                        actor="timeout_supervisor",
+                        actor_role="system",
+                        session_id=session_id,
+                        metadata={
+                            "reason": "timeout",
+                            "correlation_id": session.correlation_id,
+                        },
+                    )
+
             # In-process TIPSC work lost on reload/restart becomes explicitly retryable.
             tipsc_states = [
                 "queued",
                 "pre_eval",
                 "validation_running",
+                "regulatory_running",
                 "ethics_running",
                 "tipsc_running",
                 "tipsc_reevaluation",

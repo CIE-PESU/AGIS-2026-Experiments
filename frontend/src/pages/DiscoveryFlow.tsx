@@ -48,8 +48,15 @@ const discoveryFormFields: FieldConfig[] = [
   { id: "additionalNotes", label: "Anything else you would like the AI Coach to know?", placeholder: "Optional: any additional context", guide: { title: "Additional context", why: "Share any background info, constraints, or prior research that might help the AI Coach give you better feedback.", goodExample: "We've already done 3 informal interviews and noticed students rely heavily on WhatsApp groups for coordination.", avoidThis: "Don't feel pressured to fill this in — it's optional.", jtbdTip: "Any extra context helps the coach understand your starting point better." } },
 ];
 
-function DiscoveryQuestionsForm({ onSubmit }: { onSubmit: (data: Record<string, string>) => void }) {
-  const [formData, setFormData] = useState<Record<string, string>>({});
+function DiscoveryQuestionsForm({ onSubmit, initialData }: { onSubmit: (data: Record<string, string>) => void; initialData?: Record<string, string> }) {
+  const [formData, setFormData] = useState<Record<string, string>>(initialData || {});
+  const hydrated = useRef(Object.values(initialData || {}).some(Boolean));
+  useEffect(() => {
+    if (!hydrated.current && initialData && Object.values(initialData).some(Boolean)) {
+      hydrated.current = true;
+      setFormData((current) => Object.values(current).some(Boolean) ? current : initialData);
+    }
+  }, [initialData]);
   const [activeField, setActiveField] = useState("problem");
 
   const activeGuide = discoveryFormFields.find((f) => f.id === activeField)?.guide;
@@ -170,6 +177,16 @@ export function DiscoveryFlow() {
   const [checklistState, setChecklistState] = useState<Record<number, boolean>>({});
   const [activeGuideTab, setActiveGuideTab] = useState<"before" | "during" | "after">("before");
   const completionLogged = useRef(false);
+  const savedInputs = sessionDoc?.discovery_inputs || {};
+  const asLines = (value: unknown) => Array.isArray(value) ? value.join("\n") : "";
+  const retryFormData = {
+    problem: formData.discovery_problem || savedInputs.problem_statement || "",
+    targetCustomer: formData.discovery_targetCustomer || savedInputs.target_customer_segment?.[0]?.segment || "",
+    importance: formData.discovery_importance || asLines(savedInputs.problem_consequence),
+    assumptions: formData.discovery_assumptions || asLines(savedInputs.key_assumptions),
+    learningObjectives: formData.discovery_learningObjectives || asLines(savedInputs.biggest_uncertainty),
+    additionalNotes: formData.discovery_additionalNotes || savedInputs.proposed_solution_context?.summary || ""
+  };
 
   useEffect(() => {
     if (serverStatus === "completed" && result) {
@@ -189,7 +206,7 @@ export function DiscoveryFlow() {
   if (session.discovery === "locked") return <Navigate to="/workspace" replace />;
 
   async function startDiscovery() {
-    if (!discoveryInputs && !sessionDoc?.discovery_inputs) return;
+    if (!sessionId || loading || (!discoveryInputs && !sessionDoc?.discovery_inputs)) return;
     setLoading(true);
     addEvent("Discovery Triggered");
 
@@ -291,7 +308,7 @@ return (
         <Card className="mb-6 border-destructive/30 bg-destructive/5">
           <CardContent className="space-y-3 p-6">
             <h2 className="font-semibold text-destructive">Customer Discovery failed</h2>
-            <p className="text-sm text-muted-foreground">{sessionDoc?.error || "The analysis did not finish. You can retry this stage."}</p>
+            <p className="text-sm text-muted-foreground">{sessionDoc?.failure_metadata?.error_message || sessionDoc?.error || "The analysis did not finish. You can retry this stage."}</p>
             {sessionDoc?.discovery_inputs ? (
               <Button variant="secondary" onClick={() => void startDiscovery()}>Retry Customer Discovery</Button>
             ) : (
@@ -301,7 +318,7 @@ return (
         </Card>
       )}
       {!result && !loading && !discoveryInputs && (
-        <DiscoveryQuestionsForm onSubmit={handleFormSubmit} />
+        <DiscoveryQuestionsForm key={sessionId} onSubmit={handleFormSubmit} initialData={retryFormData} />
       )}
 
       {/* Step 2: Original trigger area — gated behind the form now */}
@@ -316,6 +333,7 @@ return (
             <Button size="lg" className="w-full sm:w-auto" onClick={() => void startDiscovery()}>
               Trigger Discovery Planner
             </Button>
+            <Button variant="outline" onClick={() => setDiscoveryInputs(null)}>Edit answers</Button>
           </CardContent>
         </Card>
       )}

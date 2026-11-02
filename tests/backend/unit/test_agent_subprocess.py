@@ -25,7 +25,7 @@ async def test_agent_subprocess_reads_result_file(monkeypatch):
         return Process()
 
     monkeypatch.setattr(worker_module.asyncio, "create_subprocess_exec", create)
-    assert await worker_module._run_agent_subprocess("dfv", {"idea": "test"}) == {"decision": "GO"}
+    assert await worker_module.CombinedAgentWorker()._run_agent("dfv", {"idea": "test"}) == {"decision": "GO"}
 
 
 @pytest.mark.asyncio
@@ -51,5 +51,5 @@ async def test_agent_subprocess_is_killed_on_timeout(monkeypatch):
     monkeypatch.setattr(worker_module.os, "killpg", lambda *_args: killed.append("unix"), raising=False)
 
     with pytest.raises(asyncio.TimeoutError):
-        await worker_module._run_agent_subprocess("dfv", {})
+        await worker_module.CombinedAgentWorker()._run_agent("dfv", {})
     assert killed

@@ -145,6 +145,10 @@ class NotificationWorker:
             logger.error(f"Malformed notification message, skipping: {e}")
             return
 
+        if not ObjectId.is_valid(note.userSession_id):
+            logger.error("Invalid notification session id")
+            return
+
         if await self._already_recorded(note):
             logger.info(f"[correlation={note.correlation_id}] Already recorded — skipping")
             return
