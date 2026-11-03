@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Start one local platform; `uv run python dev.py` also works in PowerShell."""
+"""Start the application with `python dev.py` in the activated root environment.
+
+Start MongoDB/Kafka with Docker Compose first; stop Compose after Ctrl+C.
+"""
 
 from __future__ import annotations
 

@@ -4,21 +4,37 @@ A React application and FastAPI backend for Quickstart evaluation, Ethics/TIPSC 
 
 ## Start locally
 
-Use Python 3.12 or 3.13, Node 22.13+ (Node 24 recommended), uv, and Docker Compose.
+Use Python 3.12 or 3.13, Node 22.13+ (Node 24 recommended), and Docker Compose.
+
+One-time setup from the repository root:
 
 ```bash
-uv sync --locked
-python3 scripts/init_env.py
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python scripts/init_env.py
 # Edit .env: set the LLM endpoint/model/API key and search API keys.
 npm ci --prefix frontend
-docker compose -f backend/docker-compose.yml up -d --wait
-uv run python scripts/bootstrap_admin.py
-uv run python dev.py
 ```
+
+On Windows PowerShell, activate with `.\.venv\Scripts\Activate.ps1` instead of `source .venv/bin/activate`. Activate the same environment whenever you open a new terminal.
+
+For each run, from the repository root with the environment activated:
+
+```bash
+docker compose -f backend/docker-compose.yml up -d --wait
+python dev.py
+# Press Ctrl+C to stop the application, then stop MongoDB and Kafka:
+docker compose -f backend/docker-compose.yml down
+```
+
+For a fresh database, run `python scripts/bootstrap_admin.py` once after Compose is up and before starting the application. `down` preserves database volumes.
 
 Open `http://localhost:5167`. API docs: `http://localhost:8008/docs`. Readiness: `http://localhost:8008/api/v1/ready`. PES logins require the configured PES authentication service. Local admin/mentor passwords must be provisioned; no default credentials are shipped.
 
 ## Verify
+
+The checks below use the optional `uv` development tooling. Install the locked development environment with `uv sync --locked` first; `uv` is not required for the normal start/stop commands above.
 
 ```bash
 uv run ruff check .

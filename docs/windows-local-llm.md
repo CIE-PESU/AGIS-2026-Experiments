@@ -4,14 +4,18 @@ Supported target: Windows 10/11 x64, Python 3.12 or 3.13, Node 24, uv, and Docke
 
 ## Start from PowerShell
 
-Run commands from the checkout root. Paths with spaces and Unicode are supported; no virtual-environment activation or Unix shell syntax is required.
+Run commands from the checkout root. Paths with spaces and Unicode are supported. Use one activated root virtual environment.
 
 ```powershell
-uv sync --locked --python 3.13
-uv run python scripts/init_env.py
+py -3.13 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+python scripts/init_env.py
 npm ci --prefix frontend
 docker compose -f backend/docker-compose.yml up -d --wait
 ```
+
+Reactivate `.venv` in each new PowerShell terminal. For later runs, use `docker compose -f backend/docker-compose.yml up -d --wait`, then `python dev.py`, then Ctrl+C and `docker compose -f backend/docker-compose.yml down`. This preserves data volumes.
 
 Edit `.env` before starting the application. The environment generator refuses to overwrite an existing file. In LM Studio, load the model you intend to use, start its local OpenAI-compatible server, and copy its exact served model identifier. Use this pattern:
 
@@ -26,10 +30,12 @@ CREWAI_TIMEOUT_SECONDS=600
 Use the actual server token instead of `lm-studio` if server authentication is enabled. The `openai/` prefix selects CrewAI's OpenAI-compatible adapter; the remaining identifier must match the server. No fallback model is chosen. Configure Serper/Tavily credentials for the full research pipeline; using a local model does not remove those services' requirements.
 
 ```powershell
-uv run python scripts/check_local_llm.py
-uv run python scripts/check_local_llm.py --generate
-uv run python scripts/bootstrap_admin.py --srn ADMIN --name Administrator
-uv run python dev.py
+python scripts/check_local_llm.py
+python scripts/check_local_llm.py --generate
+python scripts/bootstrap_admin.py --srn ADMIN --name Administrator
+python dev.py
+# Press Ctrl+C when finished, then:
+docker compose -f backend/docker-compose.yml down
 ```
 
 The first model check only reads `/v1/models`. The explicit `--generate` check sends three small, non-sensitive capability probes for text, structured JSON, and a harmless tool call through CrewAI. It does not create users, workspaces, or sessions, start LM Studio, download models, or call a load-model endpoint. Inference may cause the externally managed server to load the selected model if its own just-in-time loading is enabled. Preload one model and configure the server's loading/concurrency policy if you want to control that behavior.

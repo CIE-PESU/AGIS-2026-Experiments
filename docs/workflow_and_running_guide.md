@@ -1,31 +1,49 @@
 # Setup, workflow, and operations
 
-All commands below run from the repository root. Supported Python versions are 3.12 and 3.13. Use Node 22.13+ (Node 24 recommended), npm, uv, and a running Docker daemon.
+All commands below run from the repository root. Supported Python versions are 3.12 and 3.13. Use Node 22.13+ (Node 24 recommended), npm, and a running Docker daemon. Normal operation uses Python directly; `uv` is optional development/dependency tooling.
 
 ## Fresh installation
 
+Create one root environment:
+
 ```bash
-uv sync --locked
-python3 scripts/init_env.py
-npm ci --prefix frontend
-docker compose -f backend/docker-compose.yml up -d --wait
+python -m venv .venv
 ```
+
+Activate it with `source .venv/bin/activate` on macOS/Linux or `.\.venv\Scripts\Activate.ps1` in Windows PowerShell, then install the runtime dependencies:
+
+```bash
+python -m pip install -r requirements.txt
+python scripts/init_env.py
+npm ci --prefix frontend
+```
+
+Reactivate this environment whenever you open a new terminal. If you already created it with `uv sync --locked`, activate that same `.venv`; there is no need to recreate it.
 
 `init_env.py` creates `.env` with unique JWT and worker secrets and private file permissions; it refuses to overwrite an existing file. Configure `OPENAI_MODEL_NAME`, `LM_STUDIO_URL`, `OPENAI_API_KEY`, `TAVILY_API_KEY`, and `SERPER_API_KEY`. See [model configuration](model-config.md). The compose stack provides persistent MongoDB on 27017 and Kafka on 9092. These ports must be available; stop conflicting local services or configure different ports consistently.
 
-For a fresh database, provision an administrator:
+Start the infrastructure, then provision an administrator once for a fresh database:
 
 ```bash
-uv run python scripts/bootstrap_admin.py --srn ADMIN --name Administrator
+docker compose -f backend/docker-compose.yml up -d --wait
+```
+
+```bash
+python scripts/bootstrap_admin.py --srn ADMIN --name Administrator
 ```
 
 This prompts for a password. There is no default password or development authentication bypass. Students authenticate against `PES_AUTH_URL`; locally provisioned admin/mentor accounts use hashed passwords. Use the admin dashboard to manage mentor/team assignments. Clients cannot select a team to grant themselves access at login.
 
-Start the complete platform:
+For each normal run, use the activated root environment:
 
 ```bash
-uv run python dev.py
+docker compose -f backend/docker-compose.yml up -d --wait
+python dev.py
+# Press Ctrl+C when finished, then stop the infrastructure:
+docker compose -f backend/docker-compose.yml down
 ```
+
+`down` preserves MongoDB/Kafka data volumes. The launcher starts the application services; Compose manages MongoDB and Kafka separately.
 
 The launcher waits for actual API and worker readiness, then starts Vite. Any service exit shuts down the remaining process groups. Ctrl+C stops all child services. It binds the API to localhost and deliberately avoids automatic backend reload because reload interrupts in-process TIPSC work.
 
@@ -38,7 +56,7 @@ The launcher waits for actual API and worker readiness, then starts Vite. Any se
 | Liveness | http://localhost:8008/api/v1/live |
 | Worker health, when launched by dev.py | http://localhost:8009/health |
 
-For manual operation, use separate terminals:
+For optional manual operation with the `uv` development environment, use separate terminals:
 
 ```bash
 uv run --project . --directory backend uvicorn main:app --host 127.0.0.1 --port 8008
@@ -46,9 +64,11 @@ uv run --project . --directory backend python -m workers.combined_agent_worker
 npm run dev --prefix frontend
 ```
 
-Alternatively activate the root `.venv` and run the first two commands from `backend/`. The notification worker is optional legacy compatibility; current UI polling/SSE reads session updates directly and does not require it.
+Without `uv`, activate the root `.venv` in each backend terminal and run `python -m uvicorn main:app --host 127.0.0.1 --port 8008` or `python -m workers.combined_agent_worker` from `backend/`. The notification worker is optional legacy compatibility; current UI polling/SSE reads session updates directly and does not require it.
 
 ## Verify changes
+
+These developer checks require the optional `uv` tool and development dependencies (`uv sync --locked`). They are separate from the normal Python start/stop workflow.
 
 ```bash
 uv run ruff check .
