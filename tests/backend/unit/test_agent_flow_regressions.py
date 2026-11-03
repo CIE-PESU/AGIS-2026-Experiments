@@ -91,3 +91,56 @@ async def test_quickstart_returns_validated_agent_output_directly(monkeypatch):
     monkeypatch.setattr(main, "run_quickstart_eval_async", run)
     assert await run_quickstart_agent(data) is result
     run.assert_awaited_once_with(data)
+
+
+@pytest.mark.asyncio
+async def test_cli_pipeline_stops_before_scoring_an_ethics_rejection():
+    from engine.pipeline_executor import PipelineExecutor
+    from engine.state_machine import PipelineState
+
+    structured = SimpleNamespace(model_dump_json=lambda **kwargs: "{}")
+    ethics = SimpleNamespace(ethics_pass=False, rejection_reason="Structural harm")
+    stages = SimpleNamespace(execute_compliance_context=MagicMock())
+    runner = PipelineExecutor(stages)
+    runner.dispatcher = SimpleNamespace(
+        dispatch_preeval=AsyncMock(return_value=structured),
+        dispatch_validation=AsyncMock(return_value=structured),
+        dispatch_regulatory=AsyncMock(return_value=structured),
+        dispatch_ethics=AsyncMock(return_value=ethics),
+        dispatch_tipsc=AsyncMock(),
+    )
+    result = await runner.run({"problem_statement": "Supplied idea"})
+    assert result["state"] == PipelineState.TIPSC_FAILED
+    assert result["ethics"] is ethics
+    assert result["tipsc"] is None
+    runner.dispatcher.dispatch_tipsc.assert_not_awaited()
+    stages.execute_compliance_context.assert_not_called()
+
+
+@pytest.mark.parametrize("specialist_review", [True, False])
+def test_specialist_review_reaches_scoring_even_if_ethics_is_clear(specialist_review):
+    from pipeline import build_compliance_context
+
+    ethics = SimpleNamespace(
+        compliance_flag=False, legal_risk="GREEN", legal_reason="No facial illegality"
+    )
+    regulatory = SimpleNamespace(
+        requires_specialist_review=specialist_review,
+        applicable_regulations=[],
+        key_compliance_risks=["Need expert assessment"],
+        regulatory_summary="Applicability uncertain",
+    )
+    context = build_compliance_context(ethics, regulatory)
+    assert bool(context) is specialist_review
+    if specialist_review:
+        assert "Need expert assessment" in context
+    assert ethics.compliance_flag is False
+
+
+def test_persisted_tipsc_retains_regulatory_compliance_flag_on_reevaluation():
+    from engine.async_pipeline_executor import AsyncPipelineExecutor
+
+    runner = AsyncPipelineExecutor(SimpleNamespace(), SimpleNamespace())
+    output = SimpleNamespace(model_dump=lambda: {"ready_for_dfv": False})
+    result = runner._build_tipsc_dump(output, "Specialist review needed", False, 1)
+    assert result["compliance_flag"] is True

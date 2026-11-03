@@ -1,19 +1,4 @@
-"""
-Exception raised by the state machine.
-
-NOTE for integration (Parthiv's B-07 branch): the plan's exception hierarchy
-(exceptions/base.py) also defines `InvalidStateTransitionError` under
-`SessionException`, mapped to 409. Rather than importing across branches on
-Day 1 and creating a merge-order dependency, this module defines its own
-version so state_machine/ stays pure logic with zero imports outside itself.
-
-When both branches land on develop/backend, either:
-  (a) make this class inherit from exceptions.base.SessionException, or
-  (b) catch this in the service layer and re-raise the shared one.
-Whichever Palash/Parthiv prefer for the exception hierarchy — flag it in
-the PR so we don't end up with two InvalidStateTransitionError classes
-floating around long-term.
-"""
+"""Pure transition errors translated by FlowService into shared API errors."""
 
 from state_machine.states import SessionStatus
 

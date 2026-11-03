@@ -48,6 +48,10 @@ class PipelineExecutor:
         )
         logger.info("Ethics completed")
 
+        if not context.ethics.ethics_pass:
+            context.state = PipelineState.TIPSC_FAILED
+            return self._results(context)
+
         context.compliance_context = self.stages.execute_compliance_context(
             context.ethics,
             context.regulatory,
@@ -66,6 +70,10 @@ class PipelineExecutor:
 
         context.state = PipelineState.TIPSC_COMPLETED
 
+        return self._results(context)
+
+    @staticmethod
+    def _results(context):
         return {
             "preeval": context.preeval,
             "validation": context.validation,

@@ -1,6 +1,5 @@
 import json
 import os
-import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -281,8 +280,6 @@ def create_dfv_crew():
         context=[desirability_task, feasibility_task, viability_task],
         agent=dfv_risk_decision_agent,
     )
-    print(llm.model)
-    print(llm.base_url)
     return Crew(
         agents=[desirability_agent, feasibility_agent, viability_agent, dfv_risk_decision_agent],
         tasks=[desirability_task, feasibility_task, viability_task, dfv_decision_task],
@@ -291,12 +288,7 @@ def create_dfv_crew():
     )
 
 
-# print(desirability_agent.skills)
-# print(viability_agent.skills)
-# print(feasibility_agent.skills)
-# print(dfv_risk_decision_agent.skills)
-
-ggls = {
+SAMPLE_DFV_INPUTS = {
     "desirability": """Analyze the following product proposal:
         - Customer Problem: Professionals and consumers need hands-free, always-on access to information and communication without reaching for their phones
         - Target Audience: Early adopters, enterprise field workers, healthcare professionals, aged 25-45
@@ -387,22 +379,22 @@ blnkt = {
 
 
 def _extract_json_block(raw: str) -> str:
-    """Models sometimes wrap JSON in markdown code fences despite instructions
-    not to. Strip that off before parsing, and fall back to grabbing the first
-    {...} block if there's stray text around the JSON."""
-    if not raw:
-        return ""
-    cleaned = raw.strip()
-    cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.MULTILINE | re.IGNORECASE)
-    cleaned = re.sub(r"\s*```$", "", cleaned, flags=re.MULTILINE)
-    cleaned = cleaned.strip()
-
-    if not cleaned.startswith("{"):
-        start = cleaned.find("{")
-        end = cleaned.rfind("}")
-        if start != -1 and end != -1 and start < end:
-            cleaned = cleaned[start : end + 1]
-    return cleaned
+    """Extract a complete JSON object while tolerating surrounding model prose."""
+    raw = raw.strip()
+    if raw.startswith("["):
+        return raw
+    decoder = json.JSONDecoder()
+    for pos, char in enumerate(raw):
+        if char == "{":
+            try:
+                value, length = decoder.raw_decode(raw[pos:])
+            except ValueError:
+                if pos == 0:
+                    return raw
+                continue
+            if isinstance(value, dict):
+                return raw[pos : pos + length]
+    return raw
 
 
 @dataclass
@@ -422,22 +414,9 @@ def run_analysis(inputs: dict) -> AnalysisResult:
     raw_val = getattr(result, "raw", "") or ""
     cleaned = _extract_json_block(raw_val)
 
-    if not cleaned or not (cleaned.startswith("{") or cleaned.startswith("[")):
-        raise ValueError(
-            f"Final Evaluator returned empty or non-JSON output.\n"
-            f"repr(raw): {repr(raw_val)}\n"
-            f"len(raw): {len(raw_val)}\n"
-            f"repr(cleaned): {repr(cleaned)}\n"
-            f"len(cleaned): {len(cleaned)}\n"
-            f"First 200 chars (raw): {repr(raw_val[:200])}\n"
-            f"Last 200 chars (raw): {repr(raw_val[-200:]) if len(raw_val) > 200 else repr(raw_val)}\n"
-            f"First 200 chars (cleaned): {repr(cleaned[:200])}\n"
-            f"Last 200 chars (cleaned): {repr(cleaned[-200:]) if len(cleaned) > 200 else repr(cleaned)}"
-        )
-
     try:
         parsed = json.loads(cleaned)
-    except Exception as exc:
+    except (ValueError, TypeError) as exc:
         raise ValueError("DFV agent returned invalid JSON output.") from exc
 
     validated = DFAOutput.model_validate(parsed)
@@ -458,7 +437,9 @@ if __name__ == "__main__":
         "--sample", action="store_true", help="Explicitly evaluate the synthetic example"
     )
     args = parser.parse_args()
-    inputs = ggls if args.sample else json.loads(args.input.read_text(encoding="utf-8"))
+    inputs = (
+        SAMPLE_DFV_INPUTS if args.sample else json.loads(args.input.read_text(encoding="utf-8"))
+    )
     if not isinstance(inputs, dict) or not inputs:
         parser.error("A non-empty founder input object is required.")
     if args.sample:

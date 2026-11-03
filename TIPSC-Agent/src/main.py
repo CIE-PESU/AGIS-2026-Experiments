@@ -222,12 +222,6 @@ async def main():
 
     print_ethics_result(ethics_out)
 
-    if regulatory_out.requires_specialist_review and not ethics_out.compliance_flag:
-        ethics_out.compliance_flag = True
-        print(
-            "  [Auto-correct] compliance_flag: False -> True (requires_specialist_review override)"
-        )
-
     if not ethics_out.ethics_pass:
         print("\n" + "=" * 60)
         print("❌  IDEA REJECTED AT ETHICS GATE")

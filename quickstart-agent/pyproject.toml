@@ -23,6 +23,9 @@ quickstart = "quickstart_agent.main:main"
 where = ["."]
 include = ["quickstart_agent*"]
 
+[tool.setuptools.package-data]
+quickstart_agent = ["config/*.yaml", "skills/*/SKILL.md"]
+
 [tool.uv.sources]
 quickstart-agent = { path = "." }
 

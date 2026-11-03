@@ -81,3 +81,13 @@ def test_discovery_payload_instantiation():
     )
     assert payload.tipsc_summary == "TIPSC reasoning excerpt..."
     assert payload.dfv_summary == "DFV summary excerpt..."
+
+
+def test_kafka_compatibility_imports_use_the_shared_error_catalog():
+    from exceptions import base, kafka
+
+    assert kafka.KafkaPublishError is base.KafkaPublishError
+    assert kafka.KafkaUnavailableError is base.KafkaUnavailableError
+    for error in (kafka.KafkaPublishError(), kafka.KafkaUnavailableError()):
+        assert error.http_status == 503
+        assert error.error_code == "KAFKA_UNAVAILABLE"

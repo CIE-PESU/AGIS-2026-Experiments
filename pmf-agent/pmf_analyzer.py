@@ -69,11 +69,11 @@ def run_pmf_analysis(inputs: dict) -> dict:
     from crewai import LLM
     from crewai.skills import activate_skill, discover_skills
 
-    skill_directory = Path(__file__).resolve().parent / "skills"
-    skills = {skill.name: skill for skill in discover_skills(skill_directory)}
-    if "pmf-evaluator" not in skills:
-        raise ValueError(f"Required pmf-evaluator skill not found in {skill_directory}")
-    pmf_skill = activate_skill(skills["pmf-evaluator"])
+    # Discover and activate local business framework guidelines.
+    skills = discover_skills(Path(__file__).parent / "skills")
+    activated = [activate_skill(s) for s in skills]
+    if [s.name for s in activated] != ["pmf-evaluator"]:
+        raise ValueError("Required pmf-evaluator skill not found or skill assignments changed.")
 
     model = os.environ["OPENAI_MODEL_NAME"]
     llm = LLM(
@@ -98,7 +98,7 @@ def run_pmf_analysis(inputs: dict) -> dict:
             "observed customer behavior, and make every conclusion traceable to supplied evidence."
         ),
         llm=llm,
-        skills=[pmf_skill],
+        skills=[activated[0]],
         allow_delegation=False,
         max_iter=3,
         verbose=False,
@@ -134,7 +134,7 @@ def run_pmf_analysis(inputs: dict) -> dict:
     )
     output = crew.kickoff(inputs={"founder_evidence": json.dumps(inputs)})
     # Some providers return raw JSON even when structured conversion is unavailable.
-    parsed = output.pydantic
+    parsed = getattr(output, "pydantic", None)
     if not isinstance(parsed, BaseModel):
         parsed = _extract_json(output.raw)
     result = PMFAnalysis.model_validate(parsed).model_dump()

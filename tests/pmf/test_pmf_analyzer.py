@@ -31,19 +31,29 @@ def report():
         "executive_summary": "Qualitative assessment: founder hypotheses only.",
         # Deliberately unsupported measurements must be cleared by the application.
         "sean_ellis_test": {
-            "very_disappointed_percentage": 70, "meets_target": True, "analysis": "Estimated",
+            "very_disappointed_percentage": 70,
+            "meets_target": True,
+            "analysis": "Estimated",
         },
         "net_promoter_score": {
-            "nps_score": 60, "meets_target": True, "promoters_ratio": "Estimated",
+            "nps_score": 60,
+            "meets_target": True,
+            "promoters_ratio": "Estimated",
         },
         "retention_analysis": {
-            "curve_trajectory": "Flattening", "value_creation_signal": "STRONG",
+            "curve_trajectory": "Flattening",
+            "value_creation_signal": "STRONG",
             "summary": "Assumed retention",
         },
-        **{name: {"score": 35, "summary": "Founder hypothesis; unvalidated."} for name in (
-            "target_customer_alignment", "demand_validation", "value_proposition_strength",
-            "defensibility_and_moat",
-        )},
+        **{
+            name: {"score": 35, "summary": "Founder hypothesis; unvalidated."}
+            for name in (
+                "target_customer_alignment",
+                "demand_validation",
+                "value_proposition_strength",
+                "defensibility_and_moat",
+            )
+        },
         "key_strengths": ["Specific customer segment named."],
         "key_risks": ["No measured adoption evidence supplied."],
     }

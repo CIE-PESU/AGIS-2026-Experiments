@@ -3,6 +3,7 @@ import os
 import re
 from pathlib import Path
 
+import pydantic
 from crewai import LLM, Agent, Crew, Process, Task
 from crewai.skills import activate_skill, discover_skills
 from crewai_tools import TavilySearchTool
@@ -756,7 +757,7 @@ def build_compliance_context(ethics: EthicsOutput, regulatory: "RegulatoryOutput
     Returns an empty string if no compliance flag is set — agents treat that as
     'no regulatory concern, score S on technical capability alone'.
     """
-    if not ethics.compliance_flag:
+    if not (ethics.compliance_flag or regulatory.requires_specialist_review):
         return ""
 
     lines = [
@@ -784,9 +785,6 @@ def build_compliance_context(ethics: EthicsOutput, regulatory: "RegulatoryOutput
     lines.append(f"Regulatory summary: {regulatory.regulatory_summary}")
 
     return "\n".join(lines)
-
-
-import pydantic
 
 
 def parse_pydantic_result(result, model):

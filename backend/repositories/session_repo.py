@@ -17,7 +17,7 @@ from beanie.operators import In, NotIn
 from models.session import Session, StateTransition
 from repositories.base import BaseRepository
 from schemas.auth import OwnerContext
-from state_machine.states import SessionStatus
+from state_machine.states import RUNNING_STATES, SessionStatus
 
 
 def utc_now() -> datetime:
@@ -696,27 +696,26 @@ class SessionRepository(BaseRepository[Session]):
     # ARCHIVE
     # ──────────────────────────────────────────────────────────────────────
 
-    async def archive(
-        self,
-        session_id: str,
-    ) -> bool:
-
-        session = await Session.get(session_id)
-
-        if session is None:
-            return False
-
-        session.status = SessionStatus.ARCHIVED
-
-        session.archived_at = utc_now()
-
-        session.updated_at = utc_now()
-
-        session.version += 1
-
-        await session.save()
-
-        return True
+    async def archive(self, session_id: str, expected_version: int) -> bool:
+        """Archive only the idle version the caller read, without saving stale fields."""
+        predicate = {
+            "_id": PydanticObjectId(session_id),
+            "version": expected_version,
+            "status": {"$nin": [state.value for state in RUNNING_STATES]},
+            "archived_at": None,
+        }
+        now = utc_now()
+        result = await Session.find_one(predicate).update(
+            {
+                "$set": {
+                    "status": SessionStatus.ARCHIVED.value,
+                    "archived_at": now,
+                    "updated_at": now,
+                },
+                "$inc": {"version": 1},
+            }
+        )
+        return result is not None and result.modified_count == 1
 
     # ──────────────────────────────────────────────────────────────────────
     # MENTOR

@@ -1,4 +1,4 @@
-"""Deletion must remove only sessions owned by the caller and never running work."""
+"""Deletion must enforce ownership while allowing cancellation of ongoing sessions."""
 
 from types import SimpleNamespace
 from unittest.mock import AsyncMock

@@ -34,6 +34,7 @@ from exceptions.base import (
     SessionNotFoundError,
 )
 from models.audit import AuditEvent
+from models.session import Session
 from repositories.session_repo import session_repo
 from schemas.auth import CurrentUser, OwnerContext
 from schemas.session import (
@@ -41,6 +42,7 @@ from schemas.session import (
     SessionResponse,
 )
 from services.audit_service import audit_service
+from services.flow_exceptions import SessionUpdateConflictError
 from services.session_task_registry import cancel_session_task, register_session_task
 from state_machine.states import (
     RUNNING_STATES,
@@ -97,8 +99,6 @@ class SessionService:
             if existing.student_id != student_id or existing.workspace_id != workspace_id:
                 raise ActiveSessionExistsError()
             if existing.preeval_input != supplied:
-                from services.flow_exceptions import SessionUpdateConflictError
-
                 raise SessionUpdateConflictError(str(existing.id))
 
             logger.info(
@@ -438,25 +438,30 @@ class SessionService:
     # ARCHIVE SESSION
     # ──────────────────────────────────────────────────────────────────────
 
+    @staticmethod
+    def _require_management_access(session: Session, current_user: CurrentUser) -> None:
+        if not current_user.is_admin and not (
+            (current_user.is_student and session.student_id == current_user.user_id)
+            or (
+                current_user.is_mentor_workspace
+                and current_user.workspace_id is not None
+                and session.workspace_id == current_user.workspace_id
+            )
+        ):
+            raise InsufficientPermissionsError()
+
     async def delete_session(
         self,
         session_id: str,
         current_user: CurrentUser,
     ) -> None:
-        """Permanently delete an owned session that is not running."""
+        """Permanently delete an owned session and cancel its in-process pipeline."""
         await self.get_session(session_id=session_id, current_user=current_user)
         session = await session_repo.find_by_id(session_id)
         if session is None:
             raise SessionNotFoundError()
 
-        if not current_user.is_admin and not (
-            (current_user.is_student and session.student_id == current_user.user_id)
-            or (
-                current_user.is_mentor_workspace
-                and session.workspace_id == current_user.workspace_id
-            )
-        ):
-            raise InsufficientPermissionsError()
+        self._require_management_access(session, current_user)
 
         if not await session_repo.delete_by_id(session_id):
             raise SessionNotFoundError()
@@ -481,12 +486,21 @@ class SessionService:
         if session is None:
             raise SessionNotFoundError()
 
+        self._require_management_access(session, current_user)
+        if session.status == SessionStatus.ARCHIVED:
+            return SessionResponse.from_document(session)
+        if session.status in RUNNING_STATES:
+            raise CannotArchiveActiveSessionError(
+                f"Cannot archive session while it is in state '{session.status.value}'."
+            )
+
         previous_status = session.status.value
 
-        archived = await session_repo.archive(session_id)
+        archived = await session_repo.archive(session_id, expected_version=session.version)
 
         if not archived:
-            raise SessionNotFoundError()
+            raise SessionUpdateConflictError(session_id)
+        cancel_session_task(session_id)
 
         logger.info(
             "Session archived | session_id=%s | actor=%s",

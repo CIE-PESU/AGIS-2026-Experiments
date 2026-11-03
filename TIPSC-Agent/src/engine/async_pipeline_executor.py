@@ -644,7 +644,7 @@ class AsyncPipelineExecutor:
 
         tipsc_dump["reasoning"] = compliance_context[:500] if compliance_context else ""
 
-        tipsc_dump["compliance_flag"] = compliance_flag
+        tipsc_dump["compliance_flag"] = compliance_flag or bool(compliance_context)
 
         tipsc_dump["followups_asked"] = followups_asked
 
