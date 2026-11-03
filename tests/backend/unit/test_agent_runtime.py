@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 import yaml
 from crewai import BaseLLM
-from workers.combined_agent_worker import _load_module
+from workers.combined_agent_worker import _load_discovery_agent, _load_module
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -148,15 +148,13 @@ def test_actual_dfv_crew_attaches_each_skill_and_validates_final_decision(monkey
 
 
 def test_actual_discovery_crew_injects_interview_skill(monkeypatch):
-    module = _load_module(
-        "discovery_offline_review",
-        str(ROOT / "customer-interview-planner-agent/customer_interview_planner.py"),
-    )
+    run = _load_discovery_agent()
+    context = run.__globals__
     model = OfflineLLM({"interview_plan": "Explore past behavior and alternatives"})
-    monkeypatch.setattr(module.customer_discovery_planner, "llm", model)
-    result = module.run_discovery_analysis(module.SAMPLE_DISCOVERY_INPUTS)
+    monkeypatch.setattr(context["customer_discovery_planner"], "llm", model)
+    result = run(context["SAMPLE_DISCOVERY_INPUTS"])
     assert "interview_plan" in result.raw
-    assert module.activated[0].instructions.strip().splitlines()[0] in model.prompts[0]
+    assert context["activated"][0].instructions.strip().splitlines()[0] in model.prompts[0]
 
 
 def test_actual_quickstart_crew_validates_ten_parameters(monkeypatch):

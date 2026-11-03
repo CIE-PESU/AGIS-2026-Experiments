@@ -156,7 +156,7 @@ def _load_discovery_agent():
     discovery_path = os.path.join(
         PROJECT_ROOT,
         "customer-interview-planner-agent",
-        "main.py",
+        "customer_interview_planner.py",
     )
 
     try:

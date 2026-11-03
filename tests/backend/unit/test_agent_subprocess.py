@@ -2,12 +2,54 @@
 
 import asyncio
 import json
+import os
+import subprocess
+import sys
+import textwrap
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 from workers import combined_agent_worker as worker_module
+
+
+def test_discovery_runner_loads_actual_agent_in_a_fresh_process(tmp_path):
+    result_path = tmp_path / "report नमस्ते.json"
+    script = textwrap.dedent("""\
+        import sys
+        import crewai
+        from crewai import BaseLLM
+
+        class OfflineLLM(BaseLLM):
+            def __init__(self, **kwargs):
+                super().__init__(model="offline-discovery-loader-test")
+
+            def call(self, messages, **kwargs):
+                assert "unique-founder-context" in str(messages)
+                return "Final Answer: # Discovery report नमस्ते"
+
+            def supports_function_calling(self):
+                return False
+
+        crewai.LLM = OfflineLLM
+        from workers.agent_runner import main
+        sys.argv = ["agent_runner", "discovery", sys.argv[1]]
+        main()
+    """)
+    process = subprocess.run(
+        [sys.executable, "-c", script, str(result_path)],
+        cwd=worker_module.BACKEND_ROOT,
+        input=json.dumps({"problem_statement": "unique-founder-context"}),
+        capture_output=True,
+        encoding="utf-8",
+        timeout=60,
+        env={**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"},
+    )
+    assert process.returncode == 0, process.stderr
+    assert json.loads(result_path.read_text(encoding="utf-8")) == {
+        "report": "# Discovery report नमस्ते"
+    }
 
 
 @pytest.mark.asyncio
