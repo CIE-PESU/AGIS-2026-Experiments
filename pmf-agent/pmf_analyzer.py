@@ -6,10 +6,20 @@ import json
 import os
 from pathlib import Path
 
+from crewai import Agent, Crew, Process, Task
+from crewai.skills import activate_skill, discover_skills
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+
+# Discover and activate local business framework guidelines.
+skills = discover_skills(Path(__file__).parent / "skills")
+activated = [activate_skill(s) for s in skills]
+if [s.name for s in activated] != ["pmf-evaluator"]:
+    raise ValueError(
+        "Local skills are missing or their order changed; check agent skill assignments."
+    )
 
 
 class MetricEvidence(BaseModel):
@@ -91,7 +101,30 @@ def run_pmf_analysis(inputs: dict) -> dict:
         + "\nINPUTS:\n"
         + json.dumps(inputs)
     )
-    raw = llm.call([{"role": "user", "content": prompt}])
+    agent = Agent(
+        role="PMF Evaluator",
+        goal="Assess product-market fit from supplied evidence without inventing measurements.",
+        backstory="You distinguish startup hypotheses from measured customer validation.",
+        llm=llm,
+        skills=[activated[0]],
+        verbose=False,
+        max_iter=3,
+    )
+    task = Task(
+        description=prompt,
+        expected_output="Valid JSON matching the PMFAnalysis schema, with null for unmeasured metrics.",
+        agent=agent,
+    )
+    raw = (
+        Crew(
+            agents=[agent],
+            tasks=[task],
+            process=Process.sequential,
+            verbose=False,
+        )
+        .kickoff()
+        .raw
+    )
     result = PMFAnalysis.model_validate(_extract_json(raw)).model_dump()
     # This workflow has no survey or cohort input: the model cannot manufacture measurements.
     result["sean_ellis_test"].update(

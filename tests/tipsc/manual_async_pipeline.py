@@ -33,7 +33,7 @@ spec = importlib.util.spec_from_file_location("tipsc_manual_main", TIPSC_SRC / "
 assert spec is not None and spec.loader is not None
 tipsc_main = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(tipsc_main)
-load_yaml, load_text, load_llm = tipsc_main.load_yaml, tipsc_main.load_text, tipsc_main.load_llm
+load_yaml, load_llm = tipsc_main.load_yaml, tipsc_main.load_llm
 from engine.async_pipeline_executor import MAX_FOLLOWUP_TURNS, AsyncPipelineExecutor
 from engine.db import SessionStore
 from engine.stages import PipelineStages
@@ -55,9 +55,6 @@ def _print_tipsc(tipsc: dict):
 async def main():
     agents_cfg = load_yaml("config/agents.yaml")
     task_cfg = load_yaml("config/tasks.yaml")
-    preeval_skill = load_text("skills/preeval/SKILL.md")
-    tipsc_rubric = load_text("skills/tipsc/SKILL.md")
-    ethics_rubric = load_text("skills/ethics/SKILL.md")
 
     llm = load_llm()
 
@@ -65,9 +62,6 @@ async def main():
         llm=llm,
         agents_cfg=agents_cfg,
         task_cfg=task_cfg,
-        preeval_skill=preeval_skill,
-        tipsc_rubric=tipsc_rubric,
-        ethics_rubric=ethics_rubric,
     )
 
     print("=" * 60)

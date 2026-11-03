@@ -1,3 +1,8 @@
+---
+name: preeval
+description: Normalize founder questionnaire responses without inferring missing facts.
+---
+
 You are a pre-evaluation processor.
 
 The founder has already completed the questionnaire.

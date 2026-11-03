@@ -53,145 +53,81 @@ class TimeoutSupervisor:
         now = _utc_now()
         recovered_counts = {"dfv": 0, "discovery": 0, "pmf": 0}
 
+        for flow, waiting, running, failed, label in (
+            (
+                "dfv",
+                SessionStatus.DFV_WAITING,
+                SessionStatus.DFV_RUNNING,
+                SessionStatus.DFV_FAILED,
+                "DFV",
+            ),
+            (
+                "discovery",
+                SessionStatus.DISCOVERY_WAITING,
+                SessionStatus.DISCOVERY_RUNNING,
+                SessionStatus.DISCOVERY_FAILED,
+                "Discovery",
+            ),
+            (
+                "pmf",
+                SessionStatus.PMF_WAITING,
+                SessionStatus.PMF_RUNNING,
+                SessionStatus.PMF_FAILED,
+                "PMF",
+            ),
+        ):
+            try:
+                sessions = await Session.find(
+                    In("status", [waiting.value, running.value])
+                ).to_list()
+            except Exception:
+                logger.exception("Timeout supervisor could not scan %s sessions", flow)
+                continue
+            for session in sessions:
+                try:
+                    start_time = session.flow_started_at or session.updated_at
+                    if not start_time or now - _as_utc(start_time) < timedelta(
+                        seconds=timeout_seconds
+                    ):
+                        continue
+                    session_id = str(session.id)
+                    # Match both the run and version so a late timeout cannot overwrite completion.
+                    updated = await session_repo.update_flow_failure(
+                        session_id=session_id,
+                        new_status=failed,
+                        expected_version=session.version,
+                        correlation_id=session.correlation_id,
+                        failure_metadata={
+                            "flow": flow,
+                            "error_code": f"{flow.upper()}_TIMEOUT",
+                            "error_message": f"{label} analysis timed out after {timeout_seconds // 60} minutes without worker response.",
+                            "retry_count": 0,
+                        },
+                    )
+                    if updated:
+                        recovered_counts[flow] += 1
+                        logger.warning(
+                            "Timeout supervisor recovered stuck %s session | session_id=%s correlation_id=%s",
+                            label,
+                            session_id,
+                            session.correlation_id,
+                        )
+                        await audit_service.log_event(
+                            event=failed.value.upper(),
+                            actor="timeout_supervisor",
+                            actor_role="system",
+                            session_id=session_id,
+                            metadata={
+                                "reason": "timeout",
+                                "correlation_id": session.correlation_id,
+                            },
+                        )
+                except Exception:
+                    logger.exception(
+                        "Timeout supervisor could not recover %s session %s", flow, session.id
+                    )
+
         try:
-            # 1. Recover stuck DFV sessions using flow_started_at (fallback to updated_at if flow_started_at is None)
-            stuck_dfv = await Session.find(
-                In("status", [SessionStatus.DFV_WAITING.value, SessionStatus.DFV_RUNNING.value]),
-            ).to_list()
-
-            for session in stuck_dfv:
-                start_time = session.flow_started_at or session.updated_at
-                if not start_time or (now - _as_utc(start_time)) < timedelta(
-                    seconds=timeout_seconds
-                ):
-                    continue
-
-                session_id = str(session.id)
-                # Atomic CAS update for recovery: target ONLY if status is STILL DFV_WAITING/DFV_RUNNING
-                updated = await session_repo.update_flow_failure(
-                    session_id=session_id,
-                    new_status=SessionStatus.DFV_FAILED,
-                    expected_version=session.version,
-                    correlation_id=session.correlation_id,
-                    failure_metadata={
-                        "flow": "dfv",
-                        "error_code": "DFV_TIMEOUT",
-                        "error_message": f"DFV analysis timed out after {timeout_seconds // 60} minutes without worker response.",
-                        "retry_count": 0,
-                    },
-                )
-                if updated:
-                    recovered_counts["dfv"] += 1
-                    logger.warning(
-                        "Timeout supervisor recovered stuck DFV session | session_id=%s correlation_id=%s",
-                        session_id,
-                        session.correlation_id,
-                    )
-                    await audit_service.log_event(
-                        event="DFV_FAILED",
-                        actor="timeout_supervisor",
-                        actor_role="system",
-                        session_id=session_id,
-                        metadata={
-                            "reason": "timeout",
-                            "correlation_id": session.correlation_id,
-                        },
-                    )
-
-            # 2. Recover stuck Discovery sessions using flow_started_at (fallback to updated_at if flow_started_at is None)
-            stuck_discovery = await Session.find(
-                In(
-                    "status",
-                    [SessionStatus.DISCOVERY_WAITING.value, SessionStatus.DISCOVERY_RUNNING.value],
-                ),
-            ).to_list()
-
-            for session in stuck_discovery:
-                start_time = session.flow_started_at or session.updated_at
-                if not start_time or (now - _as_utc(start_time)) < timedelta(
-                    seconds=timeout_seconds
-                ):
-                    continue
-
-                session_id = str(session.id)
-                # Atomic CAS update for recovery: target ONLY if status is STILL DISCOVERY_WAITING/DISCOVERY_RUNNING
-                updated = await session_repo.update_flow_failure(
-                    session_id=session_id,
-                    new_status=SessionStatus.DISCOVERY_FAILED,
-                    expected_version=session.version,
-                    correlation_id=session.correlation_id,
-                    failure_metadata={
-                        "flow": "discovery",
-                        "error_code": "DISCOVERY_TIMEOUT",
-                        "error_message": f"Discovery analysis timed out after {timeout_seconds // 60} minutes without worker response.",
-                        "retry_count": 0,
-                    },
-                )
-                if updated:
-                    recovered_counts["discovery"] += 1
-                    logger.warning(
-                        "Timeout supervisor recovered stuck Discovery session | session_id=%s correlation_id=%s",
-                        session_id,
-                        session.correlation_id,
-                    )
-                    await audit_service.log_event(
-                        event="DISCOVERY_FAILED",
-                        actor="timeout_supervisor",
-                        actor_role="system",
-                        session_id=session_id,
-                        metadata={
-                            "reason": "timeout",
-                            "correlation_id": session.correlation_id,
-                        },
-                    )
-
-            # 2. Recover stuck PMF sessions using flow_started_at (fallback to updated_at if flow_started_at is None)
-            stuck_pmf = await Session.find(
-                In(
-                    "status",
-                    [SessionStatus.PMF_WAITING.value, SessionStatus.PMF_RUNNING.value],
-                ),
-            ).to_list()
-
-            for session in stuck_pmf:
-                start_time = session.flow_started_at or session.updated_at
-                if not start_time or (now - _as_utc(start_time)) < timedelta(
-                    seconds=timeout_seconds
-                ):
-                    continue
-
-                session_id = str(session.id)
-                # Atomic CAS update for recovery: target ONLY if status is STILL PMF_WAITING/PMF_RUNNING
-                updated = await session_repo.update_flow_failure(
-                    session_id=session_id,
-                    new_status=SessionStatus.PMF_FAILED,
-                    expected_version=session.version,
-                    correlation_id=session.correlation_id,
-                    failure_metadata={
-                        "flow": "pmf",
-                        "error_code": "PMF_TIMEOUT",
-                        "error_message": f"PMF analysis timed out after {timeout_seconds // 60} minutes without worker response.",
-                        "retry_count": 0,
-                    },
-                )
-                if updated:
-                    recovered_counts["pmf"] += 1
-                    logger.warning(
-                        "Timeout supervisor recovered stuck PMF session | session_id=%s correlation_id=%s",
-                        session_id,
-                        session.correlation_id,
-                    )
-                    await audit_service.log_event(
-                        event="PMF_FAILED",
-                        actor="timeout_supervisor",
-                        actor_role="system",
-                        session_id=session_id,
-                        metadata={
-                            "reason": "timeout",
-                            "correlation_id": session.correlation_id,
-                        },
-                    )
-
             # In-process TIPSC work lost on reload/restart becomes explicitly retryable.
             tipsc_states = [
                 "queued",

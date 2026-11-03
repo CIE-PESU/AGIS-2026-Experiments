@@ -47,15 +47,6 @@ def load_yaml(rel: str) -> dict:
         return yaml.safe_load(f)
 
 
-def load_text(rel: str) -> str:
-    path = BASE_DIR / rel
-    if not path.exists():
-        print(f"ERROR: file not found: {path}")
-        sys.exit(1)
-    with open(path, encoding="utf-8") as f:
-        return f.read()
-
-
 def save_json(data, filename: str) -> Path:
     out_dir = BASE_DIR / ".." / "outputs"
     out_dir = out_dir.resolve()
@@ -170,9 +161,6 @@ def print_tipsc_summary(tips_out: TIPSCOutput) -> None:
 async def main():
     agents_cfg = load_yaml("config/agents.yaml")
     task_cfg = load_yaml("config/tasks.yaml")
-    preeval_skill = load_text("skills/preeval/SKILL.md")
-    tipsc_rubric = load_text("skills/tipsc/SKILL.md")
-    ethics_rubric = load_text("skills/ethics/SKILL.md")
 
     llm = load_llm()
 
@@ -180,9 +168,6 @@ async def main():
         llm=llm,
         agents_cfg=agents_cfg,
         task_cfg=task_cfg,
-        preeval_skill=preeval_skill,
-        tipsc_rubric=tipsc_rubric,
-        ethics_rubric=ethics_rubric,
     )
 
     # Quick connectivity check

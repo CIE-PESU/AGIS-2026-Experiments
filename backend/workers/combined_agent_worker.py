@@ -23,7 +23,6 @@ import importlib.util
 import json
 import logging
 import os
-import re
 import sys
 import time
 from contextlib import contextmanager
@@ -184,24 +183,22 @@ def _load_discovery_agent():
 
 
 def _extract_json_block(raw: str) -> str:
-    """
-    Remove markdown code fences and stray model text.
-    """
-    if not raw:
-        return ""
-    cleaned = raw.strip()
-    cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.MULTILINE | re.IGNORECASE)
-    cleaned = re.sub(r"\s*```$", "", cleaned, flags=re.MULTILINE)
-    cleaned = cleaned.strip()
-
-    if not cleaned.startswith("{"):
-        start = cleaned.find("{")
-        end = cleaned.rfind("}")
-
-        if start != -1 and end != -1 and start < end:
-            cleaned = cleaned[start : end + 1]
-
-    return cleaned
+    """Extract one complete JSON object without swallowing trailing model prose."""
+    raw = raw.strip()
+    if raw.startswith("["):
+        return raw
+    decoder = json.JSONDecoder()
+    for pos, char in enumerate(raw):
+        if char == "{":
+            try:
+                value, length = decoder.raw_decode(raw[pos:])
+            except ValueError:
+                if pos == 0:
+                    return raw
+                continue
+            if isinstance(value, dict):
+                return raw[pos : pos + length]
+    return raw.strip()
 
 
 def _parse_agent_output(result: Any) -> dict[str, Any]:
@@ -222,42 +219,10 @@ def _parse_agent_output(result: Any) -> dict[str, Any]:
 
     cleaned = _extract_json_block(raw)
 
-    logger.info(
-        "PARSING AGENT OUTPUT DIAGNOSTICS: repr(raw)=%s, len(raw)=%d, repr(cleaned)=%s, len(cleaned)=%d",
-        repr(raw),
-        len(raw),
-        repr(cleaned),
-        len(cleaned),
-    )
-
-    if not cleaned or not (cleaned.startswith("{") or cleaned.startswith("[")):
-        raise ValueError(
-            f"Final Evaluator returned empty or non-JSON output.\n"
-            f"repr(raw): {repr(raw)}\n"
-            f"len(raw): {len(raw)}\n"
-            f"repr(cleaned): {repr(cleaned)}\n"
-            f"len(cleaned): {len(cleaned)}\n"
-            f"First 200 chars (raw): {repr(raw[:200])}\n"
-            f"Last 200 chars (raw): {repr(raw[-200:]) if len(raw) > 200 else repr(raw)}\n"
-            f"First 200 chars (cleaned): {repr(cleaned[:200])}\n"
-            f"Last 200 chars (cleaned): {repr(cleaned[-200:]) if len(cleaned) > 200 else repr(cleaned)}"
-        )
-
     try:
         parsed = json.loads(cleaned)
-    except Exception as exc:
-        logger.error("\n===== PARSER FAILURE DIAGNOSTICS =====")
-        logger.error("Raw Output (first 200 chars): %s", repr(raw[:200]))
-        logger.error(
-            "Raw Output (last 200 chars):  %s", repr(raw[-200:]) if len(raw) > 200 else repr(raw)
-        )
-        logger.error("Cleaned Output (first 200 chars): %s", repr(cleaned[:200]))
-        logger.error(
-            "Cleaned Output (last 200 chars):  %s",
-            repr(cleaned[-200:]) if len(cleaned) > 200 else repr(cleaned),
-        )
-        logger.error("JSONDecodeError: %s", exc)
-        raise exc
+    except (ValueError, TypeError) as exc:
+        raise ValueError("Agent returned invalid JSON; no result was created.") from exc
 
     if not isinstance(parsed, dict):
         raise ValueError("Agent output must be a JSON object")

@@ -12,7 +12,7 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, Request, status
-from quickstart_agent.models import ParameterRating, QuickstartInput, QuickstartOutput
+from quickstart_agent.models import QuickstartInput, QuickstartOutput
 
 from core.constants import UserRole
 from dependencies.auth import require_role
@@ -30,25 +30,9 @@ router = APIRouter(
 async def run_quickstart_agent(input_data: QuickstartInput) -> QuickstartOutput:
     """Run the quickstart evaluation agent in-process (async)."""
     try:
-        # Convert to agent's input model
-        agent_input = QuickstartInput(**input_data.model_dump())
-
-        # Run the evaluation (async)
         from quickstart_agent.main import run_quickstart_eval_async
 
-        agent_output = await run_quickstart_eval_async(agent_input)
-
-        # Convert back to API output model
-        return QuickstartOutput(
-            input=input_data,
-            parameters=[ParameterRating(**p.model_dump()) for p in agent_output.parameters],
-            red_count=agent_output.red_count,
-            yellow_count=agent_output.yellow_count,
-            green_count=agent_output.green_count,
-            parameter_advice=agent_output.parameter_advice,
-            priority_advice=agent_output.priority_advice,
-            timestamp=agent_output.timestamp,
-        )
+        return await run_quickstart_eval_async(input_data)
     except Exception as e:
         logger.error(f"Quickstart agent failed: {e}")
         raise RuntimeError(f"Quickstart evaluation failed: {e}") from e

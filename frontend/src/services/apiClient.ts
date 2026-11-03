@@ -77,7 +77,7 @@ async function performRefresh(refreshToken: string): Promise<boolean> {
   });
 
   // A logout or a different login can finish while this request is in flight.
-  if (getRefreshToken() !== refreshToken) return Boolean(getAccessToken());
+  if (getRefreshToken() !== refreshToken) return false;
 
   if (!response.ok) {
     if (response.status !== 401 && response.status !== 403) throw await parseError(response);
@@ -86,7 +86,7 @@ async function performRefresh(refreshToken: string): Promise<boolean> {
   }
 
   const body = (await response.json()) as ApiSuccess<{ access_token: string; refresh_token: string }>;
-  if (getRefreshToken() !== refreshToken) return Boolean(getAccessToken());
+  if (getRefreshToken() !== refreshToken) return false;
   setTokens(body.data.access_token, body.data.refresh_token);
   return true;
 }
@@ -105,7 +105,7 @@ export async function apiFetch(path: string, options: RequestOptions = {}): Prom
 
   if (auth && !getAccessToken()) {
     if (!await refreshAccessToken()) {
-      clearTokens();
+      if (!getAccessToken()) clearTokens();
       throw new ApiRequestError(401, {
         code: "TOKEN_INVALID",
         message: "Your session has ended. Please log in again.",
@@ -137,12 +137,16 @@ export async function apiFetch(path: string, options: RequestOptions = {}): Prom
   let response = await send();
 
   if (response.status === 401 && auth) {
+    // A request from an older login must not refresh or clear the new login.
+    if (headers.Authorization !== `Bearer ${getAccessToken()}`) {
+      throw await parseError(response);
+    }
     const refreshed = await refreshAccessToken();
     if (refreshed) {
       headers.Authorization = `Bearer ${getAccessToken()}`;
       response = await send();
     }
-    if (response.status === 401) clearTokens();
+    if (response.status === 401 && headers.Authorization === `Bearer ${getAccessToken()}`) clearTokens();
   }
 
   if (!response.ok) throw await parseError(response);

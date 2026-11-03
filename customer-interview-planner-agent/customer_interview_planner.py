@@ -33,6 +33,10 @@ reasoning_llm = LLM(
 skills = discover_skills(Path(__file__).parent / "skills")
 # Activate them (loads full SKILL.md body)
 activated = [activate_skill(s) for s in skills]
+if [s.name for s in activated] != ["jtbd-interview-planner"]:
+    raise ValueError(
+        "Local skills are missing or their order changed; check agent skill assignments."
+    )
 
 # The Customer Discovery Planner Agent
 customer_discovery_planner = Agent(

@@ -11,6 +11,9 @@ export function useSessionPolling(
   const onUpdateRef = useRef(onUpdate);
   onUpdateRef.current = onUpdate;
 
+  const onNotFoundRef = useRef(onNotFound);
+  onNotFoundRef.current = onNotFound;
+
   useEffect(() => {
     if (!sessionId || !enabled) return;
 
@@ -36,7 +39,7 @@ export function useSessionPolling(
 
           if (active) {
             active = false;
-            onNotFound();
+            onNotFoundRef.current();
           }
 
           return;
@@ -54,5 +57,5 @@ export function useSessionPolling(
       active = false;
       window.clearInterval(timer);
     };
-  }, [sessionId, enabled, onNotFound]);
+  }, [sessionId, enabled]);
 }

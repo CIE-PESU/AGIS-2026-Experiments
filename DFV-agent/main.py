@@ -62,6 +62,10 @@ llm = LLM(
 # Discover and activate local business framework guidelines from markdown packages
 skills = discover_skills(Path(__file__).parent / "skills")
 activated = [activate_skill(s) for s in skills]
+if [s.name for s in activated] != ["d-skills", "evaluator-skills", "f-skills", "v-skills"]:
+    raise ValueError(
+        "Local skills are missing or their order changed; check agent skill assignments."
+    )
 
 
 # Define the Pydantic models for JSON output (Updated with Go/No-Go architecture)

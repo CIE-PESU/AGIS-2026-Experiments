@@ -1,8 +1,10 @@
 import json
 import os
 import re
+from pathlib import Path
 
 from crewai import LLM, Agent, Crew, Process, Task
+from crewai.skills import activate_skill, discover_skills
 from crewai_tools import TavilySearchTool
 from tipsc_models import (
     EthicsOutput,
@@ -12,6 +14,22 @@ from tipsc_models import (
     TIPSCOutput,
     ValidationOutput,
 )
+
+# Discover and activate local business framework guidelines.
+skills = discover_skills(Path(__file__).parent / "skills")
+activated = [activate_skill(s) for s in skills]
+if [s.name for s in activated] != [
+    "ethics",
+    "followup",
+    "preeval",
+    "regulatory",
+    "tipsc",
+    "validation",
+]:
+    raise ValueError(
+        "Local skills are missing or their order changed; check agent skill assignments."
+    )
+# Discovery order: ethics, followup, preeval, regulatory, tipsc, validation.
 
 try:
     search_tool = TavilySearchTool()
@@ -114,13 +132,15 @@ JSON_SYSTEM_PREFIX = (
 def call_llm_for_json(llm: LLM, messages: list) -> str:
 
     non_system = [m for m in messages if m.get("role") != "system"]
-    enforced = [{"role": "system", "content": JSON_SYSTEM_PREFIX}] + non_system
+    instructions = [JSON_SYSTEM_PREFIX] + [
+        m["content"] for m in messages if m.get("role") == "system" and m.get("content")
+    ]
+    enforced = [{"role": "system", "content": "\n\n".join(instructions)}] + non_system
     return llm.call(enforced).strip()
 
 
 def run_preeval(
     llm: LLM,
-    skill_text: str,
     preeval_input: dict,
 ) -> PreEvalOutput:
 
@@ -155,8 +175,16 @@ def run_preeval(
         Industry Sector:
         {preeval_input.get("industry_sector", "")}
         """.strip()
+    agent = Agent(
+        role="Founder Response Structuring Agent",
+        goal="Normalize founder responses without changing their meaning or inventing facts.",
+        backstory="You structure completed founder questionnaires for the evaluation pipeline.",
+        llm=llm,
+        skills=[activated[2]],
+        verbose=False,
+        max_iter=3,
+    )
     messages = [
-        {"role": "system", "content": skill_text},
         {
             "role": "user",
             "content": f"""
@@ -184,7 +212,21 @@ def run_preeval(
         },
     ]
 
-    raw = clean_json(call_llm_for_json(llm, messages))
+    def evaluate(prompt: str) -> str:
+        task = Task(
+            description=prompt,
+            expected_output="Valid JSON matching the PreEvalOutput schema. " + JSON_SYSTEM_PREFIX,
+            agent=agent,
+        )
+        result = Crew(
+            agents=[agent],
+            tasks=[task],
+            process=Process.sequential,
+            verbose=False,
+        ).kickoff()
+        return clean_json(result.raw)
+
+    raw = evaluate(messages[0]["content"])
 
     try:
         return PreEvalOutput.model_validate_json(raw)
@@ -207,7 +249,7 @@ def run_preeval(
             {"role": "assistant", "content": raw},
             {"role": "user", "content": retry_prompt},
         ]
-        raw2 = clean_json(call_llm_for_json(llm, retry_messages))
+        raw2 = evaluate("\n\n".join(m["content"] for m in retry_messages))
         return PreEvalOutput.model_validate_json(raw2)
 
 
@@ -234,9 +276,11 @@ def normalize_validation_dict(data: dict, preeval: PreEvalOutput) -> dict:
         "market_notes",
         "validation_summary",
     }
-    if not (known_keys & data.keys()) and len(data) == 1:
+    if len(data) == 1:
         inner = next(iter(data.values()))
-        if isinstance(inner, dict):
+        if isinstance(inner, dict) and (
+            not (known_keys & data.keys()) or len(known_keys & inner.keys()) >= 2
+        ):
             data = inner
 
     # competitor_landscape returned as dict instead of string -> stringify it
@@ -310,6 +354,7 @@ def run_validation(
         goal=agents_cfg["validation_agent"]["goal"],
         backstory=agents_cfg["validation_agent"]["backstory"],
         llm=llm,
+        skills=[activated[5]],
         tools=[search_tool] if search_tool is not None else [],
         max_iter=8,
         max_execution_time=int(os.environ.get("VALIDATION_TIMEOUT_SECS", "600")),
@@ -467,6 +512,7 @@ def run_regulatory(
         goal=agents_cfg["regulatory_agent"]["goal"],
         backstory=agents_cfg["regulatory_agent"]["backstory"],
         llm=llm,
+        skills=[activated[3]],
         tools=[search_tool] if search_tool is not None else [],
         max_iter=6,
         max_execution_time=int(os.environ.get("REGULATORY_TIMEOUT_SECS", "300")),
@@ -571,7 +617,6 @@ def run_ethics(
     preeval: PreEvalOutput,
     agents_cfg: dict,
     task_cfg: dict,
-    ethics_rubric: str,
     validation_context: str = "",
     regulatory_context: str = "",
 ) -> EthicsOutput:
@@ -580,11 +625,11 @@ def run_ethics(
         goal=agents_cfg["ethics_agent"]["goal"],
         backstory=agents_cfg["ethics_agent"]["backstory"],
         llm=llm,
+        skills=[activated[0]],
     )
 
     task = Task(
         description=task_cfg["ethics_task"]["description"].format(
-            ethics_rubric=ethics_rubric,
             preeval_json=preeval.model_dump_json(indent=2),
             validation_context=validation_context if validation_context else "Not yet available.",
             regulatory_context=regulatory_context if regulatory_context else "Not yet available.",
@@ -616,7 +661,6 @@ def run_tipsc(
     preeval: PreEvalOutput,
     agents_cfg: dict,
     task_cfg: dict,
-    rubric: str,
     validation_context: str = "",
     compliance_context: str = "",
     followup_context: str = "",
@@ -626,11 +670,11 @@ def run_tipsc(
         goal=agents_cfg["tipsc_agent"]["goal"],
         backstory=agents_cfg["tipsc_agent"]["backstory"],
         llm=llm,
+        skills=[activated[4]],
     )
 
     task = Task(
         description=task_cfg["tipsc_task"]["description"].format(
-            tipsc_rubric=rubric,
             preeval_json=preeval.model_dump_json(indent=2),
             validation_context=validation_context if validation_context else "Not yet available.",
             compliance_context=compliance_context
@@ -673,6 +717,7 @@ def run_followup(
         goal=agents_cfg["followup_agent"]["goal"],
         backstory=agents_cfg["followup_agent"]["backstory"],
         llm=llm,
+        skills=[activated[1]],
     )
 
     task = Task(

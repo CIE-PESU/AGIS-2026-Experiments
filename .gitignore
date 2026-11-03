@@ -5,20 +5,12 @@ __pycache__/
 *.pyc
 *.egg-info/
 .DS_Store
-/TIPSC-Agent/.env
-/TIPSC-Agent/*/__pycache__/
-/TIPSC-Agent/**/__pycache__/
-/TIPSC-Agent/outputs/
 /TIPSC-Agent/src/test_async_verify.py
 /TIPSC-Agent/src/test_worker_async.py
 
 # Agent LLM output artifacts
 Outputs/
 outputs/
-
-# Python build artifacts
-
-.env
 
 # =========================
 # Python
@@ -45,11 +37,11 @@ htmlcov/
 # Logs
 # =========================
 *.log
-backend/backend.log
 
 # =========================
 # Environment variables
 # =========================
+.env
 .env.*
 !.env.example
 
@@ -77,8 +69,6 @@ coverage/
 # =========================
 .vscode/
 .idea/
-
-# macOS
 
 # Windows
 Thumbs.db

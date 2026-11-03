@@ -15,21 +15,14 @@ class PipelineStages:
         llm,
         agents_cfg,
         task_cfg,
-        preeval_skill,
-        tipsc_rubric,
-        ethics_rubric,
     ):
         self.llm = llm
         self.agents_cfg = agents_cfg
         self.task_cfg = task_cfg
-        self.preeval_skill = preeval_skill
-        self.tipsc_rubric = tipsc_rubric
-        self.ethics_rubric = ethics_rubric
 
     def execute_preeval(self, preeval_input):
         return run_preeval(
             self.llm,
-            self.preeval_skill,
             preeval_input,
         )
 
@@ -60,7 +53,6 @@ class PipelineStages:
             preeval,
             self.agents_cfg,
             self.task_cfg,
-            self.ethics_rubric,
             validation_context,
             regulatory_context,
         )
@@ -77,7 +69,6 @@ class PipelineStages:
             preeval,
             self.agents_cfg,
             self.task_cfg,
-            self.tipsc_rubric,
             validation_context,
             compliance_context,
             followup_context,
@@ -111,7 +102,6 @@ class PipelineStages:
             preeval,
             self.agents_cfg,
             self.task_cfg,
-            self.tipsc_rubric,
             validation_context=validation_context,
             compliance_context=compliance_context,
             followup_context=followup_context,

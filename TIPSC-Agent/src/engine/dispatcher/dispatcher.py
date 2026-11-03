@@ -34,7 +34,9 @@ class WorkerDispatcher:
     async def dispatch_tipsc(
         self, preeval, validation_context, compliance_context, followup_context=""
     ):
-        return await self.tipsc_worker.execute(preeval, validation_context, compliance_context)
+        return await self.tipsc_worker.execute(
+            preeval, validation_context, compliance_context, followup_context
+        )
 
     async def dispatch_followup(self, tipsc_output, followup_context, compliance_context):
         return await self.followup_worker.execute(

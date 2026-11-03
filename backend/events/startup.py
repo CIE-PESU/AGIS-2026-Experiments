@@ -88,20 +88,6 @@ def _load_yaml(relative_path: str) -> dict:
         return yaml.safe_load(file)
 
 
-def _load_text(relative_path: str) -> str:
-    """
-    Load a TIPSC text/skill file.
-    """
-
-    path = TIPSC_SRC_DIR / relative_path
-
-    with path.open(
-        "r",
-        encoding="utf-8",
-    ) as file:
-        return file.read()
-
-
 async def on_startup() -> None:
     """
     FastAPI lifespan startup handler.
@@ -202,12 +188,6 @@ async def on_startup() -> None:
 
         task_cfg = _load_yaml("config/tasks.yaml")
 
-        preeval_skill = _load_text("skills/preeval/SKILL.md")
-
-        tipsc_rubric = _load_text("skills/tipsc/SKILL.md")
-
-        ethics_rubric = _load_text("skills/ethics/SKILL.md")
-
         # ── LLM ───────────────────────────────────────────────────────────
 
         try:
@@ -255,9 +235,6 @@ async def on_startup() -> None:
             llm=llm,
             agents_cfg=agents_cfg,
             task_cfg=task_cfg,
-            preeval_skill=preeval_skill,
-            tipsc_rubric=tipsc_rubric,
-            ethics_rubric=ethics_rubric,
         )
 
         # ── Executor ───────────────────────────────────────────────────────

@@ -3,7 +3,6 @@
 
 import json
 import os
-import re
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -18,6 +17,7 @@ os.environ.setdefault("OTEL_SDK_DISABLED", "true")
 
 import yaml
 from crewai import LLM, Agent, Crew, Process, Task
+from crewai.skills import activate_skill, discover_skills
 from crewai_tools import SerperDevTool, TavilySearchTool
 
 from quickstart_agent.models import QuickstartInput, QuickstartOutput
@@ -44,10 +44,13 @@ llm = LLM(
 )
 
 
-def load_skill() -> str:
-    skill_path = Path(__file__).parent / "skills" / "QUICKSTART_SKILL.md"
-    with open(skill_path, encoding="utf-8") as f:
-        return f.read()
+# Discover and activate local business framework guidelines.
+skills = discover_skills(Path(__file__).parent / "skills")
+activated = [activate_skill(s) for s in skills]
+if [s.name for s in activated] != ["quickstart-skill"]:
+    raise ValueError(
+        "Local skills are missing or their order changed; check agent skill assignments."
+    )
 
 
 def load_yaml(rel: str) -> dict:
@@ -59,7 +62,6 @@ def load_yaml(rel: str) -> dict:
 def create_crew():
     agents_cfg = load_yaml("agents.yaml")
     tasks_cfg = load_yaml("tasks.yaml")
-    skill_text = load_skill()
 
     agent_cfg = agents_cfg["quickstart_evaluator"]
     task_cfg = tasks_cfg["evaluate_idea"]
@@ -75,13 +77,14 @@ def create_crew():
         goal=agent_cfg["goal"],
         backstory=agent_cfg["backstory"],
         llm=llm,
+        skills=[activated[0]],
         tools=tools,
         verbose=agent_cfg.get("verbose", False),
         max_iter=agent_cfg.get("max_iter", 3),
     )
 
     task = Task(
-        description=f"{task_cfg['description']}\n\nQUICKSTART EVALUATION SKILL:\n{skill_text}",
+        description=task_cfg["description"],
         expected_output=task_cfg["expected_output"],
         agent=agent,
         async_execution=task_cfg.get("async_execution", False),
@@ -96,18 +99,22 @@ def create_crew():
 
 
 def _extract_json_block(raw: str) -> str:
-    if not raw:
-        return ""
-    cleaned = raw.strip()
-    cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.MULTILINE | re.IGNORECASE)
-    cleaned = re.sub(r"\s*```$", "", cleaned, flags=re.MULTILINE)
-    cleaned = cleaned.strip()
-    if not cleaned.startswith("{"):
-        start = cleaned.find("{")
-        end = cleaned.rfind("}")
-        if start != -1 and end != -1 and start < end:
-            cleaned = cleaned[start : end + 1]
-    return cleaned
+    """Extract one complete JSON object without swallowing trailing model prose."""
+    raw = raw.strip()
+    if raw.startswith("["):
+        return raw
+    decoder = json.JSONDecoder()
+    for pos, char in enumerate(raw):
+        if char == "{":
+            try:
+                value, length = decoder.raw_decode(raw[pos:])
+            except ValueError:
+                if pos == 0:
+                    return raw
+                continue
+            if isinstance(value, dict):
+                return raw[pos : pos + length]
+    return raw.strip()
 
 
 def _parse_result(input_data: QuickstartInput, result) -> QuickstartOutput:

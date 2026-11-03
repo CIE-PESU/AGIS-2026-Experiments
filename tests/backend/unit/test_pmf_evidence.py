@@ -42,10 +42,18 @@ def test_pmf_does_not_accept_fabricated_measurements(monkeypatch):
         "key_risks": ["No customer measurements supplied"],
     }
     monkeypatch.setattr(
-        "crewai.LLM",
-        MagicMock(return_value=MagicMock(call=MagicMock(return_value=json.dumps(invented)))),
+        analyzer,
+        "Crew",
+        MagicMock(
+            return_value=MagicMock(
+                kickoff=MagicMock(return_value=MagicMock(raw=json.dumps(invented)))
+            )
+        ),
     )
     result = analyzer.run_pmf_analysis({"idea_name": "Test hypothesis"})
+    agent = analyzer.Crew.call_args.kwargs["agents"][0]
+    assert [skill.name for skill in agent.skills] == ["pmf-evaluator"]
+    assert "Do not estimate survey responses" in agent.skills[0].instructions
     assert result["sean_ellis_test"]["very_disappointed_percentage"] is None
     assert result["sean_ellis_test"]["meets_target"] is None
     assert result["net_promoter_score"]["nps_score"] is None

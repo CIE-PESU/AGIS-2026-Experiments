@@ -15,7 +15,7 @@ evaluate_idea:
     - Urgency / timeline: {urgency}
     - Biggest hurdles: {hurdles}
 
-    For each parameter, apply the rubric from QUICKSTART_SKILL.md. Use tools ONLY when
+    For each parameter, apply the attached Quickstart skill rubric. Use tools ONLY when
     external evidence is needed (market size, regulations, competitor data). Max 1 tool
     call per parameter.
 

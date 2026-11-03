@@ -76,7 +76,7 @@ test('a rejected old refresh cannot clear a different login', async () => {
   const refreshing = client.refreshAccessToken();
   client.setTokens('other-access', 'other-refresh');
   complete(new Response('{}', { status: 401 }));
-  assert.equal(await refreshing, true);
+  assert.equal(await refreshing, false);
   assert.equal(client.getAccessToken(), 'other-access');
   assert.equal(client.getRefreshToken(), 'other-refresh');
 });
@@ -91,4 +91,54 @@ test('concurrent requests share a refresh for the same identity', async () => {
   assert.equal(await first, true);
   assert.equal(await second, true);
   assert.equal(count, 1);
+});
+
+test('an old request returning 401 cannot refresh or clear a different login', async () => {
+  client.setTokens('old-access', 'old-refresh');
+  let complete;
+  globalThis.fetch = (url) => {
+    calls.push(url);
+    return new Promise(resolve => { complete = resolve; });
+  };
+  const request = client.apiRequest('/sessions/old');
+  client.setTokens('other-access', 'other-refresh');
+  complete(new Response('{}', { status: 401 }));
+  await assert.rejects(request, { status: 401 });
+  assert.deepEqual(calls, ['/api/v1/sessions/old']);
+  assert.equal(client.getAccessToken(), 'other-access');
+  assert.equal(client.getRefreshToken(), 'other-refresh');
+});
+
+test('login changing during refresh cannot replay an old mutation as the new user', async () => {
+  client.setTokens('old-access', 'old-refresh');
+  let completeRefresh;
+  globalThis.fetch = async (url) => {
+    calls.push(url);
+    if (url.endsWith('/auth/refresh')) return new Promise(resolve => { completeRefresh = resolve; });
+    return new Response('{}', { status: 401 });
+  };
+  const request = client.apiRequest('/sessions/old/dfv', { method: 'POST', body: { context: 'old user' } });
+  await new Promise(setImmediate);
+  client.setTokens('other-access', 'other-refresh');
+  completeRefresh(ok({ access_token: 'stale-access', refresh_token: 'stale-refresh' }));
+  await assert.rejects(request, { status: 401 });
+  assert.deepEqual(calls, ['/api/v1/sessions/old/dfv', '/api/v1/auth/refresh']);
+  assert.equal(client.getAccessToken(), 'other-access');
+  assert.equal(client.getRefreshToken(), 'other-refresh');
+});
+
+test('refresh-only request cannot clear a login established while refreshing', async () => {
+  localStorage.setItem('agis_refresh_token', 'old-refresh');
+  let completeRefresh;
+  globalThis.fetch = url => {
+    calls.push(url);
+    return new Promise(resolve => { completeRefresh = resolve; });
+  };
+  const request = client.apiRequest('/sessions/old');
+  client.setTokens('other-access', 'other-refresh');
+  completeRefresh(new Response('{}', { status: 401 }));
+  await assert.rejects(request, { status: 401 });
+  assert.deepEqual(calls, ['/api/v1/auth/refresh']);
+  assert.equal(client.getAccessToken(), 'other-access');
+  assert.equal(client.getRefreshToken(), 'other-refresh');
 });

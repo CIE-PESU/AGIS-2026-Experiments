@@ -81,3 +81,30 @@ async def test_recovers_pmf_without_overwriting_a_concurrently_completed_run():
     assert update.await_args.kwargs["expected_version"] == 7
     assert update.await_args.kwargs["correlation_id"] == "pmf-run"
     audit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_one_failed_timeout_update_does_not_block_other_sessions_or_flows():
+    old = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=1)
+    sessions = [
+        SimpleNamespace(
+            version=0, id=name, flow_started_at=old, updated_at=old, correlation_id=name
+        )
+        for name in ["dfv-fails", "dfv-recovers", "discovery-recovers"]
+    ]
+    queries = [
+        MagicMock(to_list=AsyncMock(return_value=items))
+        for items in [sessions[:2], sessions[2:], [], []]
+    ]
+    with (
+        patch("services.timeout_supervisor.Session.find", side_effect=queries),
+        patch(
+            "services.timeout_supervisor.session_repo.update_flow_failure",
+            new_callable=AsyncMock,
+            side_effect=[RuntimeError("temporary write failure"), True, True],
+        ) as update,
+        patch("services.timeout_supervisor.audit_service.log_event", new_callable=AsyncMock),
+    ):
+        result = await TimeoutSupervisor().check_and_recover_stuck_sessions()
+    assert result == {"dfv": 1, "discovery": 1, "pmf": 0}
+    assert update.await_count == 3

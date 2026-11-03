@@ -90,7 +90,6 @@ regulatory_task:
   
 ethics_task:
   description: >
-    {ethics_rubric}
  
     ---
  
@@ -148,7 +147,6 @@ ethics_task:
 
 tipsc_task:
   description: |
-    {tipsc_rubric}
 
     ------------------------------------------------------
 

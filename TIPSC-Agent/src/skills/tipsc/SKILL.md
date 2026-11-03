@@ -1,3 +1,8 @@
+---
+name: tipsc
+description: Evaluate startup ideas using the Timely, Important, Profitable, and Solvable rubric.
+---
+
 Use only evidence explicitly provided by the founder.
 Do not infer missing facts.
 
