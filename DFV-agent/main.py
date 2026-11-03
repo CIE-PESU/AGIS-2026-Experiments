@@ -422,12 +422,6 @@ def run_analysis(inputs: dict) -> AnalysisResult:
     raw_val = getattr(result, "raw", "") or ""
     cleaned = _extract_json_block(raw_val)
 
-    print("\n===== DFV PARSING DIAGNOSTICS =====")
-    print(f"repr(result.raw): {repr(raw_val)}")
-    print(f"len(result.raw):  {len(raw_val)}")
-    print(f"repr(cleaned):    {repr(cleaned)}")
-    print(f"len(cleaned):     {len(cleaned)}")
-
     if not cleaned or not (cleaned.startswith("{") or cleaned.startswith("[")):
         raise ValueError(
             f"Final Evaluator returned empty or non-JSON output.\n"
@@ -444,17 +438,7 @@ def run_analysis(inputs: dict) -> AnalysisResult:
     try:
         parsed = json.loads(cleaned)
     except Exception as exc:
-        print("\n===== PARSER FAILURE DIAGNOSTICS =====")
-        print(f"Raw Output (first 200 chars): {repr(raw_val[:200])}")
-        print(
-            f"Raw Output (last 200 chars):  {repr(raw_val[-200:]) if len(raw_val) > 200 else repr(raw_val)}"
-        )
-        print(f"Cleaned Output (first 200 chars): {repr(cleaned[:200])}")
-        print(
-            f"Cleaned Output (last 200 chars):  {repr(cleaned[-200:]) if len(cleaned) > 200 else repr(cleaned)}"
-        )
-        print(f"JSONDecodeError: {exc}")
-        raise exc
+        raise ValueError("DFV agent returned invalid JSON output.") from exc
 
     validated = DFAOutput.model_validate(parsed)
     return AnalysisResult(raw=raw_val, validated=validated)

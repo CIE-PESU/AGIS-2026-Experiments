@@ -481,11 +481,6 @@ class SessionService:
         if session is None:
             raise SessionNotFoundError()
 
-        if session.status in RUNNING_STATES:
-            raise CannotArchiveActiveSessionError(
-                f"Cannot archive session while it is in state '{session.status.value}'."
-            )
-
         previous_status = session.status.value
 
         archived = await session_repo.archive(session_id)
