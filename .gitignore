@@ -32,11 +32,13 @@ htmlcov/
 .pyre/
 .tox/
 .nox/
+.ipynb_checkpoints/
 
 # =========================
 # Logs
 # =========================
 *.log
+*.log.*
 
 # =========================
 # Environment variables
@@ -69,9 +71,15 @@ coverage/
 # =========================
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
 # Windows
 Thumbs.db
+
+# macOS resource-fork metadata
+._*
 
 # =========================
 # Testing
@@ -82,7 +90,18 @@ Thumbs.db
 # Database (if local)
 # =========================
 *.sqlite3
+*.sqlite
 *.db
+# SQLite transaction journals and WAL sidecars
+*.sqlite3-journal
+*.sqlite3-wal
+*.sqlite3-shm
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+*.db-journal
+*.db-wal
+*.db-shm
 
 # =========================
 # Misc
