@@ -8,6 +8,8 @@ Filelock is upgraded to 4.2.6, removing the thirteen findings from 3.32.7. LiteL
 
 Only the four ChromaDB exceptions remain in `dependency-advisories.json`, expiring on 1 January 2027. No new advisory is suppressed. New or changed findings continue to fail the audit. Use the root uv environment; a standalone pip resolver will still see LiteLLM's old metadata upper bound. Review and remove the override when LiteLLM's dependency metadata permits the patched version directly.
 
+For pip installations, use `python -m pip install --no-deps -r requirements.txt`: the generated export already contains the entire locked runtime dependency set, including platform markers. Omitting `--no-deps` produces `ResolutionImpossible` for LiteLLM/Filelock. `pip check` still reports that upstream metadata mismatch even in the validated uv environment; the application compatibility tests and advisory checker cover the intentional override. Do not use `--no-deps` when adding arbitrary new dependencies; update and validate the root lockfile instead.
+
 The frontend lock currently has no npm audit findings. JWT handling uses PyJWT with explicit algorithm and required claims. Local passwords use salted scrypt. Refresh tokens use indexed SHA-256 digests of high-entropy random tokens and atomic one-time rotation.
 
 ## Existing installations

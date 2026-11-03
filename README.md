@@ -11,13 +11,15 @@ One-time setup from the repository root:
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-python -m pip install -r requirements.txt
+python -m pip install --no-deps -r requirements.txt
 python scripts/init_env.py
 # Edit .env: set the LLM endpoint/model/API key and search API keys.
 npm ci --prefix frontend
 ```
 
 On Windows PowerShell, activate with `.\.venv\Scripts\Activate.ps1` instead of `source .venv/bin/activate`. Activate the same environment whenever you open a new terminal.
+
+The requirements export contains all locked runtime dependencies. `--no-deps` preserves the reviewed Filelock override that LiteLLM's dependency metadata otherwise rejects. Alternatively, use `uv sync --locked --no-dev`, which applies the override directly. See [dependency security](docs/dependency-security.md).
 
 For each run, from the repository root with the environment activated:
 

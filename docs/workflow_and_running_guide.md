@@ -13,12 +13,14 @@ python -m venv .venv
 Activate it with `source .venv/bin/activate` on macOS/Linux or `.\.venv\Scripts\Activate.ps1` in Windows PowerShell, then install the runtime dependencies:
 
 ```bash
-python -m pip install -r requirements.txt
+python -m pip install --no-deps -r requirements.txt
 python scripts/init_env.py
 npm ci --prefix frontend
 ```
 
 Reactivate this environment whenever you open a new terminal. If you already created it with `uv sync --locked`, activate that same `.venv`; there is no need to recreate it.
+
+`requirements.txt` is a complete locked runtime export. Install it with `--no-deps` to preserve the reviewed Filelock override; ordinary pip dependency resolution rejects LiteLLM's stale upper bound. Alternatively, `uv sync --locked --no-dev` installs the runtime and applies the project override. See [dependency security](dependency-security.md).
 
 `init_env.py` creates `.env` with unique JWT and worker secrets and private file permissions; it refuses to overwrite an existing file. Configure `OPENAI_MODEL_NAME`, `LM_STUDIO_URL`, `OPENAI_API_KEY`, `TAVILY_API_KEY`, and `SERPER_API_KEY`. See [model configuration](model-config.md). The compose stack provides persistent MongoDB on 27017 and Kafka on 9092. These ports must be available; stop conflicting local services or configure different ports consistently.
 
@@ -46,6 +48,8 @@ docker compose -f backend/docker-compose.yml down
 `down` preserves MongoDB/Kafka data volumes. The launcher starts the application services; Compose manages MongoDB and Kafka separately.
 
 The launcher waits for actual API and worker readiness, then starts Vite. Any service exit shuts down the remaining process groups. Ctrl+C stops all child services. It binds the API to localhost and deliberately avoids automatic backend reload because reload interrupts in-process TIPSC work.
+
+`dev.py` supplies the worker callback address, frontend proxy target, and `/api/v1` frontend base path for the services it starts. Old `WORKER_BACKEND_URL` or `VITE_*` settings cannot send this launched stack to another API. Manual startup uses your configured addresses; keep `WORKER_BACKEND_URL` and `frontend/.env`'s `VITE_BACKEND_URL` consistent with the API port. Vite reads its mode-specific frontend environment files as well as shell overrides.
 
 | Service | Address |
 | --- | --- |
@@ -108,7 +112,7 @@ uv run python backend/scripts/export_openapi.py
 uv run python scripts/check_contracts.py
 ```
 
-`requirements.txt` is a runtime-only, pinned compatibility export for pip users. Developer tools come from the `dev` group (`uv sync` installs it by default). Do not maintain independent platform virtual environments or stale subproject lockfiles. Do not force incompatible major upgrades to silence audit warnings.
+`requirements.txt` is a runtime-only, pinned compatibility export for pip users; install it with `--no-deps` because it already includes the full resolved runtime dependency set and the Filelock override. Developer tools come from the `dev` group (`uv sync` installs it by default). Do not maintain independent platform virtual environments or stale subproject lockfiles. Do not force incompatible major upgrades to silence audit warnings.
 
 ## Recovery and deployment boundaries
 

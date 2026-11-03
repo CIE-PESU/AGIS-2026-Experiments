@@ -20,6 +20,11 @@ import uuid
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
+BACKEND_HOST = "127.0.0.1"
+BACKEND_PORT = 8008
+BACKEND_URL = f"http://{BACKEND_HOST}:{BACKEND_PORT}"
+WORKER_HEALTH_PORT = 8009
+FRONTEND_PORT = 5167
 sys.path.insert(0, str(ROOT / "backend"))
 from core.processes import ProcessTree, child_options, instance_lock
 
@@ -30,12 +35,17 @@ def frontend_command() -> list[str]:
     if not node or not vite.is_file():
         raise RuntimeError("Install Node 22.13+ and run npm ci --prefix frontend first.")
     # Avoid npm.cmd / shell quoting differences on Windows and paths with spaces.
-    return [node, str(vite), "--host", "127.0.0.1", "--port", "5167", "--strictPort"]
+    return [node, str(vite), "--host", BACKEND_HOST, "--port", str(FRONTEND_PORT), "--strictPort"]
 
 
-def check_ports(ports=(8008, 8009, 5167)) -> None:
+def check_ports(ports=(BACKEND_PORT, WORKER_HEALTH_PORT, FRONTEND_PORT)) -> None:
     for port in ports:
         with socket.socket() as listener:
+            # Match asyncio's POSIX server sockets: recently closed connections
+            # in TIME_WAIT must not block an immediate restart. Windows address
+            # reuse can share a live listener, so keep its normal bind check.
+            if sys.platform != "win32":
+                listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             try:
                 listener.bind(("127.0.0.1", port))
             except OSError as exc:
@@ -47,13 +57,23 @@ def check_ports(ports=(8008, 8009, 5167)) -> None:
 def run_services() -> int:
     from core.llm_provider import check_model_server, is_local_endpoint
     from dotenv import load_dotenv
+    from pydantic import ValidationError
 
     load_dotenv(ROOT / ".env", encoding="utf-8")
-    endpoint = os.getenv("LM_STUDIO_URL", "")
-    if is_local_endpoint(endpoint):
-        check_model_server(
-            endpoint, os.getenv("OPENAI_MODEL_NAME", ""), os.getenv("OPENAI_API_KEY", "")
-        )
+    try:
+        from core.config import Settings
+
+        config = Settings()
+    except ValidationError as exc:
+        # Report field names without echoing credential values from validation errors.
+        fields = sorted({".".join(map(str, error["loc"])) for error in exc.errors()})
+        hint = " DEBUG must be true or false." if "DEBUG" in fields else ""
+        raise RuntimeError(
+            f"Invalid application settings: {', '.join(fields)}."
+            f" Check .env and shell overrides.{hint}"
+        ) from None
+    if is_local_endpoint(config.LM_STUDIO_URL):
+        check_model_server(config.LM_STUDIO_URL, config.OPENAI_MODEL_NAME, config.OPENAI_API_KEY)
     command = frontend_command()
     check_ports()
     processes = []
@@ -97,19 +117,36 @@ def run_services() -> int:
     previous = signal.signal(signal.SIGTERM, stop)
     try:
         start(
-            [sys.executable, "-m", "uvicorn", "main:app", "--host", "127.0.0.1", "--port", "8008"],
+            [
+                sys.executable,
+                "-m",
+                "uvicorn",
+                "main:app",
+                "--host",
+                BACKEND_HOST,
+                "--port",
+                str(BACKEND_PORT),
+            ],
             ROOT / "backend",
         )
-        wait_ready("http://127.0.0.1:8008/api/v1/ready", check_instance=True)
+        wait_ready(f"{BACKEND_URL}/api/v1/ready", check_instance=True)
         start(
             [sys.executable, "-m", "workers.combined_agent_worker"],
             ROOT / "backend",
-            {"WORKER_HEALTH_PORT": "8009"},
+            # This launcher owns the backend address; stale .env/shell values
+            # must not redirect persisted callbacks to another port or host.
+            {"WORKER_HEALTH_PORT": str(WORKER_HEALTH_PORT), "WORKER_BACKEND_URL": BACKEND_URL},
         )
-        wait_ready("http://127.0.0.1:8009/health", check_instance=True)
-        start(command, ROOT / "frontend")
-        wait_ready("http://127.0.0.1:5167")
-        print("AGIS ready: http://localhost:5167 (Ctrl+C stops all services)", flush=True)
+        wait_ready(f"http://{BACKEND_HOST}:{WORKER_HEALTH_PORT}/health", check_instance=True)
+        start(
+            command,
+            ROOT / "frontend",
+            {"VITE_BACKEND_URL": BACKEND_URL, "VITE_API_BASE_URL": "/api/v1"},
+        )
+        wait_ready(f"http://{BACKEND_HOST}:{FRONTEND_PORT}")
+        print(
+            f"AGIS ready: http://localhost:{FRONTEND_PORT} (Ctrl+C stops all services)", flush=True
+        )
         while all(p.poll() is None for p, _ in processes):
             time.sleep(0.5)
         raise RuntimeError("A service stopped unexpectedly.")

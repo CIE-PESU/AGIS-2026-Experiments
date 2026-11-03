@@ -1,6 +1,6 @@
 # AGIS backend
 
-From the repository root, activate `.venv`, run `docker compose -f backend/docker-compose.yml up -d --wait`, then `python dev.py`. After Ctrl+C, run `docker compose -f backend/docker-compose.yml down` to stop infrastructure while preserving data. Install runtime dependencies once with `python -m pip install -r requirements.txt`. See [setup](../docs/workflow_and_running_guide.md), [backend architecture](../docs/backend-arch.md), and [dependency security](../docs/dependency-security.md).
+From the repository root, activate `.venv`, run `docker compose -f backend/docker-compose.yml up -d --wait`, then `python dev.py`. After Ctrl+C, run `docker compose -f backend/docker-compose.yml down` to stop infrastructure while preserving data. Install the complete locked runtime export once with `python -m pip install --no-deps -r requirements.txt`, or use `uv sync --locked --no-dev` to apply the project's dependency override. See [setup](../docs/workflow_and_running_guide.md), [backend architecture](../docs/backend-arch.md), and [dependency security](../docs/dependency-security.md).
 
 The active application is `backend/main.py`; from `backend/` with the root environment activated, use `python -m uvicorn main:app --host 127.0.0.1 --port 8008`. The duplicate `backend/app/` implementation has been removed.
 

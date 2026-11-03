@@ -155,6 +155,91 @@ def test_launcher_rejects_occupied_port():
             dev.check_ports([server.getsockname()[1]])
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX servers reuse TIME_WAIT addresses")
+def test_launcher_accepts_port_after_server_closes_connection():
+    import socket
+
+    import dev
+
+    with socket.socket() as server:
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server.bind(("127.0.0.1", 0))
+        port = server.getsockname()[1]
+        server.listen()
+        with socket.create_connection(("127.0.0.1", port)) as client:
+            connection, _ = server.accept()
+            connection.close()
+            assert client.recv(1) == b""
+    dev.check_ports([port])
+
+
+def test_launcher_rejects_invalid_settings_before_starting_children(monkeypatch):
+    from unittest.mock import MagicMock
+
+    import dev
+
+    monkeypatch.setenv("DEBUG", "WARN")
+    secret = "CHANGE_ME_PRIVATE_VALUE_MUST_NOT_BE_LOGGED"
+    monkeypatch.setenv("JWT_SECRET", secret)
+    popen = MagicMock()
+    monkeypatch.setattr(dev.subprocess, "Popen", popen)
+    with pytest.raises(RuntimeError, match="Invalid application settings") as error:
+        dev.run_services()
+    assert "DEBUG" in str(error.value) and "JWT_SECRET" in str(error.value)
+    assert "true or false" in str(error.value)
+    assert secret not in str(error.value)
+    popen.assert_not_called()
+
+
+@pytest.mark.parametrize("source", ["dotenv", "shell"])
+def test_launcher_routes_worker_and_frontend_to_its_backend(monkeypatch, source):
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+    from urllib.parse import urlsplit
+
+    import dotenv
+
+    import dev
+
+    stale_url = "http://127.0.0.1:8004"
+    monkeypatch.delenv("WORKER_BACKEND_URL", raising=False)
+    if source == "shell":
+        monkeypatch.setenv("WORKER_BACKEND_URL", stale_url)
+    monkeypatch.setenv("VITE_BACKEND_URL", stale_url)
+    monkeypatch.setenv("VITE_API_BASE_URL", stale_url + "/api/v1")
+
+    def load_env(*args, **kwargs):
+        if source == "dotenv":
+            monkeypatch.setenv("WORKER_BACKEND_URL", stale_url)
+
+    monkeypatch.setattr(dotenv, "load_dotenv", load_env)
+    monkeypatch.setenv("LM_STUDIO_URL", "")
+    monkeypatch.setattr(dev, "frontend_command", lambda: ["node", "vite"])
+    monkeypatch.setattr(dev, "check_ports", lambda: None)
+    monkeypatch.setattr(dev.uuid, "uuid4", lambda: SimpleNamespace(hex="test-run"))
+    process = MagicMock(pid=12345)
+    process.poll.return_value = None
+    popen = MagicMock(return_value=process)
+    monkeypatch.setattr(dev.subprocess, "Popen", popen)
+    monkeypatch.setattr(dev, "ProcessTree", MagicMock())
+    response = MagicMock(status=200)
+    response.read.return_value = b'{"instance_id":"test-run"}'
+    connection = MagicMock()
+    connection.__enter__.return_value = response
+    monkeypatch.setattr(dev.urllib.request, "urlopen", MagicMock(return_value=connection))
+    monkeypatch.setattr(dev.time, "sleep", MagicMock(side_effect=KeyboardInterrupt))
+
+    assert dev.run_services() == 0
+    backend, worker, frontend = popen.call_args_list
+    address = urlsplit(worker.kwargs["env"]["WORKER_BACKEND_URL"])
+    command = backend.args[0]
+    assert address.hostname == command[command.index("--host") + 1]
+    assert address.port == int(command[command.index("--port") + 1])
+    assert worker.kwargs["env"]["WORKER_HEALTH_PORT"] == "8009"
+    assert frontend.kwargs["env"]["VITE_BACKEND_URL"] == address.geturl()
+    assert frontend.kwargs["env"]["VITE_API_BASE_URL"] == "/api/v1"
+
+
 async def test_native_async_subprocess_pipes_preserve_unicode():
     import asyncio
     import json

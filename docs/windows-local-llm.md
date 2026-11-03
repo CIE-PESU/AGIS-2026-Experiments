@@ -9,13 +9,15 @@ Run commands from the checkout root. Paths with spaces and Unicode are supported
 ```powershell
 py -3.13 -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
+python -m pip install --no-deps -r requirements.txt
 python scripts/init_env.py
 npm ci --prefix frontend
 docker compose -f backend/docker-compose.yml up -d --wait
 ```
 
 Reactivate `.venv` in each new PowerShell terminal. For later runs, use `docker compose -f backend/docker-compose.yml up -d --wait`, then `python dev.py`, then Ctrl+C and `docker compose -f backend/docker-compose.yml down`. This preserves data volumes.
+
+The complete requirements export needs `--no-deps` to retain the reviewed Filelock override; plain pip dependency resolution rejects LiteLLM's old upper bound. `uv sync --locked --no-dev` is an alternative. If `uv run` warns that `VIRTUAL_ENV` points to `backend\.venv`, run `deactivate` and activate the root `.venv` above. Shell variables take precedence over `.env`; `DEBUG` must be a boolean such as `true` or `false`, not a logging level.
 
 Edit `.env` before starting the application. The environment generator refuses to overwrite an existing file. In LM Studio, load the model you intend to use, start its local OpenAI-compatible server, and copy its exact served model identifier. Use this pattern:
 
