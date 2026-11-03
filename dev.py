@@ -29,13 +29,13 @@ sys.path.insert(0, str(ROOT / "backend"))
 from core.processes import ProcessTree, child_options, instance_lock
 
 
-def frontend_command() -> list[str]:
+def frontend_command(*, port: int = FRONTEND_PORT) -> list[str]:
     node = shutil.which("node")
     vite = ROOT / "frontend" / "node_modules" / "vite" / "bin" / "vite.js"
     if not node or not vite.is_file():
         raise RuntimeError("Install Node 22.13+ and run npm ci --prefix frontend first.")
     # Avoid npm.cmd / shell quoting differences on Windows and paths with spaces.
-    return [node, str(vite), "--host", BACKEND_HOST, "--port", str(FRONTEND_PORT), "--strictPort"]
+    return [node, str(vite), "--host", BACKEND_HOST, "--port", str(port), "--strictPort"]
 
 
 def check_ports(ports=(BACKEND_PORT, WORKER_HEALTH_PORT, FRONTEND_PORT)) -> None:

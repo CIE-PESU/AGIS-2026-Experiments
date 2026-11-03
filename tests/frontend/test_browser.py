@@ -2,14 +2,15 @@
 
 import asyncio
 import os
-import signal
 import subprocess
-from pathlib import Path
 
 import httpx
 import pytest
 import uvicorn
+from core.processes import ProcessTree, child_options
 from playwright.async_api import async_playwright, expect
+
+from dev import ROOT, frontend_command
 
 pytest_plugins = ["tests.backend.integration.test_full_flow"]
 
@@ -31,8 +32,8 @@ async def browser_stack(stack):
     )
     server_task = asyncio.create_task(server.serve())
     frontend = subprocess.Popen(
-        ["npm", "run", "dev", "--", "--port", "15167", "--host", "127.0.0.1"],
-        cwd=Path(__file__).resolve().parents[2] / "frontend",
+        frontend_command(port=15167),
+        cwd=ROOT / "frontend",
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         env={
@@ -40,9 +41,11 @@ async def browser_stack(stack):
             "VITE_API_BASE_URL": "/api/v1",
             "VITE_BACKEND_URL": "http://127.0.0.1:18008",
         },
-        start_new_session=True,
+        **child_options(),
     )
+    tree = None
     try:
+        tree = ProcessTree(frontend.pid)
         async with httpx.AsyncClient() as client:
             for _ in range(200):
                 try:
@@ -58,13 +61,20 @@ async def browser_stack(stack):
                 raise RuntimeError("Browser test servers failed to start")
         async with async_playwright() as playwright:
             browser = await playwright.chromium.launch()
-            yield stack, browser
-            await browser.close()
+            try:
+                yield stack, browser
+            finally:
+                await browser.close()
     finally:
-        os.killpg(frontend.pid, signal.SIGTERM)
-        await asyncio.to_thread(frontend.wait, 10)
-        server.should_exit = True
-        await asyncio.wait_for(server_task, 10)
+        try:
+            if tree is not None:
+                tree.terminate(force=True)
+            elif frontend.poll() is None:
+                frontend.kill()
+            await asyncio.to_thread(frontend.wait, 10)
+        finally:
+            server.should_exit = True
+            await asyncio.wait_for(server_task, 10)
 
 
 @pytest.mark.parametrize(

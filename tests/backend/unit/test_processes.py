@@ -9,6 +9,53 @@ import pytest
 from core.processes import ProcessTree, child_options, instance_lock
 
 
+def test_windows_children_use_a_new_process_group(monkeypatch):
+    from types import SimpleNamespace
+
+    import core.processes as processes
+
+    monkeypatch.setattr(processes, "sys", SimpleNamespace(platform="win32"))
+    monkeypatch.setattr(processes, "subprocess", SimpleNamespace(CREATE_NEW_PROCESS_GROUP=512))
+    assert processes.child_options() == {"creationflags": 512}
+
+
+def test_windows_job_owns_process_and_closes_only_once(monkeypatch):
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    import core.processes as processes
+
+    job, process = MagicMock(), MagicMock()
+    api = SimpleNamespace(OpenProcess=MagicMock(return_value=process))
+    jobs = SimpleNamespace(
+        CreateJobObject=MagicMock(return_value=job),
+        QueryInformationJobObject=MagicMock(
+            return_value={"BasicLimitInformation": {"LimitFlags": 4}}
+        ),
+        SetInformationJobObject=MagicMock(),
+        AssignProcessToJobObject=MagicMock(),
+        JobObjectExtendedLimitInformation=9,
+        JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE=8192,
+    )
+    monkeypatch.setattr(processes, "sys", SimpleNamespace(platform="win32"))
+    monkeypatch.setitem(sys.modules, "win32api", api)
+    monkeypatch.setitem(
+        sys.modules, "win32con", SimpleNamespace(PROCESS_SET_QUOTA=256, PROCESS_TERMINATE=1)
+    )
+    monkeypatch.setitem(sys.modules, "win32job", jobs)
+
+    tree = processes.ProcessTree(12345)
+    api.OpenProcess.assert_called_once_with(257, False, 12345)
+    jobs.AssignProcessToJobObject.assert_called_once_with(job, process)
+    limits = jobs.SetInformationJobObject.call_args.args[2]
+    assert limits["BasicLimitInformation"]["LimitFlags"] == 4 | 8192
+    process.Close.assert_called_once()
+    job.Close.assert_not_called()
+    tree.terminate()
+    tree.terminate(force=True)
+    job.Close.assert_called_once()
+
+
 @pytest.mark.parametrize("fail_at", ["create", "configure"])
 def test_windows_ownership_failure_cleans_up_new_child(monkeypatch, fail_at):
     from types import SimpleNamespace
@@ -141,6 +188,18 @@ def test_launcher_uses_node_directly_for_paths_with_spaces(monkeypatch, tmp_path
         tree.terminate(force=True)
         process.wait(timeout=10)
         process.stdout.close()
+
+
+def test_frontend_command_accepts_an_isolated_test_port(monkeypatch, tmp_path):
+    import dev
+
+    vite = tmp_path / "frontend/node_modules/vite/bin/vite.js"
+    vite.parent.mkdir(parents=True)
+    vite.touch()
+    monkeypatch.setattr(dev, "ROOT", tmp_path)
+    monkeypatch.setattr(dev.shutil, "which", lambda _: "node")
+    command = dev.frontend_command(port=15167)
+    assert command == ["node", str(vite), "--host", "127.0.0.1", "--port", "15167", "--strictPort"]
 
 
 def test_launcher_rejects_occupied_port():

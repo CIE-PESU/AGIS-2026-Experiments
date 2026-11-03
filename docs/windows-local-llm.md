@@ -2,6 +2,8 @@
 
 Supported target: Windows 10/11 x64, Python 3.12 or 3.13, Node 24, uv, and Docker Desktop using its WSL2 Linux-container backend. Do not run the Linux MongoDB/Kafka images in Windows-container mode. Native Windows CI covers both Python versions, real process-tree cleanup, Unicode/spaced paths, and CrewAI calls to a test-only local HTTP server. This does not establish GPU performance or the capabilities of a particular downloaded model.
 
+The Windows compatibility review on 3 November 2026 confirmed binary-package resolution for the exact runtime export on Windows x64/Python 3.12 and 3.13, including `pywin32`. The browser test harness now uses the same direct Node invocation and process-tree ownership as `dev.py`, replacing POSIX-only `killpg` and `start_new_session` handling. Additional tests exercise the Windows process-group flags and Job Object ownership/cleanup with mocked Windows APIs on other hosts. These checks do not substitute for executing the application on native Windows.
+
 ## Start from PowerShell
 
 Run commands from the checkout root. Paths with spaces and Unicode are supported. Use one activated root virtual environment.
@@ -60,6 +62,33 @@ The UI has no runtime mock-data fallback. Failed comment loads show an error; un
 
 Empty/invalid worker outputs cannot complete a stage. Quickstart rejects malformed/missing parameter assessments. PMF leaves unmeasured Sean Ellis/NPS/retention fields unknown even if a model invents numbers. These guards prevent known fabricated-data paths; they cannot prove every natural-language LLM assertion is factual. Provider outages, resource exhaustion, invalid input, and conflicting requests must surface truthful, actionable errors rather than fake results. No error-free or hallucination-free guarantee is possible.
 
-## Verification
+## Verify on native Windows
+
+From the root checkout, these checks install the development tools and exercise native process cleanup and subprocess pipes:
+
+```powershell
+uv sync --locked --group dev
+uv run --locked pytest -m "not integration"
+npm test --prefix frontend
+npm run build --prefix frontend
+```
+
+For browser and real MongoDB/Kafka integration tests, keep Docker Desktop in Linux-container mode. This uses the isolated `agis-tests` stack and test-only credentials, not the development database:
+
+```powershell
+uv run --locked playwright install chromium
+try {
+    docker compose -p agis-tests -f backend/docker-compose.test.yml up -d --wait
+    if ($LASTEXITCODE -ne 0) { throw "Test infrastructure failed to start" }
+    $env:AGIS_INTEGRATION = "1"
+    uv run --locked pytest -m integration
+    if ($LASTEXITCODE -ne 0) { throw "Integration tests failed" }
+} finally {
+    Remove-Item Env:AGIS_INTEGRATION -ErrorAction SilentlyContinue
+    docker compose -p agis-tests -f backend/docker-compose.test.yml down -v
+}
+```
+
+The final command deletes only this isolated test stack's data. Normal application shutdown should use the development Compose file without `-v`.
 
 Run the Windows CI matrix after publishing changes, and run `check_local_llm.py --generate` on the actual Windows/model host. Integration tests use isolated MongoDB/Kafka and deterministic agent outputs; the HTTP capability test uses a test-only server. Neither is represented as a real Windows GPU/model inference test. Remaining reviewed upstream ChromaDB advisories are documented in [dependency security](dependency-security.md).
