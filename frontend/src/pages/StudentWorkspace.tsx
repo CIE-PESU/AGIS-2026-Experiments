@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Archive, Download, Target, TrendingUp, Users, Clock, Eye, BarChart3 } from "lucide-react";
+import { Archive, Download, Trash2, Target, TrendingUp, Users, Clock, Eye, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -87,6 +87,21 @@ export function StudentWorkspace() {
     toast.success("Session archived. You can start a new session from TIPSC.");
   }
 
+  async function handleDeleteSession() {
+    if (!sessionId) {
+      toast.error("There is no active session to delete.");
+      return;
+    }
+    try {
+      // The API's DELETE endpoint soft-deletes by marking the session archived.
+      await archiveSessionApi(sessionId);
+      archiveSession();
+      toast.success("Ongoing session deleted.");
+    } catch {
+      toast.error("Failed to delete session. Please try again.");
+    }
+  }
+
   const titleName = user?.role === "mentor_workspace" ? (user?.name || "Mentor Workspace") : firstName;
 
   return (
@@ -99,6 +114,19 @@ export function StudentWorkspace() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={exportReport}><Download className="h-4 w-4" /> Export</Button>
+          {sessionId && <AlertDialog>
+            <AlertDialogTrigger asChild><Button variant="destructive"><Trash2 className="h-4 w-4" /> Delete Session</Button></AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete this ongoing session?</AlertDialogTitle>
+                <AlertDialogDescription>This archives the session and removes it from your workspace. Any flow already running may continue in the background.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => void handleDeleteSession()}>Delete Session</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>}
           <AlertDialog>
             <AlertDialogTrigger asChild><Button variant="outline" disabled={running}><Archive className="h-4 w-4" /> Archive Session</Button></AlertDialogTrigger>
             <AlertDialogContent>

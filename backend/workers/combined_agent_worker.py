@@ -556,7 +556,7 @@ class CombinedAgentWorker:
         async with self._agent_lock:
             result = await _run_agent_subprocess("pmf", job.payload.model_dump())
 
-        parsed = _parse_agent_output(result)
+        parsed = result if isinstance(result, dict) else _parse_agent_output(result)
         completed_at = datetime.now(timezone.utc)
         duration = time.monotonic() - start_time
 
