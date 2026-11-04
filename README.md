@@ -30,9 +30,20 @@ python dev.py
 docker compose -f backend/docker-compose.yml down
 ```
 
-For a fresh database, run `python scripts/bootstrap_admin.py` once after Compose is up and before starting the application. `down` preserves database volumes.
+Backend startup automatically creates this branch's six shared accounts when they are missing. Existing accounts, passwords, and team assignments are preserved. `down` preserves database volumes.
 
-Open `http://localhost:5167`. API docs: `http://localhost:8008/docs`. Readiness: `http://localhost:8008/api/v1/ready`. PES logins require the configured PES authentication service. Local admin/mentor passwords must be provisioned; no default credentials are shipped.
+| Username (SRN field) | Password | Role |
+| --- | --- | --- |
+| admin1 | aerodactyl1 | Admin |
+| admin2 | aerodactyl2 | Admin |
+| admin3 | aerodactyl3 | Admin |
+| mentor1 | mosasaur1 | Mentor |
+| mentor2 | mosasaur2 | Mentor |
+| mentor3 | mosasaur3 | Mentor |
+
+The bundled password hashes live in `backend/scripts/branch_accounts.json`. These shared logins are available to everyone with this branch.
+
+Open `http://localhost:5167`. API docs: `http://localhost:8008/docs`. Readiness: `http://localhost:8008/api/v1/ready`. PES logins require the configured PES authentication service.
 
 ## Verify
 

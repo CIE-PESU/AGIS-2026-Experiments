@@ -1,1 +1,41 @@
-{"users": [], "teams": []}
+{
+  "users": [
+    {
+      "id": "6a6217b2e986e33792e81ab8",
+      "srn": "ADMIN1",
+      "name": "Admin 1",
+      "role": "admin"
+    },
+    {
+      "id": "6a6217b2e986e33792e81ab9",
+      "srn": "ADMIN2",
+      "name": "Admin 2",
+      "role": "admin"
+    },
+    {
+      "id": "6a6217b2e986e33792e81aba",
+      "srn": "ADMIN3",
+      "name": "Admin 3",
+      "role": "admin"
+    },
+    {
+      "id": "6a6217b2e986e33792e81abb",
+      "srn": "MENTOR1",
+      "name": "Mentor 1",
+      "role": "mentor"
+    },
+    {
+      "id": "6a6217b2e986e33792e81abc",
+      "srn": "MENTOR2",
+      "name": "Mentor 2",
+      "role": "mentor"
+    },
+    {
+      "id": "6a62f65533b3f91a7da99402",
+      "srn": "MENTOR3",
+      "name": "Mentor 3",
+      "role": "mentor"
+    }
+  ],
+  "teams": []
+}

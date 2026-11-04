@@ -1,0 +1,38 @@
+[
+  {
+    "srn": "ADMIN1",
+    "name": "Admin 1",
+    "role": "admin",
+    "password_hash": "scrypt$EtXwTkqIaiITZp9pWoxdtA==$hi0EDb08mcFDRQ1OuxBejrnNaEffeuo8Cakjglq6rCX6Wun+LhNkrn8W/cVg5ekjgqfbXnfw1zqjpMqmsRsYyQ=="
+  },
+  {
+    "srn": "ADMIN2",
+    "name": "Admin 2",
+    "role": "admin",
+    "password_hash": "scrypt$BR7C0xT42Rez3wB73dsl+A==$M+UgMneymOO8k7h9/q9/DQQrfiPIyQQcS6NEqz/T29yNNwexhub9i6fWVIQFsPNp4kz7QKErlTcQSJbMZ5OUnA=="
+  },
+  {
+    "srn": "ADMIN3",
+    "name": "Admin 3",
+    "role": "admin",
+    "password_hash": "scrypt$Gdd0R66EkYe/ihi7EJszgg==$GSFJtk2NkyWZrdv2f6zoybsf6P1uTInb/DfC5jAmMUz1hDQQo9eObQCLp5xFyhZyCMjDVNUlxwVx6O7NJXjF6g=="
+  },
+  {
+    "srn": "MENTOR1",
+    "name": "Mentor 1",
+    "role": "mentor",
+    "password_hash": "scrypt$TKV3eWGnurWwWT++E5RG4g==$l8F3B75tMBSsFYkFoL/VnUqlhjTMxJUMwmNbbvxSzF2hA9DfhKMM5h7wX9tbqROQDCJdPsIJvY3KSdVeUAKgfQ=="
+  },
+  {
+    "srn": "MENTOR2",
+    "name": "Mentor 2",
+    "role": "mentor",
+    "password_hash": "scrypt$/pksFGthHHAPxQpXmsO4Eg==$4vz3t5XVrwIJh+42g/l33qUM+vu94+4ldRZX9ci3o+sDuetc/Is8So8YX4f3DBvLbluKYl+mH2oq7MhdkGq5LQ=="
+  },
+  {
+    "srn": "MENTOR3",
+    "name": "Mentor 3",
+    "role": "mentor",
+    "password_hash": "scrypt$2d+8aH/YdKjVQhMRWhflOQ==$W19dHxoeo+3WIZP9uPk+ZyDgkZ4H3TS0ZO6QYcxrC/ZNJJTWg0Xya7Ay9hlJ5prrdSle2hzrxnPhM9n2FBOWrQ=="
+  }
+]

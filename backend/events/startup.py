@@ -113,6 +113,12 @@ async def on_startup() -> None:
 
         await connect_db()
 
+        from core.config import settings
+        from database.branch_accounts import provision_branch_accounts
+        from database.mongodb import get_client
+
+        await provision_branch_accounts(get_client()[settings.MONGODB_DB_NAME])
+
         logger.info("[startup] MongoDB")
 
     except Exception as exc:
