@@ -31,6 +31,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from core.config import settings
+from core.logging_filters import configure_agent_log_filters
 
 # Add quickstart-agent to Python path for agent imports
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -129,6 +130,7 @@ logging.config.dictConfig(
     }
 )
 
+configure_agent_log_filters()
 logger = logging.getLogger(__name__)
 
 

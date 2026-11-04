@@ -20,6 +20,8 @@ Canonical input schemas live in `backend/schemas`; Kafka job shapes live in `bac
 
 Field limits are enforced by `SessionCreateRequest`. The intake is persisted as `preeval_input`; `idea` is the compatibility representation of `proposed_solution`. IDs are MongoDB ObjectId strings, not prefixed synthetic session IDs.
 
+The active-session lookup (`GET /sessions/user/{user_id}/session`) returns `data: null` with HTTP 200 when the signed-in owner has no active session. This is the normal state before starting an intake or after archiving.
+
 ## TIPSC and follow-up
 
 TIPSC persists `preeval`, `validation`, `regulatory`, `ethics`, `compliance_context`, and `tipsc`. The output includes refined idea, solution alignment, TIPS scores/reasons, readiness, `ready_for_dfv`, and follow-up metadata. Agent schemas are in `TIPSC-Agent/src/tipsc_models.py`; backend persistence accepts `I`/`I_reason` as aliases of `IMPORTANT`/`IMPORTANT_reason`.

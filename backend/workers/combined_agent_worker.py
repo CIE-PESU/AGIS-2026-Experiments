@@ -60,6 +60,7 @@ if BACKEND_ROOT not in sys.path:
 # =============================================================================
 
 from core.config import settings  # noqa: E402 — worker path/environment bootstrap precedes backend imports
+from core.logging_filters import configure_agent_log_filters  # noqa: E402
 from core.processes import ProcessTree, child_options, instance_lock  # noqa: E402
 from kafka.topics import KafkaTopic  # noqa: E402 — worker path/environment bootstrap precedes backend imports
 from models.schema import (  # noqa: E402 — worker path/environment bootstrap precedes backend imports
@@ -72,6 +73,7 @@ from models.schema import (  # noqa: E402 — worker path/environment bootstrap 
 # LOGGING
 # =============================================================================
 
+configure_agent_log_filters()
 logger = logging.getLogger("combined_agent_worker")
 
 

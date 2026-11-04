@@ -17,7 +17,7 @@ type StudentDetail = {
 
 function Section({ title, children, open = true }: { title: string; children: React.ReactNode; open?: boolean }) {
   return (
-    <details open={open} className="rounded-lg border bg-white p-4">
+    <details open={open} className="rounded-lg border bg-card p-4">
       <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-semibold">
         {title}
         <ChevronDown className="h-4 w-4" />
@@ -201,8 +201,8 @@ export function DetailedProgressView({ student }: { student: StudentDetail }) {
           {followUps ? (
             followUps.map((item: any, index: number) => (
               <div key={index} className="grid gap-3 md:grid-cols-2">
-                <div className="rounded-md bg-amber-50 p-3 text-sm"><b>AI Question {index + 1}:</b> {item.question}</div>
-                <div className="rounded-md bg-emerald-50 p-3 text-sm"><b>Student Response:</b> {item.answer}</div>
+                <div className="rounded-md bg-amber-50 dark:bg-amber-500/15 p-3 text-sm"><b>AI Question {index + 1}:</b> {item.question}</div>
+                <div className="rounded-md bg-emerald-50 dark:bg-emerald-500/15 p-3 text-sm"><b>Student Response:</b> {item.answer}</div>
               </div>
             ))
           ) : (
@@ -211,7 +211,7 @@ export function DetailedProgressView({ student }: { student: StudentDetail }) {
         </div>
       </Section>
 
-      <div className={dfvStatus === "NO-GO" ? "rounded-lg bg-red-50 p-4 text-red-700" : "rounded-lg bg-emerald-50 p-4 text-emerald-700"}>
+      <div className={dfvStatus === "NO-GO" ? "rounded-lg bg-red-50 dark:bg-red-500/15 p-4 text-red-700 dark:text-red-300" : "rounded-lg bg-emerald-50 dark:bg-emerald-500/15 p-4 text-emerald-700 dark:text-emerald-300"}>
         <b>DFV Decision:</b> {dfvStatus}
       </div>
 

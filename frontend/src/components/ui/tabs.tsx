@@ -14,10 +14,11 @@ export function SegmentedTabs({ value, onValueChange, options, className }: Tabs
         <button
           key={option.value}
           type="button"
+          aria-pressed={value === option.value}
           onClick={() => onValueChange(option.value)}
           className={cn(
-            "btn-glossy flex h-10 items-center justify-center gap-2 rounded-md text-sm font-semibold text-muted-foreground",
-            value === option.value && "bg-white text-primary shadow-sm"
+            "flex h-10 items-center justify-center gap-2 rounded-md text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            value === option.value ? "bg-card text-primary shadow-sm" : "text-muted-foreground hover:bg-card/50 hover:text-foreground"
           )}
         >
           {option.label}

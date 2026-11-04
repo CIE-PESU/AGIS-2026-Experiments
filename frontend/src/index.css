@@ -153,6 +153,10 @@
     pointer-events: none;
   }
 
+  .dark .btn-glossy::before {
+    background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.08) 50%, transparent 100%);
+  }
+
   .btn-glossy:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 16px rgba(62,57,101,0.2);

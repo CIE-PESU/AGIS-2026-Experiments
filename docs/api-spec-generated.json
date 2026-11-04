@@ -2195,7 +2195,7 @@
     },
     "/api/v1/sessions/user/{student_id}/session": {
       "get": {
-        "description": "Returns the active (non-archived) session for the student.",
+        "description": "Returns the active (non-archived) session, or null when none exists.",
         "operationId": "get_active_session_by_user_api_v1_sessions_user__student_id__session_get",
         "parameters": [
           {

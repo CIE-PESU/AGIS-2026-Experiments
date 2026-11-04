@@ -35,31 +35,6 @@ export function WorkspaceLayout() {
     archiveSession
 );
 
-  useEffect(() => {
-  if (!user || user.role !== "student" || sessionId) return;
-
-  let mounted = true;
-
-  const loadSession = async () => {
-    try {
-      const { getActiveSession } = await import("@/services/authSessions");
-      const doc = await getActiveSession(user.userId);
-
-      if (mounted && doc) {
-        setSessionFromServer(doc);
-      }
-    } catch {
-      // No active session
-    }
-  };
-
-  loadSession();
-
-  return () => {
-    mounted = false;
-  };
-}, [user?.userId, user?.role, sessionId, setSessionFromServer]);
-
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatComments, setChatComments] = useState<MentorComment[]>([]);
 

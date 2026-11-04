@@ -155,7 +155,9 @@ async def test_all_nine_logins_role_interfaces_and_boundaries(role_browser):
                 if i == 1:
                     screenshots = ROOT / ".local" / "role-ui-check"
                     screenshots.mkdir(parents=True, exist_ok=True)
-                    await page.screenshot(path=str(screenshots / f"{role}.png"), full_page=True)
+                    await page.screenshot(
+                        path=str(screenshots / f"{role}.png"), full_page=True, animations="disabled"
+                    )
                 if role == "mentor":
                     await expect(page.get_by_text("Not Started", exact=True)).to_be_visible()
                 if role == "student":
@@ -210,3 +212,103 @@ async def test_all_nine_logins_role_interfaces_and_boundaries(role_browser):
                 )
             finally:
                 await context.close()
+
+
+async def test_empty_session_lookup_is_successful_and_not_duplicated(role_browser):
+    context = await role_browser.new_context()
+    page = await context.new_page()
+    lookups = []
+    page.on(
+        "response",
+        lambda response: lookups.append(response) if "/sessions/user/" in response.url else None,
+    )
+    try:
+        await page.goto(BASE + "/login")
+        await page.get_by_label("SRN", exact=True).fill("student1")
+        await page.get_by_label("Password", exact=True).fill("stegosaur1")
+        await page.get_by_role("button", name="Sign In", exact=True).click()
+        await expect(page).to_have_url(BASE + "/workspace")
+        await page.wait_for_load_state("networkidle")
+        assert len(lookups) == 1
+        assert lookups[0].status == 200
+        assert (await lookups[0].json())["data"] is None
+        lookups.clear()
+        await page.reload()
+        await expect(page.get_by_role("heading", name="Welcome, Student")).to_be_visible()
+        await page.wait_for_load_state("networkidle")
+        assert len(lookups) == 1
+        assert lookups[0].status == 200
+    finally:
+        await context.close()
+
+
+async def test_admin_theme_across_tabs_and_dialogs(role_browser):
+    context = await role_browser.new_context(viewport={"width": 1440, "height": 1000})
+    page = await context.new_page()
+    screenshots = ROOT / ".local" / "admin-theme-check"
+    screenshots.mkdir(parents=True, exist_ok=True)
+    try:
+        await page.goto(BASE + "/login")
+        await page.get_by_label("SRN", exact=True).fill("admin1")
+        await page.get_by_label("Password", exact=True).fill("aerodactyl1")
+        await page.get_by_role("button", name="Sign In", exact=True).click()
+        await expect(page.get_by_role("cell", name="Role Test Team 1", exact=True)).to_be_visible()
+        for theme in ["light", "dark"]:
+            if theme == "dark":
+                await page.get_by_role("button", name="Switch to dark mode", exact=True).click()
+                await expect(page.locator("html")).to_have_class("dark")
+            for tab in ["Teams", "Advisors", "API Endpoints"]:
+                await page.get_by_role("button", name=tab, exact=True).click()
+                await expect(page.get_by_role("button", name=tab, exact=True)).to_have_attribute(
+                    "aria-pressed", "true"
+                )
+                await page.wait_for_function("""() => {
+                    const selected = document.querySelector('button[aria-pressed="true"]');
+                    const heading = document.querySelector('h1');
+                    return selected && heading && getComputedStyle(selected).color === getComputedStyle(heading).color;
+                }""")
+                await page.screenshot(
+                    path=str(screenshots / f"{theme}-{tab.replace(' ', '-')}.png"), full_page=True
+                )
+                if theme == "dark":
+                    for locator in (
+                        [page.get_by_role("banner"), page.locator("table tbody tr").first]
+                        if tab != "API Endpoints"
+                        else [page.get_by_role("banner")]
+                    ):
+                        assert await locator.evaluate(
+                            "element => getComputedStyle(element).backgroundColor"
+                        ) not in ["rgb(255, 255, 255)", "rgb(248, 250, 252)"]
+                if tab == "Teams":
+                    buttons = ["Add Team"]
+                elif tab == "Advisors":
+                    buttons = ["Add Faculty Mentor", "Add External Reviewer"]
+                else:
+                    buttons = []
+                for button in buttons:
+                    await page.get_by_role("button", name=button, exact=True).click()
+                    dialog = page.get_by_role("dialog")
+                    await expect(dialog).to_be_visible()
+                    if theme == "dark":
+                        assert (
+                            await dialog.evaluate(
+                                "element => getComputedStyle(element).backgroundColor"
+                            )
+                            == "rgb(0, 0, 0)"
+                        )
+                    await page.screenshot(
+                        path=str(screenshots / f"{theme}-{button.replace(' ', '-')}.png"),
+                        full_page=True,
+                        animations="disabled",
+                    )
+                    await page.keyboard.press("Escape")
+                    await expect(dialog).to_have_count(0)
+        await page.reload()
+        await expect(page.locator("html")).to_have_class("dark")
+        await expect(
+            page.get_by_role("heading", name="Admin Control Center", exact=True)
+        ).to_be_visible()
+        await page.get_by_role("button", name="Switch to light mode", exact=True).click()
+        await expect(page.locator("html")).not_to_have_class("dark")
+    finally:
+        await context.close()

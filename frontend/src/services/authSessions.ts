@@ -53,7 +53,7 @@ export async function getSession(sessionId: string): Promise<SessionDocument> {
   return apiRequest<SessionDocument>(`/sessions/${sessionId}`);
 }
 
-export async function getActiveSession(studentId: string): Promise<SessionDocument> {
+export async function getActiveSession(studentId: string): Promise<SessionDocument | null> {
   return apiRequest<SessionDocument>(`/sessions/user/${studentId}/session`);
 }
 

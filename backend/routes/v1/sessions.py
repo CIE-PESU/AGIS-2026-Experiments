@@ -186,7 +186,7 @@ async def get_session(
     "/user/{student_id}/session",
     status_code=status.HTTP_200_OK,
     summary="Get active session by student ID",
-    description=("Returns the active (non-archived) session for the student. "),
+    description=("Returns the active (non-archived) session, or null when none exists."),
 )
 async def get_active_session_by_user(
     request: Request,
@@ -206,9 +206,7 @@ async def get_active_session_by_user(
         session = await session_repo.find_active_by_student(student_id)
 
     if not session:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="No active session found for user."
-        )
+        return success_response(data=None, request=request)
 
     # Apply the same ownership/team checks as the session-detail endpoint.
     # Looking up an active session must not bypass mentor scoping.

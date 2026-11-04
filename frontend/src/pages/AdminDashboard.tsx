@@ -370,7 +370,7 @@ export function AdminDashboard() {
   return (
     <RequireRole role="admin">
       <div className="min-h-screen bg-muted/50">
-        <header className="border-b bg-white">
+        <header className="border-b bg-card">
           <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between px-4">
             <Logos to="/admin" />
             <div className="flex items-center gap-4">
@@ -404,7 +404,7 @@ export function AdminDashboard() {
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Mentors</p>
                   <p className="mt-2 text-3xl font-bold text-primary">{stats.totalMentors}</p>
                 </div>
-                <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
+                <div className="p-2 bg-blue-50 dark:bg-blue-500/15 rounded-lg text-blue-600 dark:text-blue-400">
                   <UserCheck className="h-6 w-6" />
                 </div>
               </CardContent>
@@ -415,7 +415,7 @@ export function AdminDashboard() {
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Teams</p>
                   <p className="mt-2 text-3xl font-bold text-primary">{stats.totalTeams}</p>
                 </div>
-                <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
+                <div className="p-2 bg-purple-50 dark:bg-purple-500/15 rounded-lg text-purple-600 dark:text-purple-400">
                   <Layers className="h-6 w-6" />
                 </div>
               </CardContent>
@@ -426,7 +426,7 @@ export function AdminDashboard() {
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Students</p>
                   <p className="mt-2 text-3xl font-bold text-primary">{stats.totalStudents}</p>
                 </div>
-                <div className="p-2 bg-green-50 rounded-lg text-green-600">
+                <div className="p-2 bg-green-50 dark:bg-green-500/15 rounded-lg text-green-600 dark:text-green-400">
                   <Users className="h-6 w-6" />
                 </div>
               </CardContent>
@@ -437,7 +437,7 @@ export function AdminDashboard() {
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">TIPSC Complete</p>
                   <p className="mt-2 text-3xl font-bold text-primary">{stats.tipsComplete}</p>
                 </div>
-                <div className="p-2 bg-amber-50 rounded-lg text-amber-600">
+                <div className="p-2 bg-amber-50 dark:bg-amber-500/15 rounded-lg text-amber-600 dark:text-amber-400">
                   <BookOpen className="h-6 w-6" />
                 </div>
               </CardContent>
@@ -448,7 +448,7 @@ export function AdminDashboard() {
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">DFV Complete</p>
                   <p className="mt-2 text-3xl font-bold text-primary">{stats.dfvComplete}</p>
                 </div>
-                <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600">
+                <div className="p-2 bg-emerald-50 dark:bg-emerald-500/15 rounded-lg text-emerald-600 dark:text-emerald-400">
                   <ShieldAlert className="h-6 w-6" />
                 </div>
               </CardContent>
@@ -494,7 +494,7 @@ export function AdminDashboard() {
                     <tbody>
                       {mappedTeams.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="p-8 text-center text-muted-foreground italic bg-white">
+                          <td colSpan={5} className="p-8 text-center text-muted-foreground italic bg-card">
                             No teams created yet. Click "Add Team" to create one.
                           </td>
                         </tr>
@@ -503,13 +503,13 @@ export function AdminDashboard() {
                           const tipsCount = t.members.filter(s => hasCompletedStage(s, "tipsc")).length;
                           const dfvCount = t.members.filter(s => hasCompletedStage(s, "dfv")).length;
                           return (
-                            <tr key={t.id} className="border-t bg-white hover:bg-slate-50/50">
+                            <tr key={t.id} className="border-t bg-card hover:bg-muted/50">
                               <td className="p-4 font-semibold text-primary">{t.name}</td>
                               <td className="p-4">
                                 {t.mentorName === "Unassigned" ? (
-                                  <span className="text-muted-foreground italic text-xs bg-slate-100 px-2 py-1 rounded">Unassigned</span>
+                                  <span className="text-muted-foreground italic text-xs bg-muted px-2 py-1 rounded">Unassigned</span>
                                 ) : (
-                                  <span className="font-medium text-slate-700 bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs">{t.mentorName}</span>
+                                  <span className="font-medium text-foreground bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300 px-2 py-1 rounded text-xs">{t.mentorName}</span>
                                 )}
                               </td>
                               <td className="p-4">
@@ -518,7 +518,7 @@ export function AdminDashboard() {
                                 ) : (
                                   <div className="flex flex-wrap gap-1 max-w-sm">
                                     {t.members.map(m => (
-                                      <span key={m.srn} className="bg-slate-100 border text-slate-700 text-xs px-2 py-0.5 rounded" title={m.srn}>
+                                      <span key={m.srn} className="bg-muted border text-foreground text-xs px-2 py-0.5 rounded" title={m.srn}>
                                         {m.name}
                                       </span>
                                     ))}
@@ -527,8 +527,8 @@ export function AdminDashboard() {
                               </td>
                               <td className="p-4 text-center">
                                 <span className="inline-flex gap-3 text-xs">
-                                  <span>TIPSC: <strong className="text-emerald-700">{tipsCount}/{t.members.length}</strong></span>
-                                  <span>DFV: <strong className="text-indigo-700">{dfvCount}/{t.members.length}</strong></span>
+                                  <span>TIPSC: <strong className="text-emerald-700 dark:text-emerald-300">{tipsCount}/{t.members.length}</strong></span>
+                                  <span>DFV: <strong className="text-indigo-700 dark:text-indigo-300">{dfvCount}/{t.members.length}</strong></span>
                                 </span>
                               </td>
                               <td className="p-4 text-right">
@@ -558,7 +558,7 @@ export function AdminDashboard() {
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-primary">Advisors List</h2>
                 <div className="flex gap-2">
-                  <Button onClick={openAddFacultyMentorDialog} variant="outline" className="flex items-center gap-1 text-indigo-700 border-indigo-200 hover:bg-indigo-50">
+                  <Button onClick={openAddFacultyMentorDialog} variant="outline" className="flex items-center gap-1 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-500/30 hover:bg-indigo-50 dark:hover:bg-indigo-500/20">
                     <UserCheck className="h-4 w-4" /> Add Faculty Mentor
                   </Button>
                   <Button onClick={openAddExternalReviewerDialog} variant="secondary" className="flex items-center gap-1">
@@ -583,7 +583,7 @@ export function AdminDashboard() {
                     <tbody>
                       {mentors.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="p-8 text-center text-muted-foreground italic bg-white">
+                          <td colSpan={6} className="p-8 text-center text-muted-foreground italic bg-card">
                             No advisors added yet. Click "Add Faculty Mentor" or "Add External Reviewer" to invite one.
                           </td>
                         </tr>
@@ -595,15 +595,15 @@ export function AdminDashboard() {
                           const hasCachedToken = ws ? !!magicTokens[ws.workspace_id] : false;
 
                           return (
-                            <tr key={m.id} className="border-t bg-white hover:bg-slate-50/50">
+                            <tr key={m.id} className="border-t bg-card hover:bg-muted/50">
                               <td className="p-4 font-semibold text-primary">{m.name}</td>
                               <td className="p-4">
                                 {isExternal ? (
-                                  <span className="inline-flex items-center gap-1 font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded text-xs">
+                                  <span className="inline-flex items-center gap-1 font-semibold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 px-2 py-0.5 rounded text-xs">
                                     External Reviewer
                                   </span>
                                 ) : (
-                                  <span className="inline-flex items-center gap-1 font-semibold text-indigo-800 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded text-xs">
+                                  <span className="inline-flex items-center gap-1 font-semibold text-indigo-800 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-500/15 border border-indigo-200 dark:border-indigo-500/30 px-2 py-0.5 rounded text-xs">
                                     Faculty Mentor
                                   </span>
                                 )}
@@ -619,7 +619,7 @@ export function AdminDashboard() {
                                 ) : (
                                   <div className="flex flex-wrap gap-1 max-w-sm">
                                     {supervised.map(name => (
-                                      <span key={name} className="bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs px-2 py-0.5 rounded">
+                                      <span key={name} className="bg-indigo-50 dark:bg-indigo-500/15 border border-indigo-100 dark:border-indigo-500/30 text-indigo-700 dark:text-indigo-300 text-xs px-2 py-0.5 rounded">
                                         {name}
                                       </span>
                                     ))}
@@ -628,9 +628,9 @@ export function AdminDashboard() {
                               </td>
                               <td className="p-4">
                                 {!ws ? (
-                                  <span className="text-muted-foreground italic text-xs bg-slate-100 px-2 py-1 rounded">No Link Issued</span>
+                                  <span className="text-muted-foreground italic text-xs bg-muted px-2 py-1 rounded">No Link Issued</span>
                                 ) : ws.status === "active" ? (
-                                  <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded text-xs">
+                                  <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/30 px-2 py-1 rounded text-xs">
                                     <CheckCircle2 className="h-3 w-3" /> Access Ready
                                   </span>
                                 ) : (
@@ -646,7 +646,7 @@ export function AdminDashboard() {
                                       onClick={() => handleGenerateWorkspace(m.name, m.id)}
                                       variant="outline"
                                       size="sm"
-                                      className="h-8 text-xs text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                                      className="h-8 text-xs text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-500/30 hover:bg-indigo-50 dark:hover:bg-indigo-500/20"
                                     >
                                       <Link2 className="h-3.5 w-3.5 mr-1" /> Generate Link
                                     </Button>
@@ -657,7 +657,7 @@ export function AdminDashboard() {
                                         disabled={!hasCachedToken}
                                         variant="outline"
                                         size="sm"
-                                        className="h-8 text-xs text-slate-700"
+                                        className="h-8 text-xs text-foreground"
                                         title={hasCachedToken ? "Copy Magic Link" : "Regenerate link to enable direct copy"}
                                       >
                                         <Copy className="h-3.5 w-3.5 mr-1" /> Copy Link
@@ -666,7 +666,7 @@ export function AdminDashboard() {
                                         onClick={() => handleRegenerateWorkspace(ws.workspace_id, m.name, m.id)}
                                         variant="outline"
                                         size="sm"
-                                        className="h-8 text-xs text-amber-700 border-amber-200 hover:bg-amber-50"
+                                        className="h-8 text-xs text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/30 hover:bg-amber-50 dark:hover:bg-amber-500/20"
                                       >
                                         <RefreshCw className="h-3.5 w-3.5 mr-1" /> Regenerate
                                       </Button>
@@ -684,7 +684,7 @@ export function AdminDashboard() {
                                       onClick={() => handleGenerateWorkspace(m.name, m.id)}
                                       variant="outline"
                                       size="sm"
-                                      className="h-8 text-xs text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                                      className="h-8 text-xs text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-500/30 hover:bg-indigo-50 dark:hover:bg-indigo-500/20"
                                     >
                                       <RefreshCw className="h-3.5 w-3.5 mr-1" /> Regenerate
                                     </Button>
@@ -721,7 +721,7 @@ export function AdminDashboard() {
                   <Card key={endpoint}>
                     <CardContent className="p-5">
                       <p className="font-bold text-primary">{title}</p>
-                      <p className="mt-2 text-sm text-muted-foreground bg-slate-50 border p-2 rounded font-mono select-all">
+                      <p className="mt-2 text-sm text-muted-foreground bg-muted border p-2 rounded font-mono select-all">
                         {endpoint}
                       </p>
                     </CardContent>
@@ -744,7 +744,7 @@ export function AdminDashboard() {
             <div className="space-y-4 my-2">
               {/* Field: Team Name */}
               <div>
-                <label className="block text-sm font-semibold mb-1 text-slate-700">Team Name</label>
+                <label className="block text-sm font-semibold mb-1 text-foreground">Team Name</label>
                 <Input
                   value={dialogTeamName}
                   onChange={e => setDialogTeamName(e.target.value)}
@@ -754,7 +754,7 @@ export function AdminDashboard() {
 
               {/* Field: Mentor Allocation */}
               <div>
-                <label className="block text-sm font-semibold mb-1 text-slate-700">Allocate Mentor</label>
+                <label className="block text-sm font-semibold mb-1 text-foreground">Allocate Mentor</label>
                 <select
                   value={dialogMentorId}
                   onChange={e => setDialogMentorId(e.target.value)}
@@ -772,7 +772,7 @@ export function AdminDashboard() {
               </div>
 
               {/* Field: Teammates */}
-              <div className="border rounded-lg p-4 bg-slate-50/50">
+              <div className="border rounded-lg p-4 bg-muted/50">
                 <h3 className="font-bold text-sm text-primary uppercase tracking-wider mb-2">Team Members</h3>
 
                 {/* Current Members */}
@@ -781,9 +781,9 @@ export function AdminDashboard() {
                     <p className="text-xs text-muted-foreground italic">No members assigned to this team.</p>
                   ) : (
                     dialogTeamMembers.map(m => (
-                      <div key={m.srn} className="flex justify-between items-center bg-white p-2 rounded border border-slate-200 text-xs">
+                      <div key={m.srn} className="flex justify-between items-center bg-card p-2 rounded border border-border text-xs">
                         <div>
-                          <span className="font-semibold text-slate-800">{m.name}</span>
+                          <span className="font-semibold text-foreground">{m.name}</span>
                           <span className="text-muted-foreground ml-2">({m.srn})</span>
                         </div>
                         <Button
@@ -802,7 +802,7 @@ export function AdminDashboard() {
                 {/* Add Member Pool */}
                 <div className="flex gap-2 items-end pt-3 border-t">
                   <div className="flex-1">
-                    <label className="block text-xs font-semibold mb-1 text-slate-600">Add Available Student</label>
+                    <label className="block text-xs font-semibold mb-1 text-muted-foreground">Add Available Student</label>
                     <select
                       value={selectedStudentSRN}
                       onChange={e => setSelectedStudentSRN(e.target.value)}
@@ -856,7 +856,7 @@ export function AdminDashboard() {
 
             <div className="space-y-4 my-2">
               <div>
-                <label className="block text-sm font-semibold mb-1 text-slate-700">Full Name</label>
+                <label className="block text-sm font-semibold mb-1 text-foreground">Full Name</label>
                 <Input
                   value={dialogMentorName}
                   onChange={e => setDialogMentorName(e.target.value)}
@@ -867,7 +867,7 @@ export function AdminDashboard() {
               {advisorModalType === "faculty" && isAddMentorMode && (
                 <>
                   <div>
-                    <label className="block text-sm font-semibold mb-1 text-slate-700">Email Address</label>
+                    <label className="block text-sm font-semibold mb-1 text-foreground">Email Address</label>
                     <Input
                       type="email"
                       value={dialogMentorEmail}
@@ -876,7 +876,7 @@ export function AdminDashboard() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold mb-1 text-slate-700">Password</label>
+                    <label className="block text-sm font-semibold mb-1 text-foreground">Password</label>
                     <Input
                       type="password"
                       value={dialogMentorPassword}
@@ -891,7 +891,7 @@ export function AdminDashboard() {
               {advisorModalType === "external" && isAddMentorMode && (
                 <>
                   <div>
-                    <label className="block text-sm font-semibold mb-1 text-slate-700">Organisation / Affiliation</label>
+                    <label className="block text-sm font-semibold mb-1 text-foreground">Organisation / Affiliation</label>
                     <Input
                       value={dialogMentorOrganisation}
                       onChange={e => setDialogMentorOrganisation(e.target.value)}
@@ -899,14 +899,14 @@ export function AdminDashboard() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold mb-1 text-slate-700">Title / Role (Optional)</label>
+                    <label className="block text-sm font-semibold mb-1 text-foreground">Title / Role (Optional)</label>
                     <Input
                       value={dialogMentorRoleTitle}
                       onChange={e => setDialogMentorRoleTitle(e.target.value)}
                       placeholder="e.g. Partner / Startup Coach"
                     />
                   </div>
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900">
+                  <div className="p-3 bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 rounded-lg text-xs text-amber-900 dark:text-amber-300">
                     <strong>Note:</strong> External reviewers receive an isolated Access Link. No login password or institutional credentials required.
                   </div>
                 </>
@@ -914,13 +914,13 @@ export function AdminDashboard() {
 
               {!isAddMentorMode && editingMentor && (
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs font-semibold text-slate-500">Advisor Type:</span>
+                  <span className="text-xs font-semibold text-muted-foreground">Advisor Type:</span>
                   {advisorModalType === "external" ? (
-                    <span className="inline-flex items-center gap-1 font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded text-xs">
+                    <span className="inline-flex items-center gap-1 font-semibold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 px-2 py-0.5 rounded text-xs">
                       External Reviewer (Type Locked)
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 font-semibold text-indigo-800 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded text-xs">
+                    <span className="inline-flex items-center gap-1 font-semibold text-indigo-800 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-500/15 border border-indigo-200 dark:border-indigo-500/30 px-2 py-0.5 rounded text-xs">
                       Faculty Mentor (Type Locked)
                     </span>
                   )}
@@ -933,13 +933,13 @@ export function AdminDashboard() {
                 const magicUrl = rawToken ? `${window.location.origin}/workspace/${rawToken}` : null;
 
                 return (
-                  <div className="border rounded-lg p-4 bg-slate-50 border-slate-200 mt-4 space-y-3">
+                  <div className="border rounded-lg p-4 bg-muted border-border mt-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <h3 className="font-bold text-xs text-primary uppercase tracking-wider">Access Capability</h3>
                       {!ws ? (
                         <span className="text-muted-foreground italic text-xs">No Link Issued</span>
                       ) : ws.status === "active" ? (
-                        <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded text-xs">
+                        <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-500/15 px-2 py-0.5 rounded text-xs">
                           <CheckCircle2 className="h-3 w-3" /> Access Ready
                         </span>
                       ) : (
@@ -957,7 +957,7 @@ export function AdminDashboard() {
                           onClick={() => handleGenerateWorkspace(editingMentor.name, editingMentor.id)}
                           variant="outline"
                           size="sm"
-                          className="w-full text-xs text-indigo-600 border-indigo-200 bg-white hover:bg-indigo-50"
+                          className="w-full text-xs text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-500/30 bg-card hover:bg-indigo-50 dark:hover:bg-indigo-500/20"
                         >
                           <Link2 className="h-3.5 w-3.5 mr-1" /> Generate Access Link
                         </Button>
@@ -966,12 +966,12 @@ export function AdminDashboard() {
                       <div className="space-y-2">
                         {magicUrl ? (
                           <div>
-                            <label className="block text-xs font-semibold mb-1 text-slate-600">Access Magic URL</label>
+                            <label className="block text-xs font-semibold mb-1 text-muted-foreground">Access Magic URL</label>
                             <div className="flex gap-1.5">
                               <Input
                                 readOnly
                                 value={magicUrl}
-                                className="text-xs bg-white font-mono h-8 select-all"
+                                className="text-xs bg-card font-mono h-8 select-all"
                               />
                               <Button
                                 type="button"
@@ -985,18 +985,18 @@ export function AdminDashboard() {
                             </div>
                           </div>
                         ) : (
-                          <p className="text-xs text-slate-500 italic bg-amber-50 p-2 rounded border border-amber-200">
+                          <p className="text-xs text-muted-foreground italic bg-amber-50 dark:bg-amber-500/15 p-2 rounded border border-amber-200 dark:border-amber-500/30">
                             Access Link is Active. Regenerate link to retrieve a copyable URL.
                           </p>
                         )}
 
-                        <div className="flex gap-2 pt-2 border-t border-slate-200">
+                        <div className="flex gap-2 pt-2 border-t border-border">
                           <Button
                             type="button"
                             onClick={() => handleRegenerateWorkspace(ws.workspace_id, editingMentor.name, editingMentor.id)}
                             variant="outline"
                             size="sm"
-                            className="flex-1 text-xs text-amber-700 border-amber-200 bg-white hover:bg-amber-50 h-8"
+                            className="flex-1 text-xs text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/30 bg-card hover:bg-amber-50 dark:hover:bg-amber-500/20 h-8"
                           >
                             <RefreshCw className="h-3.5 w-3.5 mr-1" /> Regenerate
                           </Button>
@@ -1005,7 +1005,7 @@ export function AdminDashboard() {
                             onClick={() => handleRevokeWorkspace(ws.workspace_id, editingMentor.name)}
                             variant="outline"
                             size="sm"
-                            className="flex-1 text-xs text-destructive border-red-200 bg-white hover:bg-red-50 h-8"
+                            className="flex-1 text-xs text-destructive border-red-200 dark:border-red-500/30 bg-card hover:bg-red-50 dark:hover:bg-red-500/20 h-8"
                           >
                             <Ban className="h-3.5 w-3.5 mr-1" /> Revoke
                           </Button>
@@ -1019,7 +1019,7 @@ export function AdminDashboard() {
                           onClick={() => handleGenerateWorkspace(editingMentor.name, editingMentor.id)}
                           variant="outline"
                           size="sm"
-                          className="w-full text-xs text-indigo-600 border-indigo-200 bg-white hover:bg-indigo-50 h-8"
+                          className="w-full text-xs text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-500/30 bg-card hover:bg-indigo-50 dark:hover:bg-indigo-500/20 h-8"
                         >
                           <RefreshCw className="h-3.5 w-3.5 mr-1" /> Regenerate Active Link
                         </Button>
