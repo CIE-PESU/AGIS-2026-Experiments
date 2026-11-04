@@ -15,6 +15,7 @@ from fastapi import APIRouter, Body, Depends, Request, status
 from quickstart_agent.models import QuickstartInput, QuickstartOutput
 
 from core.constants import UserRole
+from core.provider_errors import provider_failure
 from dependencies.auth import require_role
 from schemas.auth import CurrentUser
 from utils.response import success_response
@@ -34,7 +35,7 @@ async def run_quickstart_agent(input_data: QuickstartInput) -> QuickstartOutput:
 
         return await run_quickstart_eval_async(input_data)
     except Exception as e:
-        logger.error(f"Quickstart agent failed: {e}")
+        logger.error("Quickstart agent failed: %s", type(e).__name__)
         raise RuntimeError(f"Quickstart evaluation failed: {e}") from e
 
 
@@ -47,7 +48,7 @@ async def evaluate_quickstart(
     request: Request,
     current_user: Annotated[
         CurrentUser,
-        Depends(require_role(UserRole.STUDENT, UserRole.MENTOR_WORKSPACE, UserRole.ADMIN)),
+        Depends(require_role(UserRole.STUDENT, UserRole.MENTOR_WORKSPACE)),
     ],
     input_data: QuickstartInput = Body(...),
 ):
@@ -68,9 +69,8 @@ async def evaluate_quickstart(
     except TimeoutError as exc:
         raise HTTPException(504, "Quickstart evaluation timed out. Please retry.") from exc
     except Exception as exc:
-        logger.error("Quickstart did not produce a validated result: %s", type(exc).__name__)
-        raise HTTPException(
-            502,
-            "The AI provider did not return a valid evaluation. Check its availability and model configuration; no new result was created.",
-        ) from exc
+        code, detail = provider_failure(exc)
+        cause = exc.__cause__ or exc
+        logger.error("Quickstart failed: %s (HTTP %s)", type(cause).__name__, code)
+        raise HTTPException(code, detail) from exc
     return success_response(data=result, request=request)

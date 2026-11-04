@@ -33,24 +33,24 @@ const CANONICAL_STAGE_MAP: Record<
   tipsc_failed: { tipsc: "failed", dfv: "locked", discovery: "locked", pmf: "locked", quickstart: "available" },
 
   // TIPSC Complete & DFV Pipeline
-  tipsc_completed: { tipsc: "completed", dfv: "available", discovery: "locked", pmf: "locked", quickstart: "completed" },
-  dfv_waiting: { tipsc: "completed", dfv: "in_progress", discovery: "locked", pmf: "locked", quickstart: "completed" },
-  dfv_running: { tipsc: "completed", dfv: "in_progress", discovery: "locked", pmf: "locked", quickstart: "completed" },
-  dfv_failed: { tipsc: "completed", dfv: "failed", discovery: "locked", pmf: "locked", quickstart: "completed" },
+  tipsc_completed: { tipsc: "completed", dfv: "available", discovery: "locked", pmf: "locked", quickstart: "available" },
+  dfv_waiting: { tipsc: "completed", dfv: "in_progress", discovery: "locked", pmf: "locked", quickstart: "available" },
+  dfv_running: { tipsc: "completed", dfv: "in_progress", discovery: "locked", pmf: "locked", quickstart: "available" },
+  dfv_failed: { tipsc: "completed", dfv: "failed", discovery: "locked", pmf: "locked", quickstart: "available" },
 
   // DFV Complete & Discovery Pipeline
-  dfv_completed: { tipsc: "completed", dfv: "completed", discovery: "available", pmf: "locked", quickstart: "completed" },
-  discovery_waiting: { tipsc: "completed", dfv: "completed", discovery: "in_progress", pmf: "locked", quickstart: "completed" },
-  discovery_running: { tipsc: "completed", dfv: "completed", discovery: "in_progress", pmf: "locked", quickstart: "completed" },
-  discovery_failed: { tipsc: "completed", dfv: "completed", discovery: "failed", pmf: "locked", quickstart: "completed" },
+  dfv_completed: { tipsc: "completed", dfv: "completed", discovery: "available", pmf: "locked", quickstart: "available" },
+  discovery_waiting: { tipsc: "completed", dfv: "completed", discovery: "in_progress", pmf: "locked", quickstart: "available" },
+  discovery_running: { tipsc: "completed", dfv: "completed", discovery: "in_progress", pmf: "locked", quickstart: "available" },
+  discovery_failed: { tipsc: "completed", dfv: "completed", discovery: "failed", pmf: "locked", quickstart: "available" },
 
-  pmf_waiting: { tipsc: "completed", dfv: "completed", discovery: "completed", pmf: "in_progress", quickstart: "completed" },
-  pmf_running: { tipsc: "completed", dfv: "completed", discovery: "completed", pmf: "in_progress", quickstart: "completed" },
-  pmf_completed: { tipsc: "completed", dfv: "completed", discovery: "completed", pmf: "completed", quickstart: "completed" },
-  pmf_failed: { tipsc: "completed", dfv: "completed", discovery: "completed", pmf: "failed", quickstart: "completed" },
+  pmf_waiting: { tipsc: "completed", dfv: "completed", discovery: "completed", pmf: "in_progress", quickstart: "available" },
+  pmf_running: { tipsc: "completed", dfv: "completed", discovery: "completed", pmf: "in_progress", quickstart: "available" },
+  pmf_completed: { tipsc: "completed", dfv: "completed", discovery: "completed", pmf: "completed", quickstart: "available" },
+  pmf_failed: { tipsc: "completed", dfv: "completed", discovery: "completed", pmf: "failed", quickstart: "available" },
 
   // Terminal & Global states
-  completed: { tipsc: "completed", dfv: "completed", discovery: "completed", pmf: "available", quickstart: "completed" },
+  completed: { tipsc: "completed", dfv: "completed", discovery: "completed", pmf: "available", quickstart: "available" },
   failed: { tipsc: "failed", dfv: "locked", discovery: "locked", pmf: "locked", quickstart: "available" },
   archived: { tipsc: "available", dfv: "locked", discovery: "locked", pmf: "locked", quickstart: "available" }
 };
@@ -108,15 +108,19 @@ export function deriveCanonicalStageAccess(doc: any | null): SessionStageAccess 
   }
 
   let discoveryState = mapped.discovery;
-  if (mapped.dfv === "completed" && dfvDecision === "NO-GO" && status !== "completed") {
+  if (status === "dfv_completed" && dfvDecision !== "GO") {
     discoveryState = "locked";
   }
+
+  const discoveryReport = doc.discovery;
+  const discoveryDone = ["done", "completed"].includes(discoveryReport?.status) && Boolean(discoveryReport?.output);
+  const pmfState = mapped.pmf === "available" && !discoveryDone ? "locked" : mapped.pmf;
 
   return {
     tipsc: mapped.tipsc,
     dfv: dfvState,
     discovery: discoveryState,
-    pmf: mapped.pmf,
+    pmf: pmfState,
     quickstart: mapped.quickstart,
     dfvDecision
   };
@@ -151,4 +155,9 @@ export function isFlowRunning(status: SessionStatus | null) {
     status === "discovery_waiting" ||
     status === "pmf_waiting"
   );
+}
+
+/** A completed evaluation can have an unfavorable result. */
+export function hasCompletedStage(doc: any, stage: "tipsc" | "dfv") {
+  return ["completed", "GO", "NO-GO"].includes(deriveCanonicalStageAccess(doc)[stage]);
 }

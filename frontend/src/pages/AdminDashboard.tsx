@@ -1,3 +1,4 @@
+import { hasCompletedStage } from "@/utils/sessionStatus";
 import { apiFetch } from "@/services/apiClient";
 import { useState, useMemo, useEffect } from "react";
 import { Navigate } from "react-router-dom";
@@ -140,8 +141,8 @@ export function AdminDashboard() {
     const totalMentors = mentors.length;
     const totalTeams = teams.length;
     const totalStudents = students.length;
-    const tipsComplete = students.filter(s => Object.keys(s.tips).length > 0 && Object.values(s.tips).every(t => t.status === "green")).length;
-    const dfvComplete = students.filter(s => s.dfv !== "Pending").length;
+    const tipsComplete = students.filter(s => hasCompletedStage(s, "tipsc")).length;
+    const dfvComplete = students.filter(s => hasCompletedStage(s, "dfv")).length;
     return { totalMentors, totalTeams, totalStudents, tipsComplete, dfvComplete };
   }, [mentors, teams, students]);
 
@@ -499,8 +500,8 @@ export function AdminDashboard() {
                         </tr>
                       ) : (
                         mappedTeams.map(t => {
-                          const tipsCount = t.members.filter(s => Object.keys(s.tips).length > 0 && Object.values(s.tips).every(x => x.status === "green")).length;
-                          const dfvCount = t.members.filter(s => s.dfv !== "Pending").length;
+                          const tipsCount = t.members.filter(s => hasCompletedStage(s, "tipsc")).length;
+                          const dfvCount = t.members.filter(s => hasCompletedStage(s, "dfv")).length;
                           return (
                             <tr key={t.id} className="border-t bg-white hover:bg-slate-50/50">
                               <td className="p-4 font-semibold text-primary">{t.name}</td>

@@ -35,6 +35,24 @@
       "srn": "MENTOR3",
       "name": "Mentor 3",
       "role": "mentor"
+    },
+    {
+      "id": "6aeb04503707c90c53f15447",
+      "srn": "STUDENT1",
+      "name": "Student 1",
+      "role": "student"
+    },
+    {
+      "id": "6aeb04503707c90c53f15449",
+      "srn": "STUDENT2",
+      "name": "Student 2",
+      "role": "student"
+    },
+    {
+      "id": "6aeb04503707c90c53f1544b",
+      "srn": "STUDENT3",
+      "name": "Student 3",
+      "role": "student"
     }
   ],
   "teams": []

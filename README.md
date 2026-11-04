@@ -31,7 +31,7 @@ python dev.py
 docker compose -f backend/docker-compose.yml down
 ```
 
-Backend startup automatically creates this branch's six shared accounts when they are missing. Existing accounts, passwords, and team assignments are preserved. `down` preserves database volumes.
+Backend startup automatically creates this branch's nine shared accounts when they are missing. Existing accounts, passwords, and team assignments are preserved. `down` preserves database volumes.
 
 | Username (SRN field) | Password | Role |
 | --- | --- | --- |
@@ -41,6 +41,9 @@ Backend startup automatically creates this branch's six shared accounts when the
 | mentor1 | mosasaur1 | Mentor |
 | mentor2 | mosasaur2 | Mentor |
 | mentor3 | mosasaur3 | Mentor |
+| student1 | stegosaur1 | Student |
+| student2 | stegosaur2 | Student |
+| student3 | stegosaur3 | Student |
 
 The bundled password hashes live in `backend/scripts/branch_accounts.json`. These shared logins are available to everyone with this branch.
 

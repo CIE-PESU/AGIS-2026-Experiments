@@ -90,6 +90,9 @@ def test_archive_allowed_from_non_running_non_archived_states():
         SessionStatus.DFV_COMPLETED,
         SessionStatus.DFV_FAILED,
         SessionStatus.DISCOVERY_FAILED,
+        SessionStatus.COMPLETED,
+        SessionStatus.PMF_COMPLETED,
+        SessionStatus.PMF_FAILED,
         SessionStatus.FAILED,
     ]
     for state in archivable:

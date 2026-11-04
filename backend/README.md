@@ -4,7 +4,7 @@ From the repository root, activate `.venv`, run `docker compose -f backend/docke
 
 The active application is `backend/main.py`; from `backend/` with the root environment activated, use `python -m uvicorn main:app --host 127.0.0.1 --port 8008`. The duplicate `backend/app/` implementation has been removed.
 
-Create an initial administrator with `python scripts/bootstrap_admin.py`. The password is prompted and stored as a salted scrypt hash. There are no built-in passwords and no development authentication bypass.
+Backend startup provisions nine shared student, mentor, and admin accounts with salted scrypt hashes. See the [root README](../README.md) for logins. `python scripts/bootstrap_admin.py` remains available to create an additional administrator with a prompted password. Authentication is enforced for all accounts.
 
 Do not share Fernet keys or commit account exports. `backend/scripts/seed_data.json` is an empty fixture. Optional sanitized exports require an explicit private `AGIS_EXPORT_PATH` outside the repository.
 

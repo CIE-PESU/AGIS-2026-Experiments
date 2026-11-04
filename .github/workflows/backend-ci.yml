@@ -91,6 +91,6 @@ jobs:
       - run: npm ci --prefix frontend
       - run: uv run --locked playwright install --with-deps chromium
       - run: docker compose -p agis-tests -f backend/docker-compose.test.yml up -d --wait
-      - run: AGIS_INTEGRATION=1 uv run --locked pytest -m integration
+      - run: AGIS_INTEGRATION=1 AGIS_AUTH_BROWSER=1 uv run --locked pytest -m integration
       - if: always()
         run: docker compose -p agis-tests -f backend/docker-compose.test.yml down -v

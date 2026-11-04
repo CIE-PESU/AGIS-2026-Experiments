@@ -92,6 +92,7 @@ export function QuickstartFlow() {
 
   if (!user) return <Navigate to="/login?redirect=/quickstart" replace />;
   if (user.role === "mentor") return <Navigate to="/mentor" replace />;
+  if (user.role === "admin") return <Navigate to="/admin" replace />;
 
   if (session.quickstart === "locked") {
     return <Navigate to="/workspace" replace />;

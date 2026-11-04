@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field, field_validator
 # SRN regex pattern: PES<digit>UG<2 digits><2 uppercase letters><3 digits>
 # Examples: PES2UG22CS001, PES1UG23EC047
 _SRN_PATTERN = re.compile(r"^PES\dUG\d{2}[A-Z]{2}\d{3}$")
+_SHARED_LOGIN_PATTERN = re.compile(r"^(?:ADMIN|MENTOR|STUDENT)[1-3]$")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -33,7 +34,12 @@ class LoginRequest(BaseModel):
     @classmethod
     def validate_srn(cls, v: str) -> str:
         v = str(v).upper().strip()
-        if "@" in v or "ADMIN" in v or v in ("ASHWIN", "BHAVESH", "URAV"):
+        if (
+            _SHARED_LOGIN_PATTERN.fullmatch(v)
+            or "@" in v
+            or "ADMIN" in v
+            or v in ("ASHWIN", "BHAVESH", "URAV")
+        ):
             return v
         if not _SRN_PATTERN.match(v):
             raise ValueError(

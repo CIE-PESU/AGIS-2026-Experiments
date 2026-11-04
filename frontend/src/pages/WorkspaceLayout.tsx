@@ -114,7 +114,7 @@ return (
           <div className="flex items-center gap-3">
             <div className="hidden text-right text-xs sm:block">
               <p className="font-semibold">{user.name}</p>
-              <p className="text-muted-foreground">{user.srn}{user.teamId ? ` · ${user.teamId}` : ""}</p>
+              <p className="text-muted-foreground">{user.srn}</p>
             </div>
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary font-bold text-secondary-foreground">
               {user.name.charAt(0)}

@@ -41,13 +41,14 @@ from fastapi import (
 from fastapi.responses import StreamingResponse
 
 from core.constants import UserRole
+from core.flow_results import completed_flow_output
 from dependencies.auth import get_current_user, require_role
 from exceptions.base import ValidationException
 from models.session import Session
 from models.user import User
 from repositories.session_repo import session_repo
 from schemas.auth import CurrentUser
-from schemas.session import SessionCreateRequest, SessionResponse
+from schemas.session import SessionCreateRequest
 from services.session_service import session_service
 from state_machine.states import SessionStatus
 from utils.object_id import validate_object_id
@@ -209,7 +210,9 @@ async def get_active_session_by_user(
             status_code=status.HTTP_404_NOT_FOUND, detail="No active session found for user."
         )
 
-    response_obj = SessionResponse.from_document(session)
+    # Apply the same ownership/team checks as the session-detail endpoint.
+    # Looking up an active session must not bypass mentor scoping.
+    response_obj = await session_service.get_session(str(session.id), current_user)
     return success_response(data=response_obj.model_dump(), request=request)
 
 
@@ -264,19 +267,19 @@ async def get_team_progress(
             tips_rag = session.tipsc.tips_rag_scores
             tips_scores = {
                 "timely": {
-                    "status": tips_rag.T.lower() if tips_rag.T else "green",
+                    "status": tips_rag.T.lower() if tips_rag.T else "yellow",
                     "explanation": tips_rag.T_reason or "No explanation provided",
                 },
                 "importance": {
-                    "status": tips_rag.I.lower() if tips_rag.I else "green",
-                    "explanation": tips_rag.I_reason or "No explanation provided",
+                    "status": tips_rag.IMPORTANT.lower() if tips_rag.IMPORTANT else "yellow",
+                    "explanation": tips_rag.IMPORTANT_reason or "No explanation provided",
                 },
                 "profitable": {
-                    "status": tips_rag.P.lower() if tips_rag.P else "green",
+                    "status": tips_rag.P.lower() if tips_rag.P else "yellow",
                     "explanation": tips_rag.P_reason or "No explanation provided",
                 },
                 "solvable": {
-                    "status": tips_rag.S.lower() if tips_rag.S else "green",
+                    "status": tips_rag.S.lower() if tips_rag.S else "yellow",
                     "explanation": tips_rag.S_reason or "No explanation provided",
                 },
             }
@@ -305,47 +308,15 @@ async def get_team_progress(
         else:
             dfv_status = "Pending"
 
-        if session and session.dfv:
-            if isinstance(session.dfv, dict):
-                dfv_out = session.dfv.get("output") or session.dfv
-            else:
-                dfv_out = getattr(session.dfv, "output", None) or (
-                    session.dfv.model_dump() if hasattr(session.dfv, "model_dump") else {}
-                )
+        dfv_output = completed_flow_output(session.dfv) if session else None
+        if dfv_output:
+            dfv_status = (
+                dfv_output.get("decision")
+                or (dfv_output.get("final_decision") or {}).get("status")
+                or "Completed"
+            )
 
-            if isinstance(dfv_out, dict):
-                decision = dfv_out.get("decision")
-                if not decision:
-                    final_dec = dfv_out.get("final_decision")
-                    if isinstance(final_dec, dict):
-                        decision = final_dec.get("status")
-                    elif hasattr(final_dec, "status"):
-                        decision = getattr(final_dec, "status", None)
-                if not decision:
-                    decision = dfv_out.get("overall_recommendation") or dfv_out.get(
-                        "recommendation"
-                    )
-
-                if decision:
-                    dfv_status = str(decision)
-                else:
-                    dfv_status = "Completed"
-            elif session.dfv:
-                dfv_status = "Completed"
-        elif session and session.status in (
-            SessionStatus.DFV_COMPLETED,
-            SessionStatus.DISCOVERY_WAITING,
-            SessionStatus.DISCOVERY_RUNNING,
-            SessionStatus.DISCOVERY_FAILED,
-            SessionStatus.COMPLETED,
-        ):
-            if dfv_status in ("Pending", "Not Started"):
-                dfv_status = "Completed"
-
-        # Parse JTBD (Discovery) completed status
-        jtbd_completed = False
-        if session and (session.discovery or session.status == SessionStatus.COMPLETED):
-            jtbd_completed = True
+        jtbd_completed = bool(completed_flow_output(session.discovery)) if session else False
 
         # Parse last active
         last_active = "Never"

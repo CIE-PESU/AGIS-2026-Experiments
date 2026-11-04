@@ -8,6 +8,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, R
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pymongo.errors import DuplicateKeyError
 
+from core.flow_results import completed_flow_output
 from core.security import hash_password
 from core.sync import dump_seed_data
 from dependencies.auth import require_admin, require_mentor_or_admin
@@ -204,7 +205,7 @@ async def list_students(current_user: Annotated[CurrentUser, Depends(require_men
             s_dict["session_id"] = str(active_session.id)
             s_dict["status"] = active_session.status
             s_dict["last_active"] = active_session.updated_at.isoformat()
-            s_dict["discovery_completed"] = active_session.discovery is not None
+            s_dict["discovery_completed"] = bool(completed_flow_output(active_session.discovery))
             if active_session.tipsc:
                 s_dict["tips"] = active_session.tipsc.tips_rag_scores.model_dump()
                 s_dict["tipsc"] = {"ready_for_dfv": active_session.tipsc.ready_for_dfv}

@@ -161,6 +161,7 @@ ALLOWED_TRANSITIONS: dict[
     SessionStatus.COMPLETED: frozenset(
         {
             SessionStatus.DFV_WAITING,
+            SessionStatus.ARCHIVED,
         }
     ),
     SessionStatus.FAILED: frozenset(

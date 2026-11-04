@@ -34,5 +34,23 @@
     "name": "Mentor 3",
     "role": "mentor",
     "password_hash": "scrypt$2d+8aH/YdKjVQhMRWhflOQ==$W19dHxoeo+3WIZP9uPk+ZyDgkZ4H3TS0ZO6QYcxrC/ZNJJTWg0Xya7Ay9hlJ5prrdSle2hzrxnPhM9n2FBOWrQ=="
+  },
+  {
+    "srn": "STUDENT1",
+    "name": "Student 1",
+    "role": "student",
+    "password_hash": "scrypt$d1qiuBUsAqenFXtbk4SmnA==$F8qewQymD3ukDu2lC6DWBBnCW5vF+Kxqv0ltNiVHlD3s/ZvNbGglgq/77gw8qxQ8T0w2SMtZf6UAiGJYAjUF0w=="
+  },
+  {
+    "srn": "STUDENT2",
+    "name": "Student 2",
+    "role": "student",
+    "password_hash": "scrypt$MrYBMMLnIkg9FN6lIESNBg==$lFpNebQ/cIX+ucMb9M47vz6ZPaQw9YK6y52k6ID8rb49YzA1YO64qyzOKcuQJlfwHWjUWjxl/1L7pV30vnqUow=="
+  },
+  {
+    "srn": "STUDENT3",
+    "name": "Student 3",
+    "role": "student",
+    "password_hash": "scrypt$Du6Ajvlv+UNqeMF35PH1kw==$r9FHEHRBv7NBowtG5XTfMHNrZPqyoO8cdekFIpWN7bOqM66VVIV36jcITF6hzM7OIKtrY7KqoWxmVb+HZ65HtQ=="
   }
 ]

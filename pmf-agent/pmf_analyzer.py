@@ -10,7 +10,7 @@ from crewai import Agent, Crew, Process, Task
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
-load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+load_dotenv(Path(__file__).resolve().parents[1] / ".env", encoding="utf-8-sig")
 
 
 class MetricEvidence(BaseModel):

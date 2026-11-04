@@ -19,7 +19,7 @@ export function Login() {
   const [loading, setLoading] = useState(false);
 
   if (user) {
-    const destination = redirectTo || getRoleHome(user.role);
+    const destination = (user.role === "admin" || user.role === "mentor" ? null : redirectTo) || getRoleHome(user.role);
     return <Navigate to={destination} replace />;
   }
 
@@ -33,7 +33,7 @@ export function Login() {
     setLoading(true);
     try {
       const role = await login(srn, password);
-      const destination = redirectTo || getRoleHome(role);
+      const destination = (role === "admin" || role === "mentor" ? null : redirectTo) || getRoleHome(role);
       navigate(destination);
     } catch {
       setError("Login failed. Check your credentials and try again.");

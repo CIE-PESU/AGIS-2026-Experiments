@@ -106,12 +106,12 @@ export function StudentWorkspace() {
         <div>
           <h1 className="text-3xl font-bold text-primary">Welcome, {titleName}</h1>
           <p className="mt-1 text-muted-foreground">Move through TIPSC, DFV, Customer Discovery, and Product-Market Fit in sequence.</p>
-          {serverStatus && <p className="mt-1 text-xs text-muted-foreground">Session status: {serverStatus.replace(/_/g, " ")}</p>}
+          {serverStatus && <p className="mt-1 text-xs text-muted-foreground">Session status: {serverStatus === "completed" ? "Discovery completed" : serverStatus.replace(/_/g, " ")}</p>}
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={exportReport}><Download className="h-4 w-4" /> Export</Button>
           <AlertDialog>
-            <AlertDialogTrigger asChild><Button variant="outline" disabled={running}><Archive className="h-4 w-4" /> Archive Session</Button></AlertDialogTrigger>
+            <AlertDialogTrigger asChild><Button variant="outline" disabled={running || !sessionId}><Archive className="h-4 w-4" /> Archive Session</Button></AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Archive this session?</AlertDialogTitle>

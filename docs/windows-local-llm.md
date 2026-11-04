@@ -36,7 +36,6 @@ Use the actual server token instead of `lm-studio` if server authentication is e
 ```powershell
 python scripts/check_local_llm.py
 python scripts/check_local_llm.py --generate
-python scripts/bootstrap_admin.py --srn ADMIN --name Administrator
 python dev.py
 # Press Ctrl+C when finished, then:
 docker compose -f backend/docker-compose.yml down
@@ -92,3 +91,5 @@ try {
 The final command deletes only this isolated test stack's data. Normal application shutdown should use the development Compose file without `-v`.
 
 Run the Windows CI matrix after publishing changes, and run `check_local_llm.py --generate` on the actual Windows/model host. Integration tests use isolated MongoDB/Kafka and deterministic agent outputs; the HTTP capability test uses a test-only server. Neither is represented as a real Windows GPU/model inference test. Remaining reviewed upstream ChromaDB advisories are documented in [dependency security](dependency-security.md).
+
+Backend startup provisions the shared accounts listed in the [README](../README.md); manual administrator bootstrap is optional.

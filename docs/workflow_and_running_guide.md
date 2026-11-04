@@ -24,17 +24,13 @@ Reactivate this environment whenever you open a new terminal. If you already cre
 
 `init_env.py` creates `.env` with unique JWT and worker secrets and private file permissions; it refuses to overwrite an existing file. Configure `OPENAI_MODEL_NAME`, `LM_STUDIO_URL`, `OPENAI_API_KEY`, `TAVILY_API_KEY`, and `SERPER_API_KEY`. See [model configuration](model-config.md). The compose stack provides persistent MongoDB on 27017 and Kafka on 9092. These ports must be available; stop conflicting local services or configure different ports consistently.
 
-Start the infrastructure, then provision an administrator once for a fresh database:
+Start the infrastructure:
 
 ```bash
 docker compose -f backend/docker-compose.yml up -d --wait
 ```
 
-```bash
-python scripts/bootstrap_admin.py --srn ADMIN --name Administrator
-```
-
-This prompts for a password. There is no default password or development authentication bypass. Students authenticate against `PES_AUTH_URL`; locally provisioned admin/mentor accounts use hashed passwords. Use the admin dashboard to manage mentor/team assignments. Clients cannot select a team to grant themselves access at login.
+Backend startup creates the nine shared accounts documented in the [README](../README.md). To create an additional administrator, run `python scripts/bootstrap_admin.py --srn ADMIN --name Administrator` and choose a password. Students can use the shared accounts or authenticate against `PES_AUTH_URL`; local accounts use hashed passwords. Use the admin dashboard to manage mentor/team assignments. Clients cannot select a team to grant themselves access at login.
 
 For each normal run, use the activated root environment:
 

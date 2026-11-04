@@ -6,6 +6,7 @@ import { Logos } from "@/components/shared/Logos";
 import { PES_LOGO_WHITE } from "@/constants";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useAuth } from "@/context/AuthContext";
+import { getRoleHome } from "@/components/shared/RequireRole";
 
 /* ═══════════════════════════════════════════════════════════════════
    PETAL FAN DIAGRAM — rounded petals radiating from a central hub,
@@ -198,10 +199,10 @@ function Navbar() {
           ))}
           {user ? (
             <>
-              <Link to="/workspace"
+              <Link to={getRoleHome(user.role)}
                 className="rounded-full bg-accent px-5 py-2 text-[13px] font-semibold text-accent-foreground transition-opacity hover:opacity-90 flex items-center gap-2">
                 <LayoutDashboard className="h-4 w-4" />
-                Workspace
+                {user.role === "admin" ? "Admin Dashboard" : user.role === "mentor" ? "Mentor Dashboard" : "Workspace"}
               </Link>
               <Button variant="ghost" size="sm" onClick={() => { logout(); navigate("/"); }}>
                 <LogOut className="h-4 w-4 mr-2" />
@@ -234,11 +235,11 @@ function Navbar() {
             ))}
             {user ? (
               <>
-                <Link to="/workspace"
+                <Link to={getRoleHome(user.role)}
                   className="mt-1 rounded-full bg-accent px-5 py-2.5 text-center text-sm font-semibold text-accent-foreground flex items-center justify-center gap-2"
                   onClick={() => setOpen(false)}>
                   <LayoutDashboard className="h-4 w-4" />
-                  Workspace
+                  {user.role === "admin" ? "Admin Dashboard" : user.role === "mentor" ? "Mentor Dashboard" : "Workspace"}
                 </Link>
                 <Button variant="ghost" className="w-full" onClick={() => { logout(); navigate("/"); setOpen(false); }}>
                   <LogOut className="h-4 w-4 mr-2" />
@@ -311,6 +312,8 @@ const phases = [
    PAGE
 ═══════════════════════════════════════════════════════════════════ */
 export function LandingPage() {
+  const { user } = useAuth();
+  const showQuickstart = user?.role !== "admin" && user?.role !== "mentor";
   return (
     <div className="min-h-screen bg-background antialiased">
 
@@ -369,19 +372,19 @@ export function LandingPage() {
                 style={{ background: "linear-gradient(135deg,#34305e,#3999c2)" }}>
                 Start Evaluating <ArrowRight className="h-4 w-4" />
               </Link>
-              <Link to="/login?redirect=/quickstart"
+              {showQuickstart && <Link to="/login?redirect=/quickstart"
                 className="inline-flex items-center gap-2 rounded-full border border-secondary/40 bg-background/80 px-6 py-3.5 text-[13px] font-semibold text-secondary shadow-sm transition-colors hover:bg-secondary/10 dark:bg-card/80">
                 Quickstart <Zap className="h-4 w-4" />
-              </Link>
+              </Link>}
               <a href="#how-it-works"
                 className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-muted-foreground transition-colors hover:text-primary">
                 See how it works <ArrowRight className="h-3.5 w-3.5" />
               </a>
             </div>
-            <div className="mt-5 max-w-[440px] rounded-xl border border-secondary/20 bg-background/75 p-4 backdrop-blur-sm dark:bg-card/75">
+            {showQuickstart && <div className="mt-5 max-w-[440px] rounded-xl border border-secondary/20 bg-background/75 p-4 backdrop-blur-sm dark:bg-card/75">
               <p className="text-sm font-semibold text-foreground">Already have a fully structured idea, or one you have put into action?</p>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Use Quickstart to see how it holds up across Ethics, TIPSC, and DFV, and get focused guidance on what to improve or test next.</p>
-            </div>
+            </div>}
           </div>
 
           {/* RIGHT — Arc fan diagram */}
@@ -597,7 +600,7 @@ export function LandingPage() {
        {/* ══════════════════════════════════════════════
            QUICKSTART EVALUATION
        ══════════════════════════════════════════════ */}
-       <section id="quickstart" className="bg-background py-20">
+       {showQuickstart && <section id="quickstart" className="bg-background py-20">
          <div className="mx-auto max-w-7xl px-6">
            <p className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[1.5px] text-accent">
              <span className="block h-0.5 w-5 rounded-full bg-accent" />Quickstart
@@ -668,7 +671,7 @@ export function LandingPage() {
              </Button>
            </div>
          </div>
-       </section>
+       </section>}
 
 {/* ══════════════════════════════════════════════
             CTA

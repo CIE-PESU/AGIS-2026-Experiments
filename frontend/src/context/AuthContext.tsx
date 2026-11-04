@@ -69,10 +69,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!isCurrent()) return;
         setUser({userId: profile.user_id, srn: profile.srn, name: profile.name,
           role: profile.role, teamId: profile.team_id ?? null});
+        if (profile.role === "admin" || profile.role === "mentor") {
+          resetWorkspace();
+          return;
+        }
         if (profile.role === "student" || profile.role === "mentor_workspace") {
           try {
             const active = await getActiveSession(profile.user_id);
-            if (isCurrent() && active) setSessionFromServer(active);
+            if (isCurrent()) {
+              if (active) setSessionFromServer(active);
+              else resetWorkspace();
+            }
           } catch (error: any) {
             if (error.status !== 404) throw error;
             if (isCurrent()) resetWorkspace();
@@ -148,7 +155,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch {
         // Ignore, no active session or network error
       }
-      setTimeline([{ label: "Session Started", timestamp: timestamp() }]);
+      setTimeline([{ label: "Signed in", timestamp: timestamp() }]);
     }
     return data.role;
   }, [resetWorkspace]);

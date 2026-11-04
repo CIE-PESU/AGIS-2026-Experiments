@@ -13,7 +13,7 @@ import { StatusBadge, TrafficDot } from "@/components/shared/StatusBadge";
 import { useAuth } from "@/context/AuthContext";
 import { getTeamsWithMembers, getComments, addComment, Comment, getMentors } from "@/utils/adminData";
 
-import { deriveStageAccess } from "@/utils/sessionStatus";
+import { deriveStageAccess, hasCompletedStage } from "@/utils/sessionStatus";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export function MentorDashboard() {
@@ -69,8 +69,8 @@ export function MentorDashboard() {
     return [
       ["Teams Assigned", loadedTeams.length],
       ["Total Students", members.length],
-      ["TIPSC Complete", members.filter((m) => Object.keys(m.tips).length > 0 && Object.values(m.tips).every((s: any) => s.status === "green")).length],
-      ["DFV Complete", members.filter((m) => m.dfv !== "Pending").length]
+      ["TIPSC Complete", members.filter((m) => hasCompletedStage(m, "tipsc")).length],
+      ["DFV Complete", members.filter((m) => hasCompletedStage(m, "dfv")).length]
     ];
   }, [loadedTeams]);
 
@@ -157,7 +157,11 @@ return (
                       <tr key={student.srn} className="border-t bg-background">
                         <td className="p-4"><p className="font-semibold">{student.name}</p><p className="text-muted-foreground">{student.srn}</p></td>
                         <td className="p-4">
-                          {access.tipsc === "in_progress" ? (
+                          {!student.sessionId ? (
+                            <StatusBadge type="available" label="Not Started" />
+                          ) : access.tipsc === "failed" ? (
+                            <StatusBadge type="failed" />
+                          ) : access.tipsc === "in_progress" ? (
                             <StatusBadge type="in_progress" />
                           ) : (
                             <div className="flex gap-2">{Object.values(student.tips || {}).map((score: any, i) => <TrafficDot key={i} status={score.status} />)}</div>
