@@ -34,7 +34,7 @@ from pydantic import ValidationError
 
 # env + path bootstrap (must run before any local imports)
 _env_path = os.path.join(os.path.dirname(__file__), "..", "..", ".env")
-load_dotenv(dotenv_path=_env_path)
+load_dotenv(dotenv_path=_env_path, encoding="utf-8-sig")
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 if os.path.join(PROJECT_ROOT, "backend") not in sys.path:

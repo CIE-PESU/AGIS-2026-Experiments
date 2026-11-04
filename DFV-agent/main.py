@@ -11,7 +11,7 @@ from crewai_tools import ScrapeWebsiteTool, SerperDevTool
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
-load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+load_dotenv(Path(__file__).resolve().parent.parent / ".env", encoding="utf-8-sig")
 SERPER_API_KEY = os.getenv("SERPER_API_KEY")
 os.environ["SERPER_API_KEY"] = SERPER_API_KEY or ""
 

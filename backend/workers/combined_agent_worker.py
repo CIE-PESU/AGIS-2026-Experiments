@@ -40,7 +40,7 @@ from dotenv import load_dotenv
 from pydantic import ValidationError
 
 ENV_ROOT = Path(__file__).resolve().parents[2]
-load_dotenv(ENV_ROOT / ".env")
+load_dotenv(ENV_ROOT / ".env", encoding="utf-8-sig")
 
 
 # =============================================================================

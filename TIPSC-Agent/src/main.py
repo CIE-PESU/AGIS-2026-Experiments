@@ -3,18 +3,18 @@
 
 import asyncio
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 from tipsc_utils.followup_context import FollowUpContext
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parents[2] / ".env", encoding="utf-8-sig")
 os.environ["OTEL_SDK_DISABLED"] = "true"
 os.environ["CREWAI_DISABLE_TELEMETRY"] = "true"
 
 import json
 import logging
 import sys
-from pathlib import Path
 
 import yaml
 from crewai import LLM

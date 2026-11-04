@@ -20,7 +20,7 @@ def main() -> int:
         help="Send three non-sensitive capability probes through CrewAI",
     )
     args = parser.parse_args()
-    load_dotenv(ROOT / ".env", encoding="utf-8")
+    load_dotenv(ROOT / ".env", encoding="utf-8-sig")
     url = os.getenv("LM_STUDIO_URL", "")
     model = os.getenv("OPENAI_MODEL_NAME", "")
     key = os.getenv("OPENAI_API_KEY", "lm-studio")
@@ -40,7 +40,7 @@ def main() -> int:
             )
     except Exception as exc:
         print(
-            f"Local model check failed: {type(exc).__name__}. Verify the running server, exact model id, authentication, and model capabilities.",
+            f"Local model check failed: {exc}",
             file=sys.stderr,
         )
         return 1

@@ -29,14 +29,15 @@ jobs:
           git diff --exit-code -- requirements.txt
       - name: Audit dependencies
         run: uv run --locked python scripts/audit_dependencies.py
-  windows:
-    runs-on: windows-2022
+  desktop:
+    runs-on: ${{ matrix.os }}
     env:
       PYTHONUTF8: '1'
       PYTHONIOENCODING: utf-8
     strategy:
       fail-fast: false
       matrix:
+        os: [windows-2022, macos-14]
         python: ['3.12', '3.13']
     steps:
       - uses: actions/checkout@v7
@@ -60,7 +61,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-2022]
+        os: [ubuntu-24.04, windows-2022, macos-14]
     defaults:
       run:
         working-directory: frontend

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ipaddress
+import logging
 from typing import Any
 from urllib.parse import urlparse
 
@@ -20,7 +21,9 @@ def is_local_endpoint(url: str) -> bool:
         return False
 
 
-def check_model_server(url: str, model: str, api_key: str = "", *, client=None) -> None:
+def check_model_server(
+    url: str, model: str, api_key: str = "", *, client=None, strict: bool = True
+) -> None:
     """List models only. Never starts a server, downloads or loads a model."""
     parsed = urlparse(url)
     if (
@@ -43,13 +46,30 @@ def check_model_server(url: str, model: str, api_key: str = "", *, client=None) 
             for item in data["data"]
             if isinstance(item, dict) and isinstance(item.get("id"), str)
         }
+    except httpx.HTTPStatusError as exc:
+        status = exc.response.status_code
+        hint = (
+            "Check the local server's authentication token (OPENAI_API_KEY)."
+            if status in {401, 403}
+            else "Check LM_STUDIO_URL and the server's OpenAI-compatible /v1/models endpoint."
+        )
+        raise RuntimeError(f"Local LLM model listing failed (HTTP {status}). {hint}") from exc
     except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
         raise RuntimeError(
             "Local LLM server is unavailable or returned an invalid model list. Check the configured address, authentication, and running server."
         ) from exc
     if model.removeprefix("openai/") not in available:
-        raise RuntimeError(
-            "The configured model is not offered by the local LLM server. Copy its exact model id from /v1/models; no substitute was selected."
+        message = (
+            f"The configured model is not offered by the local LLM server: {model!r}. "
+            f"Advertised model ids: {', '.join(sorted(available)) or '(none)'}. "
+            "Set OPENAI_MODEL_NAME=openai/<exact served id> in the root .env; "
+            "existing shell variables override .env. Changing an API key does not fix a model-id mismatch."
+        )
+        if strict:
+            raise RuntimeError(message)
+        # Discovery metadata cannot prove that an inference alias is invalid.
+        logging.getLogger(__name__).warning(
+            "%s Continuing with the configured model; no substitute was selected.", message
         )
 
 
@@ -67,6 +87,7 @@ async def require_local_model() -> None:
                 settings.LM_STUDIO_URL,
                 settings.OPENAI_MODEL_NAME,
                 settings.OPENAI_API_KEY,
+                strict=False,
             )
         except (RuntimeError, ValueError) as exc:
             raise LocalLLMUnavailableError() from exc

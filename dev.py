@@ -26,7 +26,15 @@ BACKEND_URL = f"http://{BACKEND_HOST}:{BACKEND_PORT}"
 WORKER_HEALTH_PORT = 8009
 FRONTEND_PORT = 5167
 sys.path.insert(0, str(ROOT / "backend"))
-from core.processes import ProcessTree, child_options, instance_lock
+try:
+    from core.processes import ProcessTree, child_options, instance_lock
+except ModuleNotFoundError as exc:
+    raise SystemExit(
+        f"Startup dependency missing: {exc.name}. "
+        "Use the complete repository checkout and activate its root .venv. "
+        "Run python scripts/check_setup.py for setup diagnostics. "
+        "The core package is bundled in backend/core; do not install it from pip."
+    ) from None
 
 
 def frontend_command(*, port: int = FRONTEND_PORT) -> list[str]:
@@ -59,7 +67,7 @@ def run_services() -> int:
     from dotenv import load_dotenv
     from pydantic import ValidationError
 
-    load_dotenv(ROOT / ".env", encoding="utf-8")
+    load_dotenv(ROOT / ".env", encoding="utf-8-sig")
     try:
         from core.config import Settings
 
@@ -73,7 +81,9 @@ def run_services() -> int:
             f" Check .env and shell overrides.{hint}"
         ) from None
     if is_local_endpoint(config.LM_STUDIO_URL):
-        check_model_server(config.LM_STUDIO_URL, config.OPENAI_MODEL_NAME, config.OPENAI_API_KEY)
+        check_model_server(
+            config.LM_STUDIO_URL, config.OPENAI_MODEL_NAME, config.OPENAI_API_KEY, strict=False
+        )
     command = frontend_command()
     check_ports()
     processes = []

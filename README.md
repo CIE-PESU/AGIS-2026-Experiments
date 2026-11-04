@@ -15,6 +15,7 @@ python -m pip install --no-deps -r requirements.txt
 python scripts/init_env.py
 # Edit .env: set the LLM endpoint/model/API key and search API keys.
 npm ci --prefix frontend
+python scripts/check_setup.py
 ```
 
 On Windows PowerShell, activate with `.\.venv\Scripts\Activate.ps1` instead of `source .venv/bin/activate`. Activate the same environment whenever you open a new terminal.
@@ -73,3 +74,46 @@ For real MongoDB/Kafka and browser tests, see the [running guide](docs/workflow_
 - [Known upstream dependency risks and migration notes](docs/dependency-security.md)
 
 For native Windows and local-model setup, process ownership, and data-integrity safeguards, see [Windows and local LLM operation](docs/windows-local-llm.md).
+
+## Local model startup troubleshooting
+
+`core` is this repository's own Python package at `backend/core/`, not a pip dependency.
+`core.processes` manages child processes and instance locks; `core.llm_provider` checks
+local model availability. Both files are tracked and required. Share the whole checkout,
+not just `dev.py`; do not install an unrelated package named `core`. The launcher adds
+`backend/` to its import path, so it also works when launched from another directory.
+
+The launcher previously rejected any model absent from `/v1/models` before inference.
+Application startup and worker checks now warn about an unlisted model and preserve
+the configured identifier, allowing server-supported aliases. The inference server
+still decides whether that identifier is valid; no replacement model is selected.
+Connection failures and authentication failures still stop startup.
+
+Run `python scripts/check_local_llm.py` for a strict model-list diagnostic. It prints
+the configured identifier and advertised IDs on mismatch. Set the root `.env` to
+`OPENAI_MODEL_NAME=openai/<exact served ID>` and the LM Studio `/v1` URL. A new API key
+cannot correct a model-name mismatch; HTTP 401/403 indicates an authentication issue.
+Existing terminal environment variables override `.env`, so clear stale overrides and
+restart. `python scripts/check_local_llm.py --generate` additionally checks inference,
+JSON output, and tool calling against your configured model.
+
+## Moving to another Windows or Mac laptop
+
+Clone or copy the complete source checkout, then create a new root `.venv` and run
+`npm ci --prefix frontend` on the destination machine. Virtual environments and
+`node_modules` contain platform-specific binaries and must be rebuilt there.
+Use the committed Python lock/export and `frontend/package-lock.json`; the tested
+setup uses Python 3.12/3.13 and Node 24. Configure the destination's root `.env`
+with its own service addresses and credentials. LM Studio's model ID and local
+address must correspond to that machine's server.
+
+Run `python scripts/check_setup.py` using the same activated Python as `dev.py`.
+This offline check reports missing source files, runtime packages, configuration,
+Node, frontend dependencies, and Docker without displaying credentials. Then start
+the Compose services and run the provider capability check when using LM Studio.
+Use Docker Desktop's Linux-container backend on Windows. Docker/LM Studio must be
+running and have sufficient resources; code portability does not supply provider
+access or model capabilities.
+
+Python and frontend CI checks cover Linux, Windows, and macOS. Live GPU/model
+inference and Docker-backed integration still require separate host validation.

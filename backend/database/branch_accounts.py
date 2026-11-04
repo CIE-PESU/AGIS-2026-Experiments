@@ -7,7 +7,9 @@ from pathlib import Path
 
 async def provision_branch_accounts(database) -> None:
     accounts = json.loads(
-        (Path(__file__).resolve().parents[1] / "scripts" / "branch_accounts.json").read_text()
+        (Path(__file__).resolve().parents[1] / "scripts" / "branch_accounts.json").read_text(
+            encoding="utf-8"
+        )
     )
     for account in accounts:
         # Preserve IDs, assignments and subsequent password changes on existing accounts.

@@ -113,3 +113,25 @@ def test_local_generation_probe_checks_json_and_tool_execution(model_server):
     probe_local_generation(url, "openai/local-test-model", "lm-studio")
     assert any(payload and payload.get("tools") for _, payload in calls)
     assert all(path == "/v1/chat/completions" for path, _ in calls)
+
+
+def test_application_allows_unlisted_alias_without_selecting_a_substitute(model_server, caplog):
+    url, calls = model_server
+    check_model_server(url, "openai/configured-alias", "secret-token", strict=False)
+    assert calls == [("/v1/models", None)]
+    assert "configured-alias" in caplog.text
+    assert "local-test-model" in caplog.text
+    assert "no substitute was selected" in caplog.text
+    assert "secret-token" not in caplog.text
+
+
+@pytest.mark.parametrize("status", [401, 403])
+def test_auth_failure_is_distinct_from_model_mismatch(status):
+    def denied(request):
+        return httpx.Response(status, request=request)
+
+    with httpx.Client(transport=httpx.MockTransport(denied)) as client:
+        with pytest.raises(RuntimeError, match=f"HTTP {status}.*authentication token"):
+            check_model_server(
+                "http://127.0.0.1:1234/v1", "openai/model", client=client, strict=False
+            )
