@@ -53,11 +53,20 @@ async def role_browser(monkeypatch):
         for i in range(1, 4):
             mentor = await User.find_one(User.srn == f"MENTOR{i}")
             student = await User.find_one(User.srn == f"STUDENT{i}")
+            await mentor.set({User.email: f"mentor{i}@agis.local"})
             team = Team(
                 team_name=f"Role Test Team {i}", mentor_id=str(mentor.id), members=[student.srn]
             )
             await team.insert()
             await student.set({User.team_id: str(team.id)})
+        await User(srn="PES2UG22CS099", name="Real Student", role="student").insert()
+        await User(srn="PES2UG22CS098", name="Dev User (PES2UG22CS098)", role="student").insert()
+        await User(
+            srn="REVIEWER@AGIS.LOCAL",
+            name="External Reviewer",
+            role="mentor",
+            email="reviewer@agis.local",
+        ).insert()
         server = uvicorn.Server(
             uvicorn.Config(
                 create_app(), host="127.0.0.1", port=18009, lifespan="off", log_level="error"
@@ -310,5 +319,40 @@ async def test_admin_theme_across_tabs_and_dialogs(role_browser):
         ).to_be_visible()
         await page.get_by_role("button", name="Switch to light mode", exact=True).click()
         await expect(page.locator("html")).not_to_have_class("dark")
+    finally:
+        await context.close()
+
+
+async def test_team_allocation_shows_local_mentors_and_excludes_legacy_dev_options(role_browser):
+    context = await role_browser.new_context()
+    page = await context.new_page()
+    try:
+        await page.goto(BASE + "/login")
+        await page.get_by_label("SRN", exact=True).fill("admin1")
+        await page.get_by_label("Password", exact=True).fill("aerodactyl1")
+        await page.get_by_role("button", name="Sign In", exact=True).click()
+        await expect(page.get_by_role("cell", name="Role Test Team 1", exact=True)).to_be_visible()
+        await page.get_by_role("button", name="Add Team", exact=True).click()
+        mentor = page.get_by_label("Allocate Mentor", exact=True)
+        await expect(mentor.locator("option")).to_have_count(4)
+        for i in range(1, 4):
+            await expect(
+                mentor.locator("option").filter(has_text=f"Mentor {i} (MENTOR{i})")
+            ).to_have_count(1)
+        await expect(mentor.locator("option").filter(has_text="External Reviewer")).to_have_count(0)
+        students = page.get_by_label("Add Available Student", exact=True)
+        await expect(students.locator("option").filter(has_text="Dev User")).to_have_count(0)
+        await expect(students.locator("option").filter(has_text="Real Student")).to_have_count(1)
+        await page.get_by_label("Team Name", exact=True).fill("Allocated through UI")
+        await mentor.select_option(label="Mentor 2 (MENTOR2)")
+        await students.select_option("PES2UG22CS099")
+        await page.get_by_role("button", name="Add Member", exact=True).click()
+        await page.get_by_role("button", name="Create Team", exact=True).click()
+        row = page.get_by_role("row").filter(
+            has=page.get_by_role("cell", name="Allocated through UI", exact=True)
+        )
+        await expect(row).to_be_visible()
+        await expect(row.get_by_text("Mentor 2", exact=True)).to_be_visible()
+        await expect(row.get_by_text("Real Student", exact=True)).to_be_visible()
     finally:
         await context.close()

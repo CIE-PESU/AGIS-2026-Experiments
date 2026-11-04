@@ -3,6 +3,7 @@ import { apiFetch } from "@/services/apiClient";
 export interface Student {
   srn: string;
   name: string;
+  availableForAllocation?: boolean;
   email?: string;
   tips: Record<string, { status: "green" | "yellow" | "red"; explanation: string }>;
   dfv: string; // "GO", "NO-GO", "Pending"
@@ -94,7 +95,8 @@ export async function getMentors(): Promise<Mentor[]> {
   const res = await apiFetch("/admin/mentors", {});
   const data = await res.json();
   return data.data.map((m: any) => {
-    const isExternal = m.type === "external_reviewer" || m.email?.endsWith("@agis.local");
+    const isSharedMentor = /^MENTOR[1-3]$/i.test(m.srn || "");
+    const isExternal = m.type ? m.type === "external_reviewer" : !isSharedMentor && m.email?.toLowerCase().endsWith("@agis.local");
     return {
       id: m._id || m.id,
       srn: m.srn,
@@ -131,6 +133,7 @@ export async function getStudents(): Promise<Student[]> {
 
   return data.data.map((s: any) => ({
     srn: s.srn,
+    availableForAllocation: s.available_for_allocation !== false,
     name: s.name,
     email: s.email,
     tips: mapTips(s.tips),

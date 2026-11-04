@@ -169,7 +169,7 @@ export function AdminDashboard() {
     setDialogTeamName("");
     setDialogMentorId("unassigned");
     setDialogTeamMembers([]);
-    setDialogUnassignedPool(students.filter(s => s.teamId === null));
+    setDialogUnassignedPool(students.filter(s => s.teamId === null && s.availableForAllocation !== false));
     setSelectedStudentSRN("");
     setIsTeamDialogOpen(true);
   };
@@ -181,7 +181,7 @@ export function AdminDashboard() {
     setDialogTeamName(team.name);
     setDialogMentorId(team.mentorId || "unassigned");
     setDialogTeamMembers(students.filter(s => s.teamId === team.id));
-    setDialogUnassignedPool(students.filter(s => s.teamId === null));
+    setDialogUnassignedPool(students.filter(s => s.teamId === null && s.availableForAllocation !== false));
     setSelectedStudentSRN("");
     setIsTeamDialogOpen(true);
   };
@@ -191,7 +191,9 @@ export function AdminDashboard() {
     const student = dialogTeamMembers.find(s => s.srn === srn);
     if (!student) return;
     setDialogTeamMembers(dialogTeamMembers.filter(s => s.srn !== srn));
-    setDialogUnassignedPool([...dialogUnassignedPool, { ...student, teamId: null }]);
+    if (student.availableForAllocation !== false) {
+      setDialogUnassignedPool([...dialogUnassignedPool, { ...student, teamId: null }]);
+    }
   };
 
   // Dialog Action: Add student to team (moves from unassigned pool)
@@ -283,7 +285,7 @@ export function AdminDashboard() {
   // Handler: Edit Mentor Dialog
   const openEditMentorDialog = (mentor: Mentor) => {
     setIsAddMentorMode(false);
-    const isExternal = mentor.type === "external_reviewer" || mentor.email?.endsWith("@agis.local");
+    const isExternal = mentor.type === "external_reviewer";
     setAdvisorModalType(isExternal ? "external" : "faculty");
     setEditingMentor(mentor);
     setDialogMentorName(mentor.name);
@@ -744,8 +746,9 @@ export function AdminDashboard() {
             <div className="space-y-4 my-2">
               {/* Field: Team Name */}
               <div>
-                <label className="block text-sm font-semibold mb-1 text-foreground">Team Name</label>
+                <label htmlFor="team-name" className="block text-sm font-semibold mb-1 text-foreground">Team Name</label>
                 <Input
+                  id="team-name"
                   value={dialogTeamName}
                   onChange={e => setDialogTeamName(e.target.value)}
                   placeholder="Enter team name (e.g. Team Gamma)"
@@ -754,8 +757,9 @@ export function AdminDashboard() {
 
               {/* Field: Mentor Allocation */}
               <div>
-                <label className="block text-sm font-semibold mb-1 text-foreground">Allocate Mentor</label>
+                <label htmlFor="team-mentor" className="block text-sm font-semibold mb-1 text-foreground">Allocate Mentor</label>
                 <select
+                  id="team-mentor"
                   value={dialogMentorId}
                   onChange={e => setDialogMentorId(e.target.value)}
                   className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
@@ -765,7 +769,7 @@ export function AdminDashboard() {
                     .filter(m => m.type === "faculty_mentor")
                     .map(m => (
                       <option key={m.id} value={m.id}>
-                        {m.name} ({m.email})
+                        {m.name} ({m.srn || m.email})
                       </option>
                     ))}
                 </select>
@@ -802,8 +806,9 @@ export function AdminDashboard() {
                 {/* Add Member Pool */}
                 <div className="flex gap-2 items-end pt-3 border-t">
                   <div className="flex-1">
-                    <label className="block text-xs font-semibold mb-1 text-muted-foreground">Add Available Student</label>
+                    <label htmlFor="team-student" className="block text-xs font-semibold mb-1 text-muted-foreground">Add Available Student</label>
                     <select
+                      id="team-student"
                       value={selectedStudentSRN}
                       onChange={e => setSelectedStudentSRN(e.target.value)}
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

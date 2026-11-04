@@ -8,6 +8,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, R
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pymongo.errors import DuplicateKeyError
 
+from core.account_policy import is_legacy_dev_student, mentor_advisor_type
 from core.flow_results import completed_flow_output
 from core.security import hash_password
 from core.sync import dump_seed_data
@@ -45,6 +46,14 @@ async def validate_team_references(req: "TeamCreateRequest", team_id: str | None
     students = await User.find({"srn": {"$in": req.members}, "role": "student"}).to_list()
     if len(students) != len(req.members):
         raise HTTPException(422, "Every team member must identify an existing student SRN")
+    if any(
+        is_legacy_dev_student(student) and (not team_id or student.team_id != team_id)
+        for student in students
+    ):
+        raise HTTPException(
+            422,
+            "Legacy development accounts cannot be newly allocated; use an authenticated student account",
+        )
     if any(student.team_id and student.team_id != team_id for student in students):
         raise HTTPException(409, "A student is already assigned to another team")
 
@@ -138,6 +147,7 @@ async def list_mentors():
     for m in mentors:
         m_dict = m.model_dump()
         m_dict["id"] = str(m.id)
+        m_dict["type"] = mentor_advisor_type(m)
         m_dict.pop("encrypted_password", None)
         m_dict.pop("password_hash", None)
         data.append(m_dict)
@@ -196,6 +206,7 @@ async def list_students(current_user: Annotated[CurrentUser, Depends(require_men
     for s in students:
         s_dict = s.model_dump()
         s_dict["id"] = str(s.id)
+        s_dict["available_for_allocation"] = not is_legacy_dev_student(s)
         s_dict.pop("encrypted_password", None)
         s_dict.pop("password_hash", None)
 
